@@ -1,0 +1,13 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { addEventGame, searchGames, type GameOption } from "@/lib/services/events";
+
+type Props={eventId:string;currentUserId:string;registeredGameIds:string[];onClose:()=>void;onSaved:()=>Promise<void>|void};
+export default function AddGameDialog({eventId,currentUserId,registeredGameIds,onClose,onSaved}:Props){
+ const supabase=useMemo(()=>createClient(),[]);const [query,setQuery]=useState("");const [games,setGames]=useState<GameOption[]>([]);const [loading,setLoading]=useState(true);const [busyId,setBusyId]=useState<string|null>(null);
+ useEffect(()=>{let active=true;const timer=setTimeout(async()=>{try{setLoading(true);const result=await searchGames(supabase,query);if(active)setGames(result);}catch(e){console.error("게임 검색 오류",e);}finally{if(active)setLoading(false);}},250);return()=>{active=false;clearTimeout(timer);};},[query,supabase]);
+ async function add(game:GameOption){try{setBusyId(game.id);await addEventGame(supabase,eventId,game.id,currentUserId,game.type);await onSaved();onClose();}catch(e){const message=typeof e==="object"&&e&&"message" in e?String(e.message):"게임 추가에 실패했습니다.";alert(message);}finally{setBusyId(null);}}
+ return <div className="fixed inset-0 z-[100] flex items-end bg-black/70 sm:items-center sm:justify-center"><section className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-zinc-950 p-5 text-white sm:max-w-lg sm:rounded-3xl sm:p-7"><div className="flex items-start justify-between"><div><p className="text-sm text-amber-300">EVENT GAME</p><h2 className="mt-1 text-xl font-bold">게임 추가</h2></div><button onClick={onClose} className="min-h-11 min-w-11 rounded-full bg-white/5 text-xl">×</button></div><input autoFocus value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="게임 이름 또는 출판사 검색" className="mt-5 h-14 w-full rounded-xl border border-white/10 bg-zinc-900 px-4 outline-none focus:border-amber-400"/><div className="mt-4 space-y-2">{loading?<p className="py-8 text-center text-zinc-500">검색 중...</p>:games.map((game)=>{const added=registeredGameIds.includes(game.id);return <button key={game.id} disabled={added||busyId!==null} onClick={()=>add(game)} className="flex min-h-16 w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 text-left disabled:opacity-50"><span><strong className="block">{game.name}</strong><small className="text-zinc-500">{game.publisher||"출판사 정보 없음"}</small></span><span className="text-sm text-amber-300">{added?"추가됨":"추가"}</span></button>;})}</div></section></div>;
+}
