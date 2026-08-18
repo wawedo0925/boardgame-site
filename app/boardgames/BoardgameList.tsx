@@ -1,121 +1,180 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-type Game = {
-  id: string; name: string; type: string | null; min_players: number | null; max_players: number | null;
-  best_players: string | null; play_time: number | null; difficulty: number | null; genre: string | null;
-  weight: number | null; publisher: string | null; icon: string | null; min_age: number | null;
-  year_published: number | null; bgg_url: string | null; description: string | null; thumbnail: string | null;
-};
+const PAGE_SIZE = 10;
 
-const empty = (game: Game) => ({ ...game });
-const numberOrNull = (value: string) => value.trim() === "" ? null : Number(value);
-
-export default function BoardgameList({ boardgames, isAdmin }: { boardgames: Game[]; isAdmin: boolean }) {
-  const supabase = useMemo(() => createClient(), []);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [items, setItems] = useState(boardgames);
-  const [query, setQuery] = useState("");
-  const [genre, setGenre] = useState("");
-  const [editing, setEditing] = useState<Game | null>(null);
-  const [coverGame, setCoverGame] = useState<Game | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const genres = useMemo(() => [...new Set(items.map((g) => g.genre?.trim()).filter(Boolean) as string[])].sort((a,b) => a.localeCompare(b,"ko")), [items]);
-  const shown = useMemo(() => items.filter((g) => {
-    const text = `${g.name} ${g.publisher ?? ""} ${g.genre ?? ""}`.toLocaleLowerCase();
-    return text.includes(query.trim().toLocaleLowerCase()) && (!genre || g.genre === genre);
-  }).sort((a,b) => a.name.localeCompare(b.name,"ko")), [items, query, genre]);
-
-  async function uploadCover(file?: File) {
-    if (!file || !coverGame) return;
-    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) return alert("JPG, PNG, WEBP 이미지만 가능합니다.");
-    if (file.size > 10 * 1024 * 1024) return alert("이미지는 10MB 이하여야 합니다.");
-    setBusy(true);
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const path = `${coverGame.id}/cover-${Date.now()}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from("boardgame-covers").upload(path, file, { upsert: true });
-    if (uploadError) { setBusy(false); return alert(`표지 업로드 실패: ${uploadError.message}`); }
-    const { data } = supabase.storage.from("boardgame-covers").getPublicUrl(path);
-    const { error } = await supabase.from("games").update({ thumbnail: data.publicUrl }).eq("id", coverGame.id);
-    setBusy(false);
-    if (error) return alert(`표지 저장 실패: ${error.message}`);
-    setItems((old) => old.map((g) => g.id === coverGame.id ? { ...g, thumbnail: data.publicUrl } : g));
-    setCoverGame(null);
-  }
-
-  async function save() {
-    if (!editing?.name.trim()) return alert("게임 이름을 입력해 주세요.");
-    if (editing.min_players && editing.max_players && editing.min_players > editing.max_players) return alert("최소 인원은 최대 인원보다 클 수 없습니다.");
-    setBusy(true);
-    const { id, ...payload } = { ...editing, name: editing.name.trim(), genre: editing.genre?.trim() || null };
-    const { error } = await supabase.from("games").update(payload).eq("id", id);
-    setBusy(false);
-    if (error) return alert(`정보 저장 실패: ${error.message}`);
-    setItems((old) => old.map((g) => g.id === id ? { ...payload, id } : g));
-    setEditing(null);
-  }
-
-  async function remove(game: Game) {
-    if (!confirm(`‘${game.name}’을 영구 삭제할까요?\n플레이 기록이 연결되어 있으면 삭제되지 않을 수 있습니다.`)) return;
-    const { error } = await supabase.from("games").delete().eq("id", game.id);
-    if (error) return alert(`삭제 실패: ${error.message}`);
-    setItems((old) => old.filter((g) => g.id !== game.id));
-  }
-
-  return <>
-    <div className="mb-8 grid gap-3 rounded-2xl border border-white/10 bg-white/[.03] p-4 md:grid-cols-[1fr_260px]">
-      <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="게임 이름 또는 출판사 검색" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none" />
-      <select value={genre} onChange={(e)=>setGenre(e.target.value)} className="rounded-xl border border-white/10 bg-[#17181c] px-4 py-3">
-        <option value="">전체 장르</option>{genres.map((value)=><option key={value}>{value}</option>)}
-      </select>
-    </div>
-    <p className="mb-5 text-sm text-slate-400">총 <b className="text-amber-400">{shown.length}</b>개의 게임</p>
-    <div className="overflow-hidden rounded-2xl border border-white/10">
-      {shown.map((game) => <article key={game.id} className="grid gap-5 border-b border-white/10 p-5 last:border-0 md:grid-cols-[100px_1fr_auto] md:items-center">
-        <Link href={`/boardgames/${game.id}`} className="block h-24 w-20 overflow-hidden rounded-xl border border-white/10 bg-amber-400/10">
-          {game.thumbnail ? <img src={game.thumbnail} alt={game.name} className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center text-3xl">🎲</span>}
-        </Link>
-        <div>
-          <Link href={`/boardgames/${game.id}`} className="text-xl font-black hover:text-amber-400">{game.name}</Link>
-          <p className="mt-2 text-sm text-slate-400">{game.genre || "장르 미정"} · {game.min_players ?? "—"}~{game.max_players ?? "—"}명 · {game.play_time ? `${game.play_time}분` : "시간 미정"}</p>
-          <p className="mt-1 text-xs text-slate-500">{game.publisher || "출판사 미정"}</p>
-        </div>
-        {isAdmin && <div className="flex flex-wrap gap-2 md:max-w-[250px] md:justify-end">
-          <button onClick={()=>{setCoverGame(game); setTimeout(()=>inputRef.current?.click(),0)}} className="rounded-lg bg-cyan-500 px-3 py-2 text-sm font-bold text-black">표지 교체</button>
-          <button onClick={()=>setEditing(empty(game))} className="rounded-lg border border-amber-400/60 px-3 py-2 text-sm font-bold text-amber-300">정보 수정</button>
-          <button onClick={()=>remove(game)} className="rounded-lg border border-red-500/50 px-3 py-2 text-sm font-bold text-red-400">삭제</button>
-        </div>}
-      </article>)}
-    </div>
-    <input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(e)=>uploadCover(e.target.files?.[0])} />
-    {busy && <div className="fixed inset-0 z-[80] grid place-items-center bg-black/70"><div className="rounded-xl bg-white px-6 py-4 font-bold text-black">저장 중...</div></div>}
-    {editing && <div className="fixed inset-0 z-[70] overflow-y-auto bg-black/80 p-4" onMouseDown={()=>setEditing(null)}><div className="mx-auto my-8 max-w-3xl rounded-2xl border border-white/15 bg-[#111216] p-6" onMouseDown={(e)=>e.stopPropagation()}>
-      <div className="mb-6 flex items-center justify-between"><h2 className="text-2xl font-black">보드게임 정보 수정</h2><button onClick={()=>setEditing(null)}>✕</button></div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="게임 이름" value={editing.name} onChange={(v)=>setEditing({...editing,name:v})}/>
-        <Field label="장르 (새 장르 직접 입력 가능)" value={editing.genre ?? ""} onChange={(v)=>setEditing({...editing,genre:v})}/>
-        <Field label="결과 형식 (SCORE/SIMPLE_SCORE/ROLE/COOP)" value={editing.type ?? ""} onChange={(v)=>setEditing({...editing,type:v})}/>
-        <Field label="출판사" value={editing.publisher ?? ""} onChange={(v)=>setEditing({...editing,publisher:v})}/>
-        <Num label="최소 인원" value={editing.min_players} onChange={(v)=>setEditing({...editing,min_players:v})}/>
-        <Num label="최대 인원" value={editing.max_players} onChange={(v)=>setEditing({...editing,max_players:v})}/>
-        <Field label="베스트 인원" value={editing.best_players ?? ""} onChange={(v)=>setEditing({...editing,best_players:v})}/>
-        <Num label="플레이 시간(분)" value={editing.play_time} onChange={(v)=>setEditing({...editing,play_time:v})}/>
-        <Num label="난이도(1~5)" value={editing.difficulty} onChange={(v)=>setEditing({...editing,difficulty:v})}/>
-        <Num label="BGG 웨이트" value={editing.weight} onChange={(v)=>setEditing({...editing,weight:v})}/>
-        <Field label="아이콘" value={editing.icon ?? ""} onChange={(v)=>setEditing({...editing,icon:v})}/>
-        <Num label="권장 나이" value={editing.min_age} onChange={(v)=>setEditing({...editing,min_age:v})}/>
-        <Num label="출시 연도" value={editing.year_published} onChange={(v)=>setEditing({...editing,year_published:v})}/>
-        <Field label="BGG 주소" value={editing.bgg_url ?? ""} onChange={(v)=>setEditing({...editing,bgg_url:v})}/>
-      </div>
-      <label className="mt-4 block text-sm font-bold">설명<textarea value={editing.description ?? ""} onChange={(e)=>setEditing({...editing,description:e.target.value})} rows={6} className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 p-3 font-normal outline-none"/></label>
-      <button onClick={save} className="mt-6 w-full rounded-xl bg-violet-500 py-3 font-black">수정사항 저장</button>
-    </div></div>}
-  </>;
+function roleIsManager(value: unknown) {
+  return ["MAIN_ADMIN", "ADMIN", "RULEMASTER", "MASTER", "MANAGER"].includes(String(value ?? "").toUpperCase());
 }
 
-function Field({label,value,onChange}:{label:string;value:string;onChange:(v:string)=>void}) { return <label className="text-sm font-bold">{label}<input value={value} onChange={(e)=>onChange(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 font-normal outline-none"/></label> }
-function Num({label,value,onChange}:{label:string;value:number|null;onChange:(v:number|null)=>void}) { return <label className="text-sm font-bold">{label}<input type="number" value={value ?? ""} onChange={(e)=>onChange(numberOrNull(e.target.value))} className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 font-normal outline-none"/></label> }
+function text(value: unknown, fallback = "미정") {
+  const result = String(value ?? "").trim();
+  return result || fallback;
+}
+
+export default function BoardgameList(props: any) {
+  const suppliedGames = props.games ?? props.initialGames ?? props.boardgames ?? [];
+  const [games, setGames] = useState<any[]>(Array.isArray(suppliedGames) ? suppliedGames : []);
+  const [query, setQuery] = useState("");
+  const [genre, setGenre] = useState("전체 장르");
+  const [page, setPage] = useState(1);
+  const [canManage, setCanManage] = useState(Boolean(props.canManage ?? props.isManager ?? props.isAdmin ?? props.isSiteAdmin));
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const uploadTarget = useRef<any>(null);
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    setGames(Array.isArray(suppliedGames) ? suppliedGames : []);
+  }, [props.games, props.initialGames, props.boardgames]);
+
+  useEffect(() => {
+    if (canManage) return;
+    let alive = true;
+    async function checkRole() {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return;
+      const { data: profile } = await supabase.from("profiles").select("site_role,role").eq("id", data.user.id).maybeSingle();
+      if (alive) setCanManage(roleIsManager(profile?.site_role ?? profile?.role));
+    }
+    void checkRole();
+    return () => { alive = false; };
+  }, [canManage, supabase]);
+
+  const genres = useMemo(() => {
+    const values = games.map((game) => text(game.genre, "")).filter(Boolean);
+    return ["전체 장르", ...Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, "ko"))];
+  }, [games]);
+
+  const filtered = useMemo(() => {
+    const keyword = query.trim().toLocaleLowerCase("ko");
+    return games.filter((game) => {
+      const matchesQuery = !keyword || `${game.name ?? ""} ${game.publisher ?? ""}`.toLocaleLowerCase("ko").includes(keyword);
+      const matchesGenre = genre === "전체 장르" || text(game.genre, "") === genre;
+      return matchesQuery && matchesGenre;
+    });
+  }, [games, query, genre]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const visibleGames = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [query, genre]);
+  useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
+
+  function movePage(next: number) {
+    setPage(Math.min(totalPages, Math.max(1, next)));
+    document.getElementById("boardgame-list")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function removeGame(game: any) {
+    if (!canManage || !window.confirm(`'${game.name}' 게임을 삭제할까요?`)) return;
+    const { error } = await supabase.from("games").delete().eq("id", game.id);
+    if (error) return window.alert(`삭제 실패: ${error.message}`);
+    setGames((current) => current.filter((item) => item.id !== game.id));
+    router.refresh();
+  }
+
+  function chooseCover(game: any) {
+    uploadTarget.current = game;
+    fileInput.current?.click();
+  }
+
+  async function uploadCover(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    const game = uploadTarget.current;
+    event.target.value = "";
+    if (!file || !game) return;
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${game.id}/${Date.now()}-${safeName}`;
+    const uploaded = await supabase.storage.from("game-covers").upload(path, file, { upsert: true });
+    if (uploaded.error) return window.alert(`표지 업로드 실패: ${uploaded.error.message}`);
+    const { data } = supabase.storage.from("game-covers").getPublicUrl(path);
+    const updated = await supabase.from("games").update({ thumbnail: data.publicUrl }).eq("id", game.id);
+    if (updated.error) return window.alert(`표지 저장 실패: ${updated.error.message}`);
+    setGames((current) => current.map((item) => item.id === game.id ? { ...item, thumbnail: data.publicUrl } : item));
+  }
+
+  return (
+    <section id="boardgame-list" className="boardgameList">
+      <input ref={fileInput} type="file" accept="image/*" hidden onChange={uploadCover} />
+
+      <div className="filters">
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="게임 이름 또는 출판사 검색" />
+        <select value={genre} onChange={(event) => setGenre(event.target.value)}>
+          {genres.map((value) => <option key={value} value={value}>{value}</option>)}
+        </select>
+      </div>
+
+      <p className="count">총 <b>{filtered.length}</b>개의 게임</p>
+
+      <div className="cards">
+        {visibleGames.map((game) => {
+          const min = game.min_players ?? game.minPlayers;
+          const max = game.max_players ?? game.maxPlayers;
+          const playerText = min && max ? `${min}~${max}명` : min ? `${min}명 이상` : "인원 미정";
+          const image = game.thumbnail || game.cover_url || game.image_url;
+          return (
+            <article className="card" key={game.id}>
+              <Link href={`/boardgames/${game.id}`} className="coverLink" aria-label={`${game.name} 상세 정보`}>
+                {image ? <img src={image} alt={`${game.name} 표지`} loading="lazy" /> : <span>🎲</span>}
+              </Link>
+              <div className="info">
+                <Link href={`/boardgames/${game.id}`} className="title">{text(game.name)}</Link>
+                <p>{text(game.genre)} · {playerText} · {game.play_time ? `${game.play_time}분` : "시간 미정"}</p>
+                <p className="publisher">{text(game.publisher, "출판사 미정")}</p>
+                <Link href={`/boardgames/${game.id}`} className="detail">상세 정보 보기 →</Link>
+              </div>
+              {canManage && (
+                <div className="actions">
+                  <button type="button" className="cover" onClick={() => chooseCover(game)}>표지 교체</button>
+                  <Link href={`/admin/library?gameId=${encodeURIComponent(game.id)}`}>정보 수정</Link>
+                  <button type="button" className="delete" onClick={() => removeGame(game)}>삭제</button>
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+
+      {totalPages > 1 && (
+        <nav className="pagination" aria-label="보드게임 페이지">
+          <button type="button" disabled={page === 1} onClick={() => movePage(page - 1)}>이전</button>
+          {Array.from({ length: totalPages }, (_, index) => index + 1).map((number) => (
+            <button key={number} type="button" className={number === page ? "active" : ""} onClick={() => movePage(number)}>{number}</button>
+          ))}
+          <button type="button" disabled={page === totalPages} onClick={() => movePage(page + 1)}>다음</button>
+        </nav>
+      )}
+
+      <style jsx>{`
+        .boardgameList{width:min(1232px,calc(100% - 40px));margin:0 auto 80px;color:#fff;scroll-margin-top:20px}
+        .filters{display:grid;grid-template-columns:1fr 280px;gap:14px;padding:20px;border:1px solid #303034;border-radius:24px;background:#111114}
+        .filters input,.filters select{height:52px;border:1px solid #38383d;border-radius:14px;background:#1a1a1e;color:#eee;padding:0 16px;font-size:15px}
+        .count{margin:28px 0 18px;color:#9ba6bc}.count b{color:#ffbd00}
+        .cards{display:grid;gap:14px}
+        .card{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:22px;align-items:center;min-height:180px;padding:22px;border:1px solid #303034;border-radius:22px;background:#0c0c0f}
+        .coverLink{width:120px;height:140px;display:grid;place-items:center;border-radius:16px;overflow:hidden;background:#191919;text-decoration:none}
+        .coverLink img{width:100%;height:100%;object-fit:cover}.coverLink span{font-size:40px}
+        .info{min-width:0}.title{display:block;color:#fff;text-decoration:none;font-size:22px;font-weight:900;margin-bottom:14px}.title:hover{color:#ffbd00}
+        .info p{margin:6px 0;color:#a4aec1;font-size:15px}.publisher{color:#68758c!important}.detail{display:inline-block;margin-top:10px;color:#ffbd00;text-decoration:none;font-size:13px;font-weight:800}
+        .actions{display:flex;gap:8px;align-items:center}.actions button,.actions a{height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:11px;padding:0 13px;background:transparent;text-decoration:none;font-size:13px;font-weight:900;cursor:pointer}
+        .actions .cover{border:1px solid #00b9d7;color:#19d6f2}.actions a{border:1px solid #9b7500;color:#ffbd00}.actions .delete{border:1px solid #7e2630;color:#ff6e78}
+        .pagination{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-top:28px}.pagination button{min-width:42px;height:42px;border:1px solid #393939;border-radius:11px;background:#131315;color:#bbb;cursor:pointer}.pagination button.active{border-color:#ffbd00;background:#ffbd00;color:#111;font-weight:900}.pagination button:disabled{opacity:.35;cursor:not-allowed}
+        @media(max-width:760px){
+          .boardgameList{width:calc(100% - 28px);margin-bottom:50px}
+          .filters{grid-template-columns:1fr;padding:14px;border-radius:18px}
+          .card{grid-template-columns:105px minmax(0,1fr);gap:15px;min-height:0;padding:15px;border-radius:18px;align-items:start}
+          .coverLink{width:105px;height:132px;border-radius:13px}
+          .title{font-size:19px;margin:4px 0 11px}.info p{font-size:13px;line-height:1.55;margin:3px 0}.detail{margin-top:7px}
+          .actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:2px}.actions button,.actions a{width:100%;padding:0 8px}
+          .pagination{gap:5px}.pagination button{min-width:36px;height:38px;font-size:12px}
+        }
+        @media(max-width:380px){.card{grid-template-columns:92px minmax(0,1fr);padding:12px;gap:12px}.coverLink{width:92px;height:120px}.title{font-size:17px}.info p{font-size:12px}.actions button,.actions a{font-size:11px}}
+      `}</style>
+    </section>
+  );
+}
