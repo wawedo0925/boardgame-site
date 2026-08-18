@@ -1,16 +1,35 @@
 import Link from "next/link";
 
-import { createClient } from "@/lib/supabase/server";
 import BoardgameList from "./BoardgameList";
+import { createClient } from "@/lib/supabase/server";
 
 const PAGE_SIZE = 10;
-const MANAGER_ROLES = ["MAIN_ADMIN", "ADMIN", "RULEMASTER", "MASTER", "MANAGER"];
+const MANAGER_ROLES = new Set([
+  "MAIN_ADMIN",
+  "ADMIN",
+  "RULEMASTER",
+  "MASTER",
+  "MANAGER",
+]);
 
 type SearchParams = {
+  page?: string;
   q?: string;
   genre?: string;
-  page?: string;
 };
+
+function normalizePage(value?: string) {
+  const page = Number(value ?? "1");
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
+
+function normalizeRole(value: unknown) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function safeSearch(value: string) {
+  return value.replace(/[,%()]/g, " ").trim();
+}
 
 export default async function BoardgamesPage({
   searchParams,
@@ -18,138 +37,131 @@ export default async function BoardgamesPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const query = (params.q ?? "").trim();
-  const selectedGenre = (params.genre ?? "").trim();
-  const requestedPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
+  const requestedPage = normalizePage(params.page);
+  const query = String(params.q ?? "").trim();
+  const genre = String(params.genre ?? "전체 장르").trim() || "전체 장르";
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let canManage = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const role = normalizeRole(profile?.site_role ?? profile?.role);
+    canManage = MANAGER_ROLES.has(role);
+  }
+
+  let countQuery = supabase
+    .from("games")
+    .select("id", { count: "exact", head: true })
+    .or("type.is.null,type.neq.MURDER_MYSTERY");
+
+  const cleanedQuery = safeSearch(query);
+  if (cleanedQuery) {
+    countQuery = countQuery.or(
+      `name.ilike.%${cleanedQuery}%,publisher.ilike.%${cleanedQuery}%`,
+    );
+  }
+  if (genre !== "전체 장르") {
+    countQuery = countQuery.eq("genre", genre);
+  }
+
+  const { count } = await countQuery;
+  const total = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
+  const from = (page - 1) * PAGE_SIZE;
 
   let gamesQuery = supabase
     .from("games")
-    .select(
-      "id,name,type,min_players,max_players,best_players,play_time,difficulty,publisher,thumbnail,description,genre,weight,icon,min_age,year_published,bgg_url,bgg_id",
-      { count: "exact" },
-    )
-    .or("genre.is.null,genre.neq.머더미스터리")
-    .order("name", { ascending: true });
+    .select("*")
+    .or("type.is.null,type.neq.MURDER_MYSTERY");
 
-  if (query) {
-    const safeQuery = query.replace(/[,%]/g, " ");
+  if (cleanedQuery) {
     gamesQuery = gamesQuery.or(
-      `name.ilike.%${safeQuery}%,publisher.ilike.%${safeQuery}%`,
+      `name.ilike.%${cleanedQuery}%,publisher.ilike.%${cleanedQuery}%`,
     );
   }
-
-  if (selectedGenre) {
-    gamesQuery = gamesQuery.eq("genre", selectedGenre);
+  if (genre !== "전체 장르") {
+    gamesQuery = gamesQuery.eq("genre", genre);
   }
 
-  const countResult = await gamesQuery.range(0, 0);
-  const totalCount = countResult.count ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  const currentPage = Math.min(requestedPage, totalPages);
-  const from = (currentPage - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
-
-  let pageQuery = supabase
-    .from("games")
-    .select(
-      "id,name,type,min_players,max_players,best_players,play_time,difficulty,publisher,thumbnail,description,genre,weight,icon,min_age,year_published,bgg_url,bgg_id",
-    )
-    .or("genre.is.null,genre.neq.머더미스터리")
+  const { data: games, error } = await gamesQuery
     .order("name", { ascending: true })
-    .range(from, to);
+    .range(from, from + PAGE_SIZE - 1);
 
-  if (query) {
-    const safeQuery = query.replace(/[,%]/g, " ");
-    pageQuery = pageQuery.or(
-      `name.ilike.%${safeQuery}%,publisher.ilike.%${safeQuery}%`,
-    );
-  }
-
-  if (selectedGenre) {
-    pageQuery = pageQuery.eq("genre", selectedGenre);
-  }
-
-  const [{ data: games, error: gamesError }, { data: genreRows }, authResult] =
-    await Promise.all([
-      pageQuery,
-      supabase
-        .from("games")
-        .select("genre")
-        .not("genre", "is", null)
-        .neq("genre", "머더미스터리")
-        .limit(1000),
-      supabase.auth.getUser(),
-    ]);
-
-  if (gamesError) {
-    console.error("보드게임 목록 조회 오류:", gamesError);
-  }
+  const { data: genreRows } = await supabase
+    .from("games")
+    .select("genre")
+    .or("type.is.null,type.neq.MURDER_MYSTERY")
+    .not("genre", "is", null)
+    .limit(1000);
 
   const genres = Array.from(
     new Set(
       (genreRows ?? [])
-        .map((row) => (typeof row.genre === "string" ? row.genre.trim() : ""))
+        .map((row) => String(row.genre ?? "").trim())
         .filter(Boolean),
     ),
   ).sort((a, b) => a.localeCompare(b, "ko"));
 
-  let canManage = false;
-  const user = authResult.data.user;
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("site_role,role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const role = String(profile?.site_role ?? profile?.role ?? "").toUpperCase();
-    canManage = MANAGER_ROLES.includes(role);
-  }
-
   return (
     <main className="boardgamesPage">
-      <section className="hero">
+      <section className="boardgamesHero">
         <div>
-          <p>BOARD GAMES</p>
+          <p className="eyebrow">BOARD GAMES</p>
           <h1>보드게임</h1>
-          <span>보드라운지가 보유한 게임을 확인하고, 인원과 장르에 맞는 게임을 찾아보세요.</span>
+          <p className="description">
+            보드라운지가 보유한 게임을 확인하고, 인원과 장르에 맞는 게임을
+            찾아보세요.
+          </p>
         </div>
+
         {canManage && (
-          <Link className="manageLink" href="/admin/library?type=boardgame">
+          <Link className="libraryButton" href="/admin/library">
             게임 등록·관리
           </Link>
         )}
       </section>
 
-      <section className="content">
+      {error ? (
+        <section className="errorBox">
+          보드게임을 불러오지 못했습니다. {error.message}
+        </section>
+      ) : (
         <BoardgameList
-          initialGames={games ?? []}
-          totalCount={totalCount}
-          currentPage={currentPage}
+          games={games ?? []}
+          total={total}
+          page={page}
           pageSize={PAGE_SIZE}
           query={query}
-          selectedGenre={selectedGenre}
+          genre={genre}
           genres={genres}
           canManage={canManage}
         />
-      </section>
+      )}
 
       <style>{`
-        .boardgamesPage { min-height: 100vh; background: #08090b; color: #fff; }
-        .hero { max-width: 1232px; margin: 0 auto; padding: 88px 20px 68px; display: flex; align-items: end; justify-content: space-between; gap: 28px; }
-        .hero p { margin: 0 0 18px; color: #ffbd00; font-size: 14px; font-weight: 900; letter-spacing: .28em; }
-        .hero h1 { margin: 0 0 20px; font-size: clamp(42px, 6vw, 68px); line-height: 1; }
-        .hero span { color: #9aa7bd; font-size: 17px; line-height: 1.8; }
-        .manageLink { flex: none; padding: 15px 22px; border: 1px solid #7651b7; border-radius: 16px; color: #d8c6ff; text-decoration: none; font-weight: 900; }
-        .content { max-width: 1232px; margin: 0 auto; padding: 0 20px 100px; }
+        .boardgamesPage { min-height: 100vh; background: #090a0b; color: #fff; padding-bottom: 96px; }
+        .boardgamesHero { width: min(1232px, calc(100% - 40px)); margin: 0 auto; padding: 88px 0 68px; display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; }
+        .eyebrow { margin: 0 0 16px; color: #ffbd00; font-size: 14px; font-weight: 900; letter-spacing: .32em; }
+        h1 { margin: 0; font-size: clamp(42px, 6vw, 64px); line-height: 1; }
+        .description { max-width: 680px; margin: 24px 0 0; color: #91a0ba; font-size: 18px; line-height: 1.8; }
+        .libraryButton { flex: none; border: 1px solid #7045a5; border-radius: 16px; padding: 16px 22px; color: #d7c5ff; background: #15101d; text-decoration: none; font-weight: 900; }
+        .libraryButton:hover { border-color: #9d70d7; background: #1d1429; }
+        .errorBox { width: min(1232px, calc(100% - 40px)); margin: 0 auto; border: 1px solid #8d2932; border-radius: 16px; padding: 24px; color: #ff8d96; background: #1a0d10; }
         @media (max-width: 700px) {
-          .hero { padding: 52px 20px 42px; align-items: flex-start; flex-direction: column; }
-          .hero h1 { font-size: 46px; }
-          .hero span { font-size: 15px; }
-          .manageLink { align-self: flex-start; }
-          .content { padding-inline: 14px; }
+          .boardgamesHero { width: calc(100% - 32px); padding: 48px 0 40px; align-items: flex-start; flex-direction: column; }
+          .description { font-size: 16px; }
+          .libraryButton { align-self: stretch; text-align: center; }
+          .errorBox { width: calc(100% - 32px); }
         }
       `}</style>
     </main>
