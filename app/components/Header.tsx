@@ -83,9 +83,43 @@ export default function Header() {
   return (
     <header className="siteHeader">
       <div className="headerInner">
-        <Link href="/" className="brand" aria-label="보드라운지 홈">
-          <strong>보드라운지</strong>
-          <span>WAWEDO</span>
+        <Link
+          href="/"
+          className="brand"
+          aria-label="보드라운지 홈"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: "4px",
+            lineHeight: 1,
+            textDecoration: "none",
+          }}
+        >
+          <strong
+            style={{
+              order: 1,
+              color: "#ffbd00",
+              fontSize: "clamp(22px, 2vw, 28px)",
+              fontWeight: 900,
+              letterSpacing: "-0.04em",
+              whiteSpace: "nowrap",
+            }}
+          >
+            보드라운지
+          </strong>
+          <span
+            style={{
+              order: 2,
+              color: "#ffffff",
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "0.18em",
+              whiteSpace: "nowrap",
+            }}
+          >
+            WAWEDO
+          </span>
         </Link>
 
         <nav className="desktopNav" aria-label="주 메뉴">
