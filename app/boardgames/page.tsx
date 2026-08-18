@@ -1,130 +1,155 @@
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/server";
-
 import BoardgameList from "./BoardgameList";
 
-export const dynamic = "force-dynamic";
-
 const PAGE_SIZE = 10;
+const MANAGER_ROLES = ["MAIN_ADMIN", "ADMIN", "RULEMASTER", "MASTER", "MANAGER"];
 
-type PageSearchParams = Promise<{
-  page?: string | string[];
-  q?: string | string[];
-  genre?: string | string[];
-}>;
-
-function first(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
-}
-
-function roleIsManager(value: unknown) {
-  return ["MAIN_ADMIN", "ADMIN", "RULEMASTER", "MASTER", "MANAGER"].includes(
-    String(value ?? "").toUpperCase(),
-  );
-}
+type SearchParams = {
+  q?: string;
+  genre?: string;
+  page?: string;
+};
 
 export default async function BoardgamesPage({
   searchParams,
 }: {
-  searchParams: PageSearchParams;
+  searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const query = first(params.q).trim();
-  const selectedGenre = first(params.genre).trim();
-  const requestedPage = Number.parseInt(first(params.page), 10);
-  const currentPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const from = (currentPage - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
-
+  const query = (params.q ?? "").trim();
+  const selectedGenre = (params.genre ?? "").trim();
+  const requestedPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
   const supabase = await createClient();
 
   let gamesQuery = supabase
     .from("games")
-    .select("*", { count: "exact" })
+    .select(
+      "id,name,type,min_players,max_players,best_players,play_time,difficulty,publisher,thumbnail,description,genre,weight,icon,min_age,year_published,bgg_url,bgg_id",
+      { count: "exact" },
+    )
+    .or("genre.is.null,genre.neq.머더미스터리")
     .order("name", { ascending: true });
 
   if (query) {
-    const safeQuery = query.replace(/[%_,()]/g, " ").trim();
-    if (safeQuery) {
-      gamesQuery = gamesQuery.or(
-        `name.ilike.%${safeQuery}%,publisher.ilike.%${safeQuery}%`,
-      );
-    }
+    const safeQuery = query.replace(/[,%]/g, " ");
+    gamesQuery = gamesQuery.or(
+      `name.ilike.%${safeQuery}%,publisher.ilike.%${safeQuery}%`,
+    );
   }
 
   if (selectedGenre) {
     gamesQuery = gamesQuery.eq("genre", selectedGenre);
   }
 
-  const [gamesResult, genreResult, userResult] = await Promise.all([
-    gamesQuery.range(from, to),
-    supabase.from("games").select("genre").not("genre", "is", null).limit(1000),
-    supabase.auth.getUser(),
-  ]);
+  const countResult = await gamesQuery.range(0, 0);
+  const totalCount = countResult.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const currentPage = Math.min(requestedPage, totalPages);
+  const from = (currentPage - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
 
-  let canManage = false;
-  const user = userResult.data.user;
+  let pageQuery = supabase
+    .from("games")
+    .select(
+      "id,name,type,min_players,max_players,best_players,play_time,difficulty,publisher,thumbnail,description,genre,weight,icon,min_age,year_published,bgg_url,bgg_id",
+    )
+    .or("genre.is.null,genre.neq.머더미스터리")
+    .order("name", { ascending: true })
+    .range(from, to);
 
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("site_role, role")
-      .eq("id", user.id)
-      .maybeSingle();
+  if (query) {
+    const safeQuery = query.replace(/[,%]/g, " ");
+    pageQuery = pageQuery.or(
+      `name.ilike.%${safeQuery}%,publisher.ilike.%${safeQuery}%`,
+    );
+  }
 
-    canManage = roleIsManager(profile?.site_role) || roleIsManager(profile?.role);
+  if (selectedGenre) {
+    pageQuery = pageQuery.eq("genre", selectedGenre);
+  }
+
+  const [{ data: games, error: gamesError }, { data: genreRows }, authResult] =
+    await Promise.all([
+      pageQuery,
+      supabase
+        .from("games")
+        .select("genre")
+        .not("genre", "is", null)
+        .neq("genre", "머더미스터리")
+        .limit(1000),
+      supabase.auth.getUser(),
+    ]);
+
+  if (gamesError) {
+    console.error("보드게임 목록 조회 오류:", gamesError);
   }
 
   const genres = Array.from(
     new Set(
-      (genreResult.data ?? [])
-        .map((row) => String(row.genre ?? "").trim())
+      (genreRows ?? [])
+        .map((row) => (typeof row.genre === "string" ? row.genre.trim() : ""))
         .filter(Boolean),
     ),
   ).sort((a, b) => a.localeCompare(b, "ko"));
 
-  return (
-    <main className="boardgames-page">
-      <section className="boardgames-hero">
-        <div>
-          <p className="eyebrow">BOARD GAMES</p>
-          <h1>보드게임</h1>
-          <p className="description">
-            보드라운지가 보유한 게임을 확인하고, 인원과 장르에 맞는 게임을 찾아보세요.
-          </p>
-        </div>
+  let canManage = false;
+  const user = authResult.data.user;
 
-        {canManage ? (
-          <Link className="library-link" href="/admin/library">
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("site_role,role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const role = String(profile?.site_role ?? profile?.role ?? "").toUpperCase();
+    canManage = MANAGER_ROLES.includes(role);
+  }
+
+  return (
+    <main className="boardgamesPage">
+      <section className="hero">
+        <div>
+          <p>BOARD GAMES</p>
+          <h1>보드게임</h1>
+          <span>보드라운지가 보유한 게임을 확인하고, 인원과 장르에 맞는 게임을 찾아보세요.</span>
+        </div>
+        {canManage && (
+          <Link className="manageLink" href="/admin/library?type=boardgame">
             게임 등록·관리
           </Link>
-        ) : null}
+        )}
       </section>
 
-      <BoardgameList
-        games={gamesResult.data ?? []}
-        totalCount={gamesResult.count ?? 0}
-        currentPage={currentPage}
-        pageSize={PAGE_SIZE}
-        query={query}
-        selectedGenre={selectedGenre}
-        genres={genres}
-        canManage={canManage}
-      />
+      <section className="content">
+        <BoardgameList
+          initialGames={games ?? []}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={PAGE_SIZE}
+          query={query}
+          selectedGenre={selectedGenre}
+          genres={genres}
+          canManage={canManage}
+        />
+      </section>
 
       <style>{`
-        .boardgames-page{min-height:100vh;background:#090a0b;color:#fff;padding-bottom:80px}
-        .boardgames-hero{max-width:1232px;margin:0 auto;padding:88px 20px 72px;display:flex;align-items:flex-end;justify-content:space-between;gap:28px}
-        .eyebrow{margin:0 0 14px;color:#ffbd00;font-size:13px;font-weight:900;letter-spacing:5px}
-        .boardgames-hero h1{margin:0;font-size:52px;line-height:1.1}
-        .description{max-width:700px;margin:24px 0 0;color:#9ba7bd;font-size:18px;line-height:1.8}
-        .library-link{flex:none;border:1px solid #7555a7;border-radius:16px;padding:16px 22px;color:#dfd2ff;text-decoration:none;font-weight:900}
-        @media(max-width:700px){
-          .boardgames-hero{padding:56px 20px 44px;align-items:flex-start;flex-direction:column}
-          .boardgames-hero h1{font-size:42px}
-          .description{font-size:16px;line-height:1.7}
-          .library-link{align-self:flex-end}
+        .boardgamesPage { min-height: 100vh; background: #08090b; color: #fff; }
+        .hero { max-width: 1232px; margin: 0 auto; padding: 88px 20px 68px; display: flex; align-items: end; justify-content: space-between; gap: 28px; }
+        .hero p { margin: 0 0 18px; color: #ffbd00; font-size: 14px; font-weight: 900; letter-spacing: .28em; }
+        .hero h1 { margin: 0 0 20px; font-size: clamp(42px, 6vw, 68px); line-height: 1; }
+        .hero span { color: #9aa7bd; font-size: 17px; line-height: 1.8; }
+        .manageLink { flex: none; padding: 15px 22px; border: 1px solid #7651b7; border-radius: 16px; color: #d8c6ff; text-decoration: none; font-weight: 900; }
+        .content { max-width: 1232px; margin: 0 auto; padding: 0 20px 100px; }
+        @media (max-width: 700px) {
+          .hero { padding: 52px 20px 42px; align-items: flex-start; flex-direction: column; }
+          .hero h1 { font-size: 46px; }
+          .hero span { font-size: 15px; }
+          .manageLink { align-self: flex-start; }
+          .content { padding-inline: 14px; }
         }
       `}</style>
     </main>
