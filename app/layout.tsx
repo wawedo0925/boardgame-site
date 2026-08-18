@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+
 import Header from "./components/Header";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,10 +30,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html
+      lang="ko"
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="flex min-h-full flex-col bg-zinc-950 text-white">
         <Header />
-        {children}
+
+        <div className="flex-1">{children}</div>
       </body>
     </html>
   );
