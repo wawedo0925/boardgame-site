@@ -2,29 +2,38 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Game = {
   id: string;
   name: string;
-  genre?: string | null;
+  type?: string | null;
   min_players?: number | null;
   max_players?: number | null;
-  best_players?: string | null;
+  best_players?: string | number | null;
   play_time?: number | null;
+  difficulty?: number | null;
   publisher?: string | null;
   thumbnail?: string | null;
+  description?: string | null;
+  genre?: string | null;
+  weight?: number | null;
   icon?: string | null;
+  min_age?: number | null;
+  year_published?: number | null;
+  bgg_url?: string | null;
+  bgg_id?: number | null;
 };
 
 type Props = {
-  games: Game[];
-  total: number;
-  page: number;
+  initialGames: Game[];
+  totalCount: number;
+  currentPage: number;
   pageSize: number;
   query: string;
-  genre: string;
+  selectedGenre: string;
   genres: string[];
   canManage: boolean;
 };
@@ -32,50 +41,66 @@ type Props = {
 function pageHref(page: number, query: string, genre: string) {
   const params = new URLSearchParams();
   if (query) params.set("q", query);
-  if (genre && genre !== "전체 장르") params.set("genre", genre);
+  if (genre) params.set("genre", genre);
   if (page > 1) params.set("page", String(page));
   const suffix = params.toString();
   return suffix ? `/boardgames?${suffix}` : "/boardgames";
 }
 
-function playerText(game: Game) {
-  const min = game.min_players;
-  const max = game.max_players;
-  if (min && max) return min === max ? `${min}명` : `${min}~${max}명`;
-  if (min) return `${min}명 이상`;
-  if (max) return `${max}명 이하`;
-  return "인원 미정";
-}
-
 export default function BoardgameList({
-  games,
-  total,
-  page,
+  initialGames,
+  totalCount,
+  currentPage,
   pageSize,
   query,
-  genre,
+  selectedGenre,
   genres,
   canManage,
 }: Props) {
-  const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
-  const [items, setItems] = useState(games);
+  const [games, setGames] = useState<Game[]>(initialGames);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [coverGame, setCoverGame] = useState<Game | null>(null);
-  const fileInput = useRef<HTMLInputElement | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
 
-  useEffect(() => setItems(games), [games]);
+  useEffect(() => {
+    setGames(initialGames);
+  }, [initialGames]);
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const last = Math.min(total, page * pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const firstItem = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const lastItem = Math.min(currentPage * pageSize, totalCount);
+
+  const visiblePages = useMemo(() => {
+    const start = Math.max(1, Math.min(currentPage - 3, totalPages - 6));
+    const end = Math.min(totalPages, start + 6);
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  }, [currentPage, totalPages]);
+
+  async function removeGame(game: Game) {
+    if (!canManage || !window.confirm(`“${game.name}”을(를) 삭제할까요?`)) return;
+
+    setBusyId(game.id);
+    const { error } = await supabase.from("games").delete().eq("id", game.id);
+    setBusyId(null);
+
+    if (error) {
+      window.alert(`삭제하지 못했습니다.\n${error.message}`);
+      return;
+    }
+
+    setGames((current) => current.filter((item) => item.id !== game.id));
+    router.refresh();
+  }
 
   function chooseCover(game: Game) {
+    if (!canManage) return;
     setCoverGame(game);
     fileInput.current?.click();
   }
 
-  async function uploadCover(event: React.ChangeEvent<HTMLInputElement>) {
+  async function uploadCover(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     const game = coverGame;
     event.target.value = "";
@@ -90,147 +115,332 @@ export default function BoardgameList({
 
     if (uploadError) {
       setBusyId(null);
-      alert(`표지를 업로드하지 못했습니다.\n${uploadError.message}`);
+      window.alert(`표지를 업로드하지 못했습니다.\n${uploadError.message}`);
       return;
     }
 
     const { data } = supabase.storage.from("game-covers").getPublicUrl(path);
-    const { error } = await supabase
+    const publicUrl = data.publicUrl;
+    const { error: updateError } = await supabase
       .from("games")
-      .update({ thumbnail: data.publicUrl })
+      .update({ thumbnail: publicUrl })
       .eq("id", game.id);
 
     setBusyId(null);
-    if (error) {
-      alert(`표지 주소를 저장하지 못했습니다.\n${error.message}`);
+    if (updateError) {
+      window.alert(`표지 주소를 저장하지 못했습니다.\n${updateError.message}`);
       return;
     }
 
-    setItems((current) =>
-      current.map((item) =>
-        item.id === game.id ? { ...item, thumbnail: data.publicUrl } : item,
-      ),
+    setGames((current) =>
+      current.map((item) => (item.id === game.id ? { ...item, thumbnail: publicUrl } : item)),
     );
     router.refresh();
   }
 
-  async function removeGame(game: Game) {
-    if (!confirm(`“${game.name}”을 정말 삭제할까요?`)) return;
-    setBusyId(game.id);
-    const { error } = await supabase.from("games").delete().eq("id", game.id);
-    setBusyId(null);
-    if (error) {
-      alert(`삭제하지 못했습니다.\n${error.message}`);
-      return;
-    }
-    setItems((current) => current.filter((item) => item.id !== game.id));
-    router.refresh();
-  }
-
-  const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1).filter(
-    (number) =>
-      number === 1 ||
-      number === totalPages ||
-      Math.abs(number - page) <= 2,
-  );
-
   return (
     <>
-      <form className="filters" method="get" action="/boardgames">
+      <form className="filters" method="get">
         <input
           name="q"
           defaultValue={query}
           placeholder="게임 이름 또는 출판사 검색"
           aria-label="게임 검색"
         />
-        <button type="submit">검색</button>
-        <select name="genre" defaultValue={genre} onChange={(event) => event.currentTarget.form?.requestSubmit()}>
-          <option value="전체 장르">전체 장르</option>
-          {genres.map((item) => (
-            <option key={item} value={item}>{item}</option>
+        <select name="genre" defaultValue={selectedGenre} aria-label="장르 선택">
+          <option value="">전체 장르</option>
+          {genres.map((genre) => (
+            <option key={genre} value={genre}>
+              {genre}
+            </option>
           ))}
         </select>
+        <button type="submit">검색</button>
       </form>
 
       <div className="summary">
-        <span>총 <b>{total}</b>개의 게임</span>
-        <span>{first}–{last} 표시</span>
+        <span>
+          총 <b>{totalCount}</b>개의 게임
+        </span>
+        <span>
+          {firstItem}–{lastItem} 표시
+        </span>
       </div>
 
-      <input
-        ref={fileInput}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
-        hidden
-        onChange={uploadCover}
-      />
+      <section className="gameList">
+        {games.length === 0 ? (
+          <div className="empty">검색 조건에 맞는 게임이 없습니다.</div>
+        ) : (
+          games.map((game) => (
+            <article className="gameRow" key={game.id}>
+              <Link className="cover" href={`/boardgames/${game.id}`}>
+                {game.thumbnail ? (
+                  <img src={game.thumbnail} alt={`${game.name} 표지`} />
+                ) : (
+                  <span aria-hidden="true">{game.icon || "🎲"}</span>
+                )}
+              </Link>
 
-      <div className="gameList">
-        {items.length === 0 ? (
-          <div className="empty">조건에 맞는 보드게임이 없습니다.</div>
-        ) : items.map((game) => (
-          <article className="gameRow" key={game.id}>
-            <Link href={`/boardgames/${game.id}`} className="coverLink" aria-label={`${game.name} 상세 보기`}>
-              {game.thumbnail ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={game.thumbnail} alt={`${game.name} 표지`} loading="lazy" />
-              ) : (
-                <span className="coverFallback">🎲</span>
-              )}
-            </Link>
+              <div className="gameBody">
+                <Link className="title" href={`/boardgames/${game.id}`}>
+                  {game.name}
+                </Link>
+                <p className="meta">
+                  {game.genre || "장르 미정"} · {game.min_players ?? "–"}~
+                  {game.max_players ?? "–"}명 · {game.play_time ? `${game.play_time}분` : "시간 미정"}
+                </p>
+                <p className="publisher">{game.publisher || "출판사 미정"}</p>
 
-            <div className="info">
-              <Link href={`/boardgames/${game.id}`} className="title">{game.name}</Link>
-              <p>{game.genre || "장르 미정"} · {playerText(game)} · {game.play_time ? `${game.play_time}분` : "시간 미정"}</p>
-              <p className="publisher">{game.publisher || "출판사 미정"}</p>
+                {canManage && (
+                  <div className="managerActions">
+                    <button
+                      type="button"
+                      className="coverButton"
+                      onClick={() => chooseCover(game)}
+                      disabled={busyId === game.id}
+                    >
+                      표지 교체
+                    </button>
+                    <Link href={`/admin/library?type=boardgame&edit=${encodeURIComponent(game.id)}`}>
+                      정보 수정
+                    </Link>
+                    <button
+                      type="button"
+                      className="deleteButton"
+                      onClick={() => removeGame(game)}
+                      disabled={busyId === game.id}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                )}
+              </div>
+            </article>
+          ))
+        )}
+      </section>
 
-              {canManage && (
-                <div className="managerActions">
-                  <button type="button" className="coverButton" disabled={busyId === game.id} onClick={() => chooseCover(game)}>
-                    표지 교체
-                  </button>
-                  <Link className="editButton" href={`/admin/library?edit=${encodeURIComponent(game.id)}&kind=boardgame`}>
-                    정보 수정
-                  </Link>
-                  <button type="button" className="deleteButton" disabled={busyId === game.id} onClick={() => removeGame(game)}>
-                    삭제
-                  </button>
-                </div>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
+      <input ref={fileInput} type="file" accept="image/*" hidden onChange={uploadCover} />
 
       {totalPages > 1 && (
         <nav className="pagination" aria-label="보드게임 페이지">
-          <Link className={page <= 1 ? "disabled" : ""} aria-disabled={page <= 1} href={pageHref(Math.max(1, page - 1), query, genre)}>이전</Link>
-          {pageNumbers.map((number, index) => {
-            const previous = pageNumbers[index - 1];
-            return (
-              <span className="pageGroup" key={number}>
-                {previous && number - previous > 1 && <span className="ellipsis">…</span>}
-                <Link className={number === page ? "active" : ""} aria-current={number === page ? "page" : undefined} href={pageHref(number, query, genre)}>{number}</Link>
-              </span>
-            );
-          })}
-          <Link className={page >= totalPages ? "disabled" : ""} aria-disabled={page >= totalPages} href={pageHref(Math.min(totalPages, page + 1), query, genre)}>다음</Link>
+          {currentPage > 1 && <Link href={pageHref(currentPage - 1, query, selectedGenre)}>이전</Link>}
+          {visiblePages.map((page) => (
+            <Link
+              key={page}
+              href={pageHref(page, query, selectedGenre)}
+              className={page === currentPage ? "active" : ""}
+              aria-current={page === currentPage ? "page" : undefined}
+            >
+              {page}
+            </Link>
+          ))}
+          {currentPage < totalPages && <Link href={pageHref(currentPage + 1, query, selectedGenre)}>다음</Link>}
         </nav>
       )}
 
       <style jsx>{`
-        .filters{display:grid;grid-template-columns:minmax(0,1fr) 70px 260px;gap:10px;padding:20px;border:1px solid #2a2a2d;border-radius:22px;background:#111113}
-        .filters input,.filters select{min-width:0;height:52px;border:1px solid #343438;border-radius:12px;background:#1a1a1d;color:#fff;padding:0 16px;font:inherit}
-        .filters button{border:0;border-radius:12px;background:#ffbd00;color:#090909;font-weight:900}
-        .summary{display:flex;justify-content:space-between;margin:30px 0 18px;color:#9aa6bd}.summary b{color:#ffbd00}
-        .gameList{border:1px solid #29292d;border-radius:22px;overflow:hidden;background:#08090a}
-        .gameRow{display:grid;grid-template-columns:150px minmax(0,1fr);gap:24px;padding:20px;border-bottom:1px solid #242428}.gameRow:last-child{border-bottom:0}
-        .coverLink{display:block;width:150px;height:106px;border-radius:10px;overflow:hidden;background:#171719}.coverLink img{width:100%;height:100%;object-fit:cover}.coverFallback{width:100%;height:100%;display:grid;place-items:center;font-size:38px}
-        .info{min-width:0;align-self:center}.title{display:inline-block;color:#fff;font-size:18px;font-weight:900;text-decoration:none;margin-bottom:12px}.info p{margin:0 0 7px;color:#9ca9c1}.publisher{font-size:14px}
-        .managerActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.managerActions button,.managerActions a{height:38px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;padding:0 14px;background:transparent;font-weight:800;text-decoration:none;cursor:pointer}.coverButton{border:1px solid #04b8d5;color:#22d3ee}.editButton{border:1px solid #9a7200;color:#ffbd00}.deleteButton{border:1px solid #7d2028;color:#ff6d75}
-        .empty{padding:60px 20px;text-align:center;color:#778197}
-        .pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:28px;flex-wrap:wrap}.pagination a{min-width:42px;height:42px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #343438;border-radius:10px;color:#fff;text-decoration:none;padding:0 12px}.pagination a.active{background:#ffbd00;border-color:#ffbd00;color:#090909;font-weight:900}.pagination a.disabled{pointer-events:none;opacity:.35}.pageGroup{display:inline-flex;align-items:center;gap:8px}.ellipsis{color:#778197}
-        @media(max-width:700px){.filters{grid-template-columns:minmax(0,1fr) 58px}.filters select{grid-column:1/-1}.summary{font-size:14px}.gameRow{grid-template-columns:112px minmax(0,1fr);gap:15px;padding:16px}.coverLink{width:112px;height:112px}.title{font-size:17px;margin-bottom:8px}.info p{font-size:13px;line-height:1.45}.managerActions{gap:6px}.managerActions button,.managerActions a{height:34px;padding:0 10px;font-size:12px}.pagination{gap:5px}.pagination a{min-width:36px;height:38px;padding:0 9px}}
+        .filters {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 260px 76px;
+          gap: 12px;
+          padding: 20px;
+          border: 1px solid #2d2d2d;
+          border-radius: 20px;
+          background: #111113;
+        }
+        .filters input,
+        .filters select {
+          min-width: 0;
+          height: 52px;
+          padding: 0 16px;
+          border: 1px solid #36363a;
+          border-radius: 12px;
+          background: #1a1a1d;
+          color: #fff;
+          font: inherit;
+        }
+        .filters button {
+          border: 0;
+          border-radius: 12px;
+          background: #ffbd00;
+          color: #090909;
+          font-weight: 900;
+          cursor: pointer;
+        }
+        .summary {
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          margin: 28px 0 14px;
+          color: #9aa8bf;
+        }
+        .summary b {
+          color: #ffbd00;
+        }
+        .gameList {
+          overflow: hidden;
+          border: 1px solid #2b2b2e;
+          border-radius: 22px;
+          background: #09090a;
+        }
+        .gameRow {
+          display: grid;
+          grid-template-columns: 150px minmax(0, 1fr);
+          gap: 24px;
+          align-items: center;
+          padding: 20px;
+          border-bottom: 1px solid #262629;
+        }
+        .gameRow:last-child {
+          border-bottom: 0;
+        }
+        .cover {
+          display: grid;
+          width: 150px;
+          height: 110px;
+          place-items: center;
+          overflow: hidden;
+          border: 1px solid #37373a;
+          border-radius: 14px;
+          background: #171719;
+          text-decoration: none;
+        }
+        .cover img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .cover span {
+          font-size: 42px;
+        }
+        .gameBody {
+          min-width: 0;
+        }
+        .title {
+          display: inline-block;
+          margin-bottom: 9px;
+          color: #fff;
+          font-size: 20px;
+          font-weight: 900;
+          text-decoration: none;
+        }
+        .meta,
+        .publisher {
+          margin: 0;
+          color: #9aa8bf;
+          line-height: 1.55;
+        }
+        .publisher {
+          margin-top: 3px;
+          color: #71809a;
+        }
+        .managerActions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 14px;
+        }
+        .managerActions a,
+        .managerActions button {
+          min-height: 36px;
+          padding: 7px 12px;
+          border-radius: 10px;
+          background: transparent;
+          font: inherit;
+          font-size: 13px;
+          font-weight: 800;
+          text-decoration: none;
+          cursor: pointer;
+        }
+        .coverButton {
+          border: 1px solid #07b7d6;
+          color: #3bdaf5;
+        }
+        .managerActions a {
+          border: 1px solid #9a7200;
+          color: #ffcc38;
+        }
+        .deleteButton {
+          border: 1px solid #842733;
+          color: #ff6b78;
+        }
+        .managerActions button:disabled {
+          cursor: wait;
+          opacity: 0.5;
+        }
+        .empty {
+          padding: 72px 20px;
+          text-align: center;
+          color: #77839a;
+        }
+        .pagination {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 8px;
+          margin-top: 26px;
+        }
+        .pagination a {
+          display: grid;
+          min-width: 42px;
+          height: 42px;
+          place-items: center;
+          padding: 0 12px;
+          border: 1px solid #343438;
+          border-radius: 10px;
+          color: #d5d5d5;
+          text-decoration: none;
+        }
+        .pagination a.active {
+          border-color: #ffbd00;
+          background: #ffbd00;
+          color: #090909;
+          font-weight: 900;
+        }
+        @media (max-width: 700px) {
+          .filters {
+            grid-template-columns: minmax(0, 1fr) 112px;
+            padding: 14px;
+          }
+          .filters input {
+            grid-column: 1 / -1;
+          }
+          .filters button {
+            min-height: 52px;
+          }
+          .summary {
+            margin-top: 22px;
+            font-size: 14px;
+          }
+          .gameRow {
+            grid-template-columns: 104px minmax(0, 1fr);
+            gap: 14px;
+            padding: 14px;
+          }
+          .cover {
+            width: 104px;
+            height: 104px;
+          }
+          .title {
+            margin-bottom: 6px;
+            font-size: 17px;
+          }
+          .meta,
+          .publisher {
+            font-size: 13px;
+          }
+          .managerActions {
+            gap: 6px;
+            margin-top: 10px;
+          }
+          .managerActions a,
+          .managerActions button {
+            min-height: 32px;
+            padding: 5px 8px;
+            font-size: 11px;
+          }
+        }
       `}</style>
     </>
   );
