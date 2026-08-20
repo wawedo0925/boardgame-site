@@ -59,6 +59,7 @@ export default function BoardgameList({
 }: Props) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+
   const [items, setItems] = useState(games);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [coverGame, setCoverGame] = useState<Game | null>(null);
@@ -235,3 +236,5 @@ export default function BoardgameList({
     </>
   );
 }
+
+
