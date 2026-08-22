@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -76,7 +76,7 @@ export default function BoardgameList({
     fileInput.current?.click();
   }
 
-  async function uploadCover(event: React.ChangeEvent<HTMLInputElement>) {
+  async function uploadCover(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     const game = coverGame;
     event.target.value = "";
@@ -236,5 +236,4 @@ export default function BoardgameList({
     </>
   );
 }
-
 
