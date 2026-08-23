@@ -1,5 +1,4 @@
-
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -13,7 +12,9 @@ import EventLifecycleCard from "@/components/events/EventLifecycleCard";
 import EventNoticeCard from "@/components/events/EventNoticeCard";
 import AttendanceManager from "@/components/events/AttendanceManager";
 import MurderMysteryEventPanel from "@/components/events/MurderMysteryEventPanel";
-import EventCapacityCard, { type WaitlistMember } from "@/components/events/EventCapacityCard";
+import EventCapacityCard, {
+  type WaitlistMember,
+} from "@/components/events/EventCapacityCard";
 import EventCancellationCard from "@/components/events/EventCancellationCard";
 import type { AttendanceStatus } from "@/types/event";
 import { createClient } from "@/lib/supabase/client";
@@ -136,11 +137,14 @@ export default function EventDetailPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [canOperate, setCanOperate] = useState(false);
   const [siteRole, setSiteRole] = useState("MEMBER");
+  const [guideOpen, setGuideOpen] = useState(false);
 
   async function loadParticipants() {
     const { data: participantData, error: participantError } = await supabase
       .from("event_participants")
-      .select("id, user_id, joined_at, attendance_status, attendance_checked_at, participation_role, repeat_override")
+      .select(
+        "id, user_id, joined_at, attendance_status, attendance_checked_at, participation_role, repeat_override",
+      )
       .eq("event_id", eventId)
       .order("joined_at", { ascending: true });
 
@@ -151,7 +155,9 @@ export default function EventDetailPage() {
     }
 
     const participantRows = (participantData ?? []) as ParticipantRow[];
-    const userIds = participantRows.map((participant) => participant.user_id);
+    const userIds = participantRows.map(
+      (participant) => participant.user_id,
+    );
 
     if (userIds.length === 0) {
       setParticipants([]);
@@ -181,21 +187,43 @@ export default function EventDetailPage() {
   }
 
   async function loadWaitlist() {
-    const { data, error } = await supabase.from("event_waitlist")
-      .select("id, user_id, joined_at").eq("event_id", eventId)
+    const { data, error } = await supabase
+      .from("event_waitlist")
+      .select("id, user_id, joined_at")
+      .eq("event_id", eventId)
       .order("joined_at", { ascending: true });
+
     if (error) {
       console.error("대기 명단 조회 오류:", error);
       setWaitlist([]);
       return;
     }
-    const rows = (data ?? []) as Array<{ id: string; user_id: string; joined_at: string }>;
+
+    const rows = (data ?? []) as Array<{
+      id: string;
+      user_id: string;
+      joined_at: string;
+    }>;
+
     const ids = rows.map((row) => row.user_id);
+
     const { data: profiles } = ids.length
-      ? await supabase.from("profiles").select("id, activity_name").in("id", ids)
+      ? await supabase
+          .from("profiles")
+          .select("id, activity_name")
+          .in("id", ids)
       : { data: [] };
-    const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
-    setWaitlist(rows.map((row) => ({ ...row, profile: profileMap.get(row.user_id) ?? null })));
+
+    const profileMap = new Map(
+      (profiles ?? []).map((profile) => [profile.id, profile]),
+    );
+
+    setWaitlist(
+      rows.map((row) => ({
+        ...row,
+        profile: profileMap.get(row.user_id) ?? null,
+      })),
+    );
   }
 
   async function reloadParticipation() {
@@ -250,14 +278,19 @@ export default function EventDetailPage() {
       }
 
       setEvent(eventData as EventRow);
+
       if (currentUser) {
         const [{ data: operator }, { data: role }] = await Promise.all([
-          supabase.rpc("can_operate_event", { target_event_id: eventId }),
+          supabase.rpc("can_operate_event", {
+            target_event_id: eventId,
+          }),
           supabase.rpc("current_site_role"),
         ]);
+
         setCanOperate(Boolean(operator));
         setSiteRole((role as string) ?? "MEMBER");
       }
+
       await reloadParticipation();
 
       if (isMounted) {
@@ -269,7 +302,7 @@ export default function EventDetailPage() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_authEvent, session) => {
       if (!isMounted) {
         return;
       }
@@ -286,16 +319,35 @@ export default function EventDetailPage() {
   const isJoined = participants.some(
     (participant) => participant.user_id === user?.id,
   );
-  const isWaitlisted = waitlist.some((member) => member.user_id === user?.id);
-  const isCreator = Boolean(user && event && event.created_by === user.id);
+
+  const isWaitlisted = waitlist.some(
+    (member) => member.user_id === user?.id,
+  );
+
+  const isCreator = Boolean(
+    user && event && event.created_by === user.id,
+  );
+
   const canManage = isCreator || canOperate;
-  const canEditEvent = siteRole === "MAIN_ADMIN" || siteRole === "ADMIN" || (siteRole === "RULE_MASTER" && isCreator);
+
+  const canEditEvent =
+    siteRole === "MAIN_ADMIN" ||
+    siteRole === "ADMIN" ||
+    (siteRole === "RULE_MASTER" && isCreator);
+
   const status = event ? getEventStatus(event) : "";
   const isEnded = status === "종료";
-
   const isClosed = event?.event_status === "CLOSED";
   const isCancelled = event?.event_status === "CANCELLED";
   const isLocked = isClosed || isCancelled;
+
+  const descriptionText =
+    event?.description?.trim() || "등록된 이벤트 설명이 없습니다.";
+
+  const descriptionPreview =
+    descriptionText.length > 140
+      ? `${descriptionText.slice(0, 140)}…`
+      : descriptionText;
 
   async function handleJoin() {
     if (!user) {
@@ -305,9 +357,12 @@ export default function EventDetailPage() {
 
     setIsActionLoading(true);
 
-    const { data, error } = await supabase.rpc("join_event_with_capacity", {
-      p_event_id: eventId,
-    });
+    const { data, error } = await supabase.rpc(
+      "join_event_with_capacity",
+      {
+        p_event_id: eventId,
+      },
+    );
 
     if (error) {
       console.error("이벤트 참가 오류:", error);
@@ -317,9 +372,11 @@ export default function EventDetailPage() {
     }
 
     await reloadParticipation();
+
     if (data === "WAITLISTED") {
       alert("정원이 가득 차 대기 명단에 등록되었습니다.");
     }
+
     setIsActionLoading(false);
   }
 
@@ -333,17 +390,18 @@ export default function EventDetailPage() {
       return;
     }
 
-    const confirmed = window.confirm("이 이벤트 참가를 취소할까요?");
-
-    if (!confirmed) {
+    if (!window.confirm("이 이벤트 참가를 취소할까요?")) {
       return;
     }
 
     setIsActionLoading(true);
 
-    const { error } = await supabase.rpc("cancel_event_join_or_waitlist", {
-      p_event_id: eventId,
-    });
+    const { error } = await supabase.rpc(
+      "cancel_event_join_or_waitlist",
+      {
+        p_event_id: eventId,
+      },
+    );
 
     if (error) {
       console.error("이벤트 참가 취소 오류:", error);
@@ -394,16 +452,19 @@ export default function EventDetailPage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="rounded-full bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-300">
-                      {event.event_kind === "MURDER_MYSTERY" ? "머더미스터리 이벤트" : event.event_kind === "GENERAL" ? "일반 이벤트" : "보드게임 이벤트"}
+                      {event.event_kind === "MURDER_MYSTERY"
+                        ? "머더미스터리 이벤트"
+                        : event.event_kind === "GENERAL"
+                          ? "일반 이벤트"
+                          : "보드게임 이벤트"}
                     </span>
 
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
-                        status,
-                      )}`}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(status)}`}
                     >
                       {status}
                     </span>
+
                     {isCancelled && (
                       <span className="rounded-full bg-red-400/15 px-3 py-1 text-xs font-semibold text-red-300">
                         취소됨
@@ -445,24 +506,30 @@ export default function EventDetailPage() {
                         ? "생성자 참가 중"
                         : isActionLoading
                           ? "처리 중..."
-                          : isWaitlisted ? "대기 취소" : "참가 취소"}
+                          : isWaitlisted
+                            ? "대기 취소"
+                            : "참가 취소"}
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={handleJoin}
-                      disabled={isActionLoading || isEnded || isCancelled}
+                      disabled={
+                        isActionLoading || isEnded || isCancelled
+                      }
                       className="rounded-2xl bg-amber-400 px-6 py-3 font-semibold text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isCancelled
                         ? "취소된 이벤트"
                         : isEnded
-                        ? "종료된 이벤트"
-                        : isActionLoading
-                          ? "처리 중..."
-                          : event.max_participants !== null && participants.length >= event.max_participants
-                            ? "대기 신청"
-                            : "이벤트 참가"}
+                          ? "종료된 이벤트"
+                          : isActionLoading
+                            ? "처리 중..."
+                            : event.max_participants !== null &&
+                                participants.length >=
+                                  event.max_participants
+                              ? "대기 신청"
+                              : "이벤트 참가"}
                     </button>
                   )}
 
@@ -472,11 +539,21 @@ export default function EventDetailPage() {
                     isCancelled={isCancelled}
                     canCancel={canEditEvent}
                     canDelete={siteRole === "MAIN_ADMIN"}
-                    onChanged={(cancelled) => setEvent((current) => current ? {
-                      ...current,
-                      event_status: cancelled ? "CANCELLED" : "OPEN",
-                      closed_at: cancelled ? current.closed_at : null,
-                    } : current)}
+                    onChanged={(cancelled) =>
+                      setEvent((current) =>
+                        current
+                          ? {
+                              ...current,
+                              event_status: cancelled
+                                ? "CANCELLED"
+                                : "OPEN",
+                              closed_at: cancelled
+                                ? current.closed_at
+                                : null,
+                            }
+                          : current,
+                      )
+                    }
                   />
                 </div>
               </div>
@@ -522,32 +599,66 @@ export default function EventDetailPage() {
               </article>
 
               <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-                <h2 className="text-2xl font-bold">이벤트 안내</h2>
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="text-2xl font-bold">이벤트 안내</h2>
+
+                  <button
+                    type="button"
+                    onClick={() => setGuideOpen((value) => !value)}
+                    className="shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-zinc-300 transition hover:border-amber-400/40 hover:text-amber-300"
+                  >
+                    {guideOpen ? "접기 −" : "더보기 +"}
+                  </button>
+                </div>
 
                 <p className="mt-6 whitespace-pre-wrap leading-8 text-zinc-400">
-                  {event.description?.trim() ||
-                    "등록된 이벤트 설명이 없습니다."}
+                  {guideOpen ? descriptionText : descriptionPreview}
                 </p>
               </article>
+
               {isCancelled && (
                 <div className="rounded-3xl border border-red-400/30 bg-red-400/[0.07] px-6 py-5 text-sm font-semibold text-red-200">
-                  이 이벤트는 취소되었습니다. 기존 기록은 보존되지만 참가 및 운영 기능은 사용할 수 없습니다.
+                  이 이벤트는 취소되었습니다. 기존 기록은
+                  보존되지만 참가 및 운영 기능은 사용할 수
+                  없습니다.
                 </div>
               )}
-              <EventLifecycleCard
-                eventId={eventId}
-                isClosed={isClosed}
-                canManage={canManage && !isCancelled}
-                closedAt={event.closed_at}
-                onChanged={(closed, closedAt) =>
-                  setEvent((current) => current ? {
-                    ...current,
-                    event_status: closed ? "CLOSED" : "OPEN",
-                    closed_at: closedAt,
-                  } : current)
-                }
-              />
-              <EventNoticeCard eventId={eventId} canManage={canManage && !isCancelled} />
+
+              <div
+                className={`grid gap-4 ${
+                  canManage && !isCancelled
+                    ? "xl:grid-cols-2"
+                    : ""
+                }`}
+              >
+                <EventLifecycleCard
+                  eventId={eventId}
+                  isClosed={isClosed}
+                  canManage={canManage && !isCancelled}
+                  closedAt={event.closed_at}
+                  onChanged={(closed, closedAt) =>
+                    setEvent((current) =>
+                      current
+                        ? {
+                            ...current,
+                            event_status: closed
+                              ? "CLOSED"
+                              : "OPEN",
+                            closed_at: closedAt,
+                          }
+                        : current,
+                    )
+                  }
+                />
+
+                {canManage && !isCancelled && (
+                  <EventNoticeCard
+                    eventId={eventId}
+                    canManage
+                  />
+                )}
+              </div>
+
               <EventCapacityCard
                 eventId={eventId}
                 maxParticipants={event.max_participants}
@@ -556,10 +667,19 @@ export default function EventDetailPage() {
                 canManage={canManage}
                 isClosed={isLocked}
                 onChanged={async (maxParticipants) => {
-                  setEvent((current) => current ? { ...current, max_participants: maxParticipants } : current);
+                  setEvent((current) =>
+                    current
+                      ? {
+                          ...current,
+                          max_participants: maxParticipants,
+                        }
+                      : current,
+                  );
+
                   await reloadParticipation();
                 }}
               />
+
               <AttendanceManager
                 eventId={eventId}
                 participants={participants}
@@ -567,24 +687,37 @@ export default function EventDetailPage() {
                 isClosed={isLocked}
                 onChanged={loadParticipants}
               />
-              {event.event_kind === "MURDER_MYSTERY" && event.murder_mystery_id ? <MurderMysteryEventPanel
-                eventId={eventId}
-                mysteryId={event.murder_mystery_id}
-                canManage={canManage}
-                isClosed={isLocked}
-              /> : event.event_kind === "BOARDGAME" ? <GroupPlaySection
-                eventId={eventId}
-                participants={participants}
-                currentUserId={user?.id ?? null}
-                canManage={canManage}
-                isClosed={isLocked}
-              /> : null}
-              {event.event_kind !== "GENERAL" && <EventStatistics eventId={eventId} participants={participants} />}
+
+              {event.event_kind === "MURDER_MYSTERY" &&
+              event.murder_mystery_id ? (
+                <MurderMysteryEventPanel
+                  eventId={eventId}
+                  mysteryId={event.murder_mystery_id}
+                  canManage={canManage}
+                  isClosed={isLocked}
+                />
+              ) : event.event_kind === "BOARDGAME" ? (
+                <GroupPlaySection
+                  eventId={eventId}
+                  participants={participants}
+                  currentUserId={user?.id ?? null}
+                  canManage={canManage}
+                  isClosed={isLocked}
+                />
+              ) : null}
+
+              {event.event_kind !== "GENERAL" && (
+                <EventStatistics
+                  eventId={eventId}
+                  participants={participants}
+                />
+              )}
             </div>
 
             <aside className="h-fit rounded-3xl border border-white/10 bg-white/[0.03] p-6">
               <div className="flex items-center justify-between gap-4">
                 <h2 className="text-xl font-bold">참가자</h2>
+
                 <span className="rounded-full bg-amber-400/10 px-3 py-1 text-sm font-semibold text-amber-300">
                   {participants.length}명
                 </span>
@@ -602,6 +735,7 @@ export default function EventDetailPage() {
                     const participantName = makeParticipantName(
                       participant.profile,
                     );
+
                     const participantIsCreator =
                       participant.user_id === event.created_by;
 
@@ -628,21 +762,48 @@ export default function EventDetailPage() {
                               이벤트 생성자
                             </p>
                           )}
-                          <p className={`mt-1 text-xs ${
-                            participant.attendance_status === "PRESENT"
-                              ? "text-emerald-300"
-                              : participant.attendance_status === "ABSENT"
-                                ? "text-red-300"
-                                : "text-zinc-600"
-                          }`}>
-                            {participant.attendance_status === "PRESENT"
+
+                          <p
+                            className={`mt-1 text-xs ${
+                              participant.attendance_status ===
+                              "PRESENT"
+                                ? "text-emerald-300"
+                                : participant.attendance_status ===
+                                    "ABSENT"
+                                  ? "text-red-300"
+                                  : "text-zinc-600"
+                            }`}
+                          >
+                            {participant.attendance_status ===
+                            "PRESENT"
                               ? "출석"
-                              : participant.attendance_status === "ABSENT"
+                              : participant.attendance_status ===
+                                  "ABSENT"
                                 ? "불참"
                                 : "출석 미확인"}
                           </p>
-                          {event.event_kind === "MURDER_MYSTERY" && <p className={`mt-1 text-xs font-semibold ${participant.participation_role === "GM" ? "text-red-300" : "text-zinc-500"}`}>{participant.participation_role === "GM" ? "GM" : "플레이어"}{participant.repeat_override ? " · 재참가 허용" : ""}</p>}
+
+                          {event.event_kind ===
+                            "MURDER_MYSTERY" && (
+                            <p
+                              className={`mt-1 text-xs font-semibold ${
+                                participant.participation_role ===
+                                "GM"
+                                  ? "text-red-300"
+                                  : "text-zinc-500"
+                              }`}
+                            >
+                              {participant.participation_role ===
+                              "GM"
+                                ? "GM"
+                                : "플레이어"}
+                              {participant.repeat_override
+                                ? " · 재참가 허용"
+                                : ""}
+                            </p>
+                          )}
                         </div>
+
                         <span className="text-zinc-600">›</span>
                       </Link>
                     );
