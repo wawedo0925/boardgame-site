@@ -55,6 +55,23 @@ function playerText(game: Game) {
   return "인원 미정";
 }
 
+function canManageBoardgames(value: unknown) {
+  const normalized = String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+
+  return [
+    "MAIN_ADMIN",
+    "ADMIN",
+    "RULEMASTER",
+    "MASTER",
+    "MANAGER",
+    "硫붿씤愿由ъ옄",
+    "愿由ъ옄",
+    "猷곕쭏",
+  ].includes(normalized);
+}
 export default function BoardgameList({
   games,
   total,
@@ -68,6 +85,45 @@ export default function BoardgameList({
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
+  const [resolvedCanManage, setResolvedCanManage] = useState(Boolean(canManage));
+
+  useEffect(() => {
+    let active = true;
+    setResolvedCanManage(Boolean(canManage));
+
+    if (canManage) {
+      return () => {
+        active = false;
+      };
+    }
+
+    async function resolveManagementPermission() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || !active) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!active) return;
+
+      const row = profile as Record<string, unknown> | null;
+      setResolvedCanManage(
+        canManageBoardgames(row?.site_role ?? row?.role),
+      );
+    }
+
+    void resolveManagementPermission();
+
+    return () => {
+      active = false;
+    };
+  }, [canManage, supabase]);
   const [items, setItems] = useState<Game[]>(games);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [coverGame, setCoverGame] = useState<Game | null>(null);
@@ -194,6 +250,26 @@ export default function BoardgameList({
         onChange={uploadCover}
       />
 
+      {resolvedCanManage && (
+        <div
+          data-testid="boardgame-management-entry"
+          style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}
+        >
+          <Link
+            href="/admin/library?kind=boardgame"
+            style={{
+              border: "1px solid #7054a5",
+              borderRadius: 14,
+              padding: "12px 18px",
+              color: "#d7c5ff",
+              background: "#15101d",
+              fontWeight: 800,
+              textDecoration: "none",
+            }}
+          >
+            寃뚯엫 ?깅줉쨌愿由?    </Link>
+        </div>
+      )}
       <form method="get" action="/boardgames" className="searchForm">
         <input
           type="search"
@@ -262,7 +338,7 @@ export default function BoardgameList({
                   {game.publisher || "출판사 미정"}
                 </p>
 
-                {canManage && (
+                {resolvedCanManage && (
                   <div className="managerActions">
                     <button
                       type="button"
