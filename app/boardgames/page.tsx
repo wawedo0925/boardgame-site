@@ -25,6 +25,7 @@ function hasManagementRole(value: unknown) {
   return [
     "MAIN_ADMIN",
     "ADMIN",
+    "RULE_MASTER",
     "RULEMASTER",
     "MASTER",
     "MANAGER",
@@ -105,22 +106,24 @@ export default async function BoardgamesPage({
   let boardgameCanManage = false;
 
   if (user) {
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
+    const [
+      { data: siteAdmin },
+      { data: currentRole, error: roleError },
+    ] = await Promise.all([
+      supabase
+        .from("site_admins")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase.rpc("current_site_role"),
+    ]);
 
-    if (profileError) {
-      console.error("보드게임 관리 권한 조회 오류:", profileError);
+    if (roleError) {
+      console.error("보드게임 직위 조회 오류:", roleError);
     }
 
-    const profileRecord = profile as Record<string, unknown> | null;
-
     boardgameCanManage =
-      hasManagementRole(profileRecord?.site_role) ||
-      hasManagementRole(profileRecord?.role) ||
-      profileRecord?.is_admin === true;
+      Boolean(siteAdmin) || hasManagementRole(currentRole);
   }
 
   const genres = Array.from(
@@ -145,7 +148,10 @@ export default async function BoardgamesPage({
         </div>
 
         {boardgameCanManage && (
-          <Link href="/admin/library" className="libraryButton">
+          <Link
+            href="/admin/library?kind=boardgame"
+            className="libraryButton"
+          >
             게임 등록·관리
           </Link>
         )}

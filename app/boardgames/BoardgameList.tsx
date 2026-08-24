@@ -37,41 +37,38 @@ type Props = {
 
 function playerText(game: Game) {
   if (game.min_players && game.max_players) {
-    if (game.min_players === game.max_players) {
-      return `${game.min_players}명`;
-    }
-
-    return `${game.min_players}~${game.max_players}명`;
+    return game.min_players === game.max_players
+      ? `${game.min_players}명`
+      : `${game.min_players}~${game.max_players}명`;
   }
 
-  if (game.min_players) {
-    return `${game.min_players}명 이상`;
-  }
-
-  if (game.max_players) {
-    return `${game.max_players}명 이하`;
-  }
+  if (game.min_players) return `${game.min_players}명 이상`;
+  if (game.max_players) return `${game.max_players}명 이하`;
 
   return "인원 미정";
 }
 
-function canManageBoardgames(value: unknown) {
-  const normalized = String(value ?? "")
+function normalizeRole(value: unknown) {
+  return String(value ?? "")
     .trim()
     .toUpperCase()
     .replace(/[\s-]+/g, "_");
+}
 
+function hasManagementRole(value: unknown) {
   return [
     "MAIN_ADMIN",
     "ADMIN",
+    "RULE_MASTER",
     "RULEMASTER",
     "MASTER",
     "MANAGER",
-    "硫붿씤愿由ъ옄",
-    "愿由ъ옄",
-    "猷곕쭏",
-  ].includes(normalized);
+    "메인_관리자",
+    "관리자",
+    "룰마",
+  ].includes(normalizeRole(value));
 }
+
 export default function BoardgameList({
   games,
   total,
@@ -85,46 +82,9 @@ export default function BoardgameList({
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  const [resolvedCanManage, setResolvedCanManage] = useState(Boolean(canManage));
-
-  useEffect(() => {
-    let active = true;
-    setResolvedCanManage(Boolean(canManage));
-
-    if (canManage) {
-      return () => {
-        active = false;
-      };
-    }
-
-    async function resolveManagementPermission() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user || !active) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!active) return;
-
-      const row = profile as Record<string, unknown> | null;
-      setResolvedCanManage(
-        canManageBoardgames(row?.site_role ?? row?.role),
-      );
-    }
-
-    void resolveManagementPermission();
-
-    return () => {
-      active = false;
-    };
-  }, [canManage, supabase]);
   const [items, setItems] = useState<Game[]>(games);
+  const [resolvedCanManage, setResolvedCanManage] =
+    useState(Boolean(canManage));
   const [busyId, setBusyId] = useState<string | null>(null);
   const [coverGame, setCoverGame] = useState<Game | null>(null);
 
@@ -133,6 +93,54 @@ export default function BoardgameList({
   useEffect(() => {
     setItems(games);
   }, [games]);
+
+  useEffect(() => {
+    let active = true;
+
+    setResolvedCanManage(Boolean(canManage));
+
+    if (canManage) {
+      return () => {
+        active = false;
+      };
+    }
+
+    async function checkPermission() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || !active) return;
+
+      const [
+        { data: siteAdmin },
+        { data: currentRole, error: roleError },
+      ] = await Promise.all([
+        supabase
+          .from("site_admins")
+          .select("user_id")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase.rpc("current_site_role"),
+      ]);
+
+      if (!active) return;
+
+      if (roleError) {
+        console.error("보드게임 직위 조회 오류:", roleError);
+      }
+
+      setResolvedCanManage(
+        Boolean(siteAdmin) || hasManagementRole(currentRole),
+      );
+    }
+
+    void checkPermission();
+
+    return () => {
+      active = false;
+    };
+  }, [canManage, supabase]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const firstNumber = total === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -150,7 +158,7 @@ export default function BoardgameList({
   }
 
   function chooseCover(game: Game) {
-    if (!canManage) return;
+    if (!resolvedCanManage) return;
 
     setCoverGame(game);
     fileInput.current?.click();
@@ -162,20 +170,33 @@ export default function BoardgameList({
 
     event.target.value = "";
 
-    if (!file || !game || !canManage) return;
+    if (!file || !game || !resolvedCanManage) return;
+
+    if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
+      alert("JPG, PNG, WEBP 이미지만 등록할 수 있습니다.");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert("표지 이미지는 10MB 이하여야 합니다.");
+      return;
+    }
 
     setBusyId(game.id);
 
     const extension =
-      file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
-      "jpg";
+      file.name
+        .split(".")
+        .pop()
+        ?.toLowerCase()
+        .replace(/[^a-z0-9]/g, "") || "jpg";
 
     const path = `${game.id}/${Date.now()}.${extension}`;
 
     const { error: uploadError } = await supabase.storage
       .from("game-covers")
       .upload(path, file, {
-        upsert: true,
+        upsert: false,
         contentType: file.type || undefined,
       });
 
@@ -197,7 +218,11 @@ export default function BoardgameList({
     setBusyId(null);
 
     if (updateError) {
-      alert(`표지 주소를 저장하지 못했습니다.\n${updateError.message}`);
+      await supabase.storage.from("game-covers").remove([path]);
+
+      alert(
+        `표지 주소를 저장하지 못했습니다.\n${updateError.message}`,
+      );
       return;
     }
 
@@ -214,7 +239,7 @@ export default function BoardgameList({
   }
 
   async function removeGame(game: Game) {
-    if (!canManage) return;
+    if (!resolvedCanManage) return;
 
     const confirmed = window.confirm(
       `"${game.name ?? "이 게임"}"을 정말 삭제할까요?\n관련 기록이 있으면 삭제되지 않을 수 있습니다.`,
@@ -236,7 +261,10 @@ export default function BoardgameList({
       return;
     }
 
-    setItems((current) => current.filter((item) => item.id !== game.id));
+    setItems((current) =>
+      current.filter((item) => item.id !== game.id),
+    );
+
     router.refresh();
   }
 
@@ -245,32 +273,27 @@ export default function BoardgameList({
       <input
         ref={fileInput}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept="image/jpeg,image/png,image/webp"
         hidden
         onChange={uploadCover}
       />
 
       {resolvedCanManage && (
-        <div
-          data-testid="boardgame-management-entry"
-          style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}
-        >
+        <div className="managementEntry">
           <Link
             href="/admin/library?kind=boardgame"
-            style={{
-              border: "1px solid #7054a5",
-              borderRadius: 14,
-              padding: "12px 18px",
-              color: "#d7c5ff",
-              background: "#15101d",
-              fontWeight: 800,
-              textDecoration: "none",
-            }}
+            className="managementEntryButton"
           >
-            寃뚯엫 ?깅줉쨌愿由?    </Link>
+            게임 등록·관리
+          </Link>
         </div>
       )}
-      <form method="get" action="/boardgames" className="searchForm">
+
+      <form
+        method="get"
+        action="/boardgames"
+        className="searchForm"
+      >
         <input
           type="search"
           name="q"
@@ -279,7 +302,11 @@ export default function BoardgameList({
           aria-label="게임 이름 또는 출판사 검색"
         />
 
-        <select name="genre" defaultValue={genre} aria-label="장르 선택">
+        <select
+          name="genre"
+          defaultValue={genre}
+          aria-label="장르 선택"
+        >
           <option value="">전체 장르</option>
 
           {genres.map((genreName) => (
@@ -303,7 +330,9 @@ export default function BoardgameList({
       </div>
 
       {items.length === 0 ? (
-        <div className="emptyBox">조건에 맞는 보드게임이 없습니다.</div>
+        <div className="emptyBox">
+          조건에 맞는 보드게임이 없습니다.
+        </div>
       ) : (
         <div className="gameList">
           {items.map((game) => (
@@ -325,13 +354,18 @@ export default function BoardgameList({
               </Link>
 
               <div className="gameInfo">
-                <Link href={`/boardgames/${game.id}`} className="gameTitle">
+                <Link
+                  href={`/boardgames/${game.id}`}
+                  className="gameTitle"
+                >
                   {game.name ?? "이름 미정"}
                 </Link>
 
                 <p className="gameMeta">
                   {game.genre || "장르 미정"} · {playerText(game)} ·{" "}
-                  {game.play_time ? `${game.play_time}분` : "시간 미정"}
+                  {game.play_time
+                    ? `${game.play_time}분`
+                    : "시간 미정"}
                 </p>
 
                 <p className="publisher">
@@ -346,7 +380,11 @@ export default function BoardgameList({
                       disabled={busyId === game.id}
                       onClick={() => chooseCover(game)}
                     >
-                      {busyId === game.id ? "처리 중" : "표지 교체"}
+                      {busyId === game.id
+                        ? "처리 중"
+                        : game.thumbnail
+                          ? "표지 교체"
+                          : "표지 등록"}
                     </button>
 
                     <Link
@@ -375,14 +413,23 @@ export default function BoardgameList({
       )}
 
       {totalPages > 1 && (
-        <nav className="pagination" aria-label="보드게임 페이지 이동">
+        <nav
+          className="pagination"
+          aria-label="보드게임 페이지 이동"
+        >
           {page > 1 && (
-            <Link href={pageHref(page - 1)} className="pageButton">
+            <Link
+              href={pageHref(page - 1)}
+              className="pageButton"
+            >
               이전
             </Link>
           )}
 
-          {Array.from({ length: totalPages }, (_, index) => index + 1)
+          {Array.from(
+            { length: totalPages },
+            (_, index) => index + 1,
+          )
             .filter(
               (pageNumber) =>
                 pageNumber === 1 ||
@@ -392,7 +439,8 @@ export default function BoardgameList({
             .map((pageNumber, index, visiblePages) => {
               const previous = visiblePages[index - 1];
               const showDots =
-                previous !== undefined && pageNumber - previous > 1;
+                previous !== undefined &&
+                pageNumber - previous > 1;
 
               return (
                 <span className="pageItem" key={pageNumber}>
@@ -413,7 +461,10 @@ export default function BoardgameList({
             })}
 
           {page < totalPages && (
-            <Link href={pageHref(page + 1)} className="pageButton">
+            <Link
+              href={pageHref(page + 1)}
+              className="pageButton"
+            >
               다음
             </Link>
           )}
@@ -424,6 +475,27 @@ export default function BoardgameList({
         .listSection {
           width: min(1232px, calc(100% - 40px));
           margin: 0 auto;
+        }
+
+        .managementEntry {
+          display: flex;
+          justify-content: flex-end;
+          margin-bottom: 16px;
+        }
+
+        .managementEntryButton {
+          border: 1px solid #7054a5;
+          border-radius: 14px;
+          padding: 12px 18px;
+          color: #d7c5ff;
+          background: #15101d;
+          font-weight: 800;
+          text-decoration: none;
+        }
+
+        .managementEntryButton:hover {
+          border-color: #9d70d7;
+          background: #1d1429;
         }
 
         .searchForm {
@@ -644,6 +716,15 @@ export default function BoardgameList({
         @media (max-width: 700px) {
           .listSection {
             width: calc(100% - 32px);
+          }
+
+          .managementEntry {
+            justify-content: stretch;
+          }
+
+          .managementEntryButton {
+            width: 100%;
+            text-align: center;
           }
 
           .searchForm {
