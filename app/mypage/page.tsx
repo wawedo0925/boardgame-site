@@ -423,7 +423,12 @@ export default function MyPage() {
       gender: savedProfile.gender ?? "",
     });
 
-    setMessage("활동 프로필이 저장되었습니다.");
+    const finalActivityName = savedProfile.activity_name ?? activityName;
+    setMessage(
+      finalActivityName === activityName
+        ? "활동 프로필이 저장되었습니다."
+        : `같은 활동명과 출생연도를 사용하는 회원이 있어 활동명이 '${finalActivityName}'(으)로 저장되었습니다.`,
+    );
     setIsEditing(false);
     setIsSaving(false);
   }
@@ -662,11 +667,11 @@ export default function MyPage() {
                     htmlFor="activityName"
                     className="block text-sm font-semibold text-zinc-300"
                   >
-                    이름
+                    이름 (성 제외)
                   </label>
 
                   <p className="mt-1 text-sm text-zinc-600">
-                    홈페이지에서 사용할 본인 이름을 작성해주세요.
+                    성을 제외하고 홈페이지에서 사용할 이름만 작성해주세요.
                   </p>
 
                   <input
@@ -680,7 +685,7 @@ export default function MyPage() {
                       }))
                     }
                     maxLength={20}
-                    placeholder="예: 이우영"
+                    placeholder="예: 우영"
                     className="mt-3 w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-white outline-none transition placeholder:text-zinc-700 focus:border-amber-400/60"
                   />
                 </div>
