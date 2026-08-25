@@ -186,7 +186,7 @@ export default function MurderMysteryList({ mysteries, isAdmin }: { mysteries: M
           >
             <div>
               <div className="flex h-28 w-20 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-red-400/10 text-4xl">
-                {item.cover_url ? <img src={item.cover_url} alt={`${item.title} 표지`} className="h-full w-full object-cover" /> : "🎭"}
+                {item.cover_url ? <img src={item.cover_url} alt={`${item.title} 표지`} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : "🎭"}
               </div>
               {isAdmin && (
                 <div className="mt-2 flex w-20 flex-col gap-1">

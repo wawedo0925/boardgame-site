@@ -48,27 +48,6 @@ function playerText(game: Game) {
   return "인원 미정";
 }
 
-function normalizeRole(value: unknown) {
-  return String(value ?? "")
-    .trim()
-    .toUpperCase()
-    .replace(/[\s-]+/g, "_");
-}
-
-function hasManagementRole(value: unknown) {
-  return [
-    "MAIN_ADMIN",
-    "ADMIN",
-    "RULE_MASTER",
-    "RULEMASTER",
-    "MASTER",
-    "MANAGER",
-    "메인_관리자",
-    "관리자",
-    "룰마",
-  ].includes(normalizeRole(value));
-}
-
 export default function BoardgameList({
   games,
   total,
@@ -95,52 +74,8 @@ export default function BoardgameList({
   }, [games]);
 
   useEffect(() => {
-    let active = true;
-
     setResolvedCanManage(Boolean(canManage));
-
-    if (canManage) {
-      return () => {
-        active = false;
-      };
-    }
-
-    async function checkPermission() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user || !active) return;
-
-      const [
-        { data: siteAdmin },
-        { data: currentRole, error: roleError },
-      ] = await Promise.all([
-        supabase
-          .from("site_admins")
-          .select("user_id")
-          .eq("user_id", user.id)
-          .maybeSingle(),
-        supabase.rpc("current_site_role"),
-      ]);
-
-      if (!active) return;
-
-      if (roleError) {
-        console.error("보드게임 직위 조회 오류:", roleError);
-      }
-
-      setResolvedCanManage(
-        Boolean(siteAdmin) || hasManagementRole(currentRole),
-      );
-    }
-
-    void checkPermission();
-
-    return () => {
-      active = false;
-    };
-  }, [canManage, supabase]);
+  }, [canManage]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const firstNumber = total === 0 ? 0 : (page - 1) * pageSize + 1;
