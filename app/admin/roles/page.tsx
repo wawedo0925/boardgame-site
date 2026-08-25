@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Header from "../../components/Header";
 import { createClient } from "@/lib/supabase/server";
 import RoleManager from "./RoleManager";
 
@@ -16,7 +15,6 @@ export default async function StaffRolesPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
-      <Header />
       <section className="mx-auto max-w-6xl px-5 py-12 sm:py-16">
         <p className="text-sm font-semibold tracking-[.25em] text-amber-300">
           PERMISSION MANAGEMENT

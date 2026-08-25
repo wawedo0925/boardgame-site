@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import Header from "../components/Header";
 import { createClient } from "../../lib/supabase/server";
 
 type Summary = {
@@ -32,7 +31,6 @@ export default async function AdminPage() {
 
   return (
     <main className="min-h-screen bg-[#08090b] text-white">
-      <Header />
       <section className="mx-auto max-w-6xl px-5 py-14">
         <p className="text-xs font-bold tracking-[0.28em] text-amber-400">ADMIN DASHBOARD</p>
         <h1 className="mt-2 text-3xl font-black">관리자 페이지</h1>

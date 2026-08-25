@@ -5,7 +5,6 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 
-import Header from "../../components/Header";
 import { createClient } from "@/lib/supabase/client";
 
 type EventForm = {
@@ -19,6 +18,8 @@ type EventForm = {
   eventKind: "BOARDGAME" | "MURDER_MYSTERY" | "GENERAL";
   murderMysteryId: string;
   creatorRole: "PLAYER" | "GM";
+  recurrence: "NONE" | "WEEKLY" | "BIWEEKLY";
+  participationFee: string;
 };
 
 type MurderMysteryOption = { id: string; title: string; min_players: number | null; max_players: number | null };
@@ -34,6 +35,8 @@ const initialForm: EventForm = {
   eventKind: "BOARDGAME",
   murderMysteryId: "",
   creatorRole: "PLAYER",
+  recurrence: "NONE",
+  participationFee: "",
 };
 
 function toLocalDateTime(date: string, time: string) {
@@ -131,6 +134,8 @@ export default function NewEventPage() {
     const location = form.location.trim();
     const description = form.description.trim();
     const maxParticipants = form.maxParticipants.trim() === "" ? null : Number(form.maxParticipants);
+    const defaultParticipationFee = form.eventKind === "BOARDGAME" ? 10000 : form.eventKind === "MURDER_MYSTERY" ? 13000 : 0;
+    const participationFee = form.participationFee.trim() === "" ? defaultParticipationFee : Number(form.participationFee);
 
     if (form.eventKind === "MURDER_MYSTERY" && !form.murderMysteryId) {
       setErrorMessage("진행할 머더미스터리 작품을 선택해 주세요.");
@@ -143,6 +148,10 @@ export default function NewEventPage() {
 
     if (maxParticipants !== null && (!Number.isInteger(maxParticipants) || maxParticipants < 1)) {
       setErrorMessage("참가 정원은 1명 이상의 정수로 입력해 주세요.");
+      return;
+    }
+    if (!Number.isInteger(participationFee) || participationFee < 0) {
+      setErrorMessage("참가비는 0원 이상의 정수로 입력해 주세요.");
       return;
     }
 
@@ -193,6 +202,35 @@ export default function NewEventPage() {
       }
     }
 
+    if (form.recurrence !== "NONE") {
+      const { data: recurringEventId, error: recurringError } = await supabase.rpc(
+        "create_recurring_event_series",
+        {
+          p_title: title,
+          p_started_at: startedAt.toISOString(),
+          p_ended_at: endedAt?.toISOString() ?? null,
+          p_location: location || null,
+          p_description: description || null,
+          p_max_participants: maxParticipants,
+          p_event_kind: form.eventKind,
+          p_murder_mystery_id: form.eventKind === "MURDER_MYSTERY" ? form.murderMysteryId : null,
+          p_interval_weeks: form.recurrence === "WEEKLY" ? 1 : 2,
+          p_creator_role: form.eventKind === "MURDER_MYSTERY" ? form.creatorRole : "PLAYER",
+          p_participation_fee: participationFee,
+        },
+      );
+
+      if (recurringError) {
+        setErrorMessage(`반복 이벤트 저장에 실패했습니다: ${recurringError.message}`);
+        setIsSaving(false);
+        return;
+      }
+
+      router.push(`/events/${recurringEventId}`);
+      router.refresh();
+      return;
+    }
+
     const { data, error } = await supabase
       .from("events")
       .insert({
@@ -205,6 +243,7 @@ export default function NewEventPage() {
         max_participants: maxParticipants,
         event_kind: form.eventKind,
         murder_mystery_id: form.eventKind === "MURDER_MYSTERY" ? form.murderMysteryId : null,
+        participation_fee: participationFee,
       })
       .select("id")
       .single();
@@ -238,8 +277,6 @@ export default function NewEventPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
-      <Header />
-
       <section className="border-b border-white/10">
         <div className="mx-auto max-w-5xl px-6 py-16">
           <p className="text-sm font-semibold tracking-[0.3em] text-amber-400">
@@ -393,6 +430,38 @@ export default function NewEventPage() {
                   className="rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3.5 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-amber-400/60"
                 />
                 <span className="text-xs text-zinc-500">이벤트를 만든 뒤에도 관리자가 변경할 수 있습니다.</span>
+              </label>
+
+              <label className="grid gap-3">
+                <span className="text-sm font-semibold text-zinc-200">참가비</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  value={form.participationFee}
+                  onChange={(event) => updateForm("participationFee", event.target.value)}
+                  placeholder={form.eventKind === "BOARDGAME" ? "기본 10,000원" : form.eventKind === "MURDER_MYSTERY" ? "기본 13,000원" : "기본 무료"}
+                  className="rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3.5 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-amber-400/60"
+                />
+                <span className="text-xs leading-5 text-zinc-500">
+                  비워두면 종류별 기본 참가비가 적용됩니다. 무료 이벤트는 0원을 입력하세요.
+                </span>
+              </label>
+
+              <label className="grid gap-3">
+                <span className="text-sm font-semibold text-zinc-200">반복 일정</span>
+                <select
+                  value={form.recurrence}
+                  onChange={(event) => updateForm("recurrence", event.target.value as EventForm["recurrence"])}
+                  className="rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3.5 text-zinc-100 outline-none transition focus:border-amber-400/60"
+                >
+                  <option value="NONE">반복 안 함</option>
+                  <option value="WEEKLY">매주 반복</option>
+                  <option value="BIWEEKLY">격주 반복</option>
+                </select>
+                <span className="text-xs leading-5 text-zinc-500">
+                  반복 일정은 선택한 날짜를 기준으로 앞으로 2개월치가 생성되며, 일정별 Vol 번호가 독립적으로 붙습니다. 공휴일도 생성됩니다.
+                </span>
               </label>
 
               <label className="grid gap-3">

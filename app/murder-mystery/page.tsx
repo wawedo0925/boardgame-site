@@ -1,4 +1,3 @@
-import Header from "../components/Header";
 import AdminLibraryButton from "../components/AdminLibraryButton";
 import { createClient } from "@/lib/supabase/server";
 import MurderMysteryList from "./MurderMysteryList";
@@ -15,7 +14,6 @@ export default async function MurderMysteryPage() {
   ]);
   const isAdmin = Boolean(adminResult.data);
   return <main className="min-h-screen bg-zinc-950 text-white">
-    <Header />
     <section className="border-b border-white/10"><div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-20 sm:flex-row sm:items-end sm:justify-between">
       <div><p className="text-sm font-semibold tracking-[0.3em] text-red-400">MURDER MYSTERY</p><h1 className="mt-3 text-4xl font-bold sm:text-5xl">머더미스터리</h1><p className="mt-5 max-w-2xl text-lg leading-8 text-zinc-400">각자의 역할을 맡아 사건의 진상과 범인을 추리하는 스토리 게임입니다.</p>{isAdmin && <p className="mt-4 inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-300">관리자 표지 편집 모드</p>}</div>
       <AdminLibraryButton />

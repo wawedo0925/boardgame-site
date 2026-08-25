@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
-import Header from "../../components/Header";
 import GroupPlaySection from "@/components/events/GroupPlaySection";
 import EventStatistics from "@/components/events/EventStatistics";
 import EventLifecycleCard from "@/components/events/EventLifecycleCard";
@@ -16,6 +15,7 @@ import EventCapacityCard, {
   type WaitlistMember,
 } from "@/components/events/EventCapacityCard";
 import EventCancellationCard from "@/components/events/EventCancellationCard";
+import EventJoinPaymentDialog from "@/components/events/EventJoinPaymentDialog";
 import type { AttendanceStatus } from "@/types/event";
 import { createClient } from "@/lib/supabase/client";
 
@@ -33,6 +33,7 @@ type EventRow = {
   max_participants: number | null;
   event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "GENERAL";
   murder_mystery_id: string | null;
+  participation_fee: number | null;
 };
 
 type ParticipantRow = {
@@ -138,6 +139,7 @@ export default function EventDetailPage() {
   const [canOperate, setCanOperate] = useState(false);
   const [siteRole, setSiteRole] = useState("MEMBER");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
 
   async function loadParticipants() {
     const { data: participantData, error: participantError } = await supabase
@@ -248,7 +250,7 @@ export default function EventDetailPage() {
         supabase
           .from("events")
           .select(
-            "id, title, started_at, ended_at, location, description, created_by, created_at, event_status, closed_at, max_participants, event_kind, murder_mystery_id",
+            "id, title, started_at, ended_at, location, description, created_by, created_at, event_status, closed_at, max_participants, event_kind, murder_mystery_id, participation_fee",
           )
           .eq("id", eventId)
           .maybeSingle(),
@@ -339,7 +341,10 @@ export default function EventDetailPage() {
   const isEnded = status === "종료";
   const isClosed = event?.event_status === "CLOSED";
   const isCancelled = event?.event_status === "CANCELLED";
+  const isUpcoming = event ? new Date(event.started_at).getTime() > Date.now() : false;
   const isLocked = isClosed || isCancelled;
+  const participationFee = event?.participation_fee ?? (event?.event_kind === "BOARDGAME" ? 10000 : event?.event_kind === "MURDER_MYSTERY" ? 13000 : 0);
+  const isAtCapacity = Boolean(event?.max_participants !== null && participants.length >= (event?.max_participants ?? 0));
 
   const descriptionText =
     event?.description?.trim() || "등록된 이벤트 설명이 없습니다.";
@@ -377,7 +382,13 @@ export default function EventDetailPage() {
       alert("정원이 가득 차 대기 명단에 등록되었습니다.");
     }
 
+    setJoinDialogOpen(false);
     setIsActionLoading(false);
+  }
+
+  function openJoinDialog() {
+    if (!user) return;
+    setJoinDialogOpen(true);
   }
 
   async function handleCancelJoin() {
@@ -415,9 +426,7 @@ export default function EventDetailPage() {
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <Header />
-
+    <main className="min-h-screen bg-zinc-950 pb-28 text-white">
       {isLoading ? (
         <section className="mx-auto max-w-7xl px-6 py-16">
           <div className="h-[520px] animate-pulse rounded-3xl border border-white/10 bg-white/[0.03]" />
@@ -513,7 +522,7 @@ export default function EventDetailPage() {
                   ) : (
                     <button
                       type="button"
-                      onClick={handleJoin}
+                      onClick={openJoinDialog}
                       disabled={
                         isActionLoading || isEnded || isCancelled
                       }
@@ -525,11 +534,9 @@ export default function EventDetailPage() {
                           ? "종료된 이벤트"
                           : isActionLoading
                             ? "처리 중..."
-                            : event.max_participants !== null &&
-                                participants.length >=
-                                  event.max_participants
+                            : isAtCapacity
                               ? "대기 신청"
-                              : "이벤트 참가"}
+                              : `이벤트 참가 · ${participationFee === 0 ? "무료" : `${participationFee.toLocaleString("ko-KR")}원`}`}
                     </button>
                   )}
 
@@ -537,8 +544,8 @@ export default function EventDetailPage() {
                     eventId={eventId}
                     eventTitle={event.title}
                     isCancelled={isCancelled}
-                    canCancel={canEditEvent}
-                    canDelete={siteRole === "MAIN_ADMIN"}
+                    canCancel={canEditEvent && isUpcoming && !isCancelled}
+                    canDelete={siteRole === "MAIN_ADMIN" && isUpcoming}
                     onChanged={(cancelled) =>
                       setEvent((current) =>
                         current
@@ -594,6 +601,11 @@ export default function EventDetailPage() {
                     <p className="mt-2 font-semibold text-zinc-100">
                       {event.location?.trim() || "장소 미정"}
                     </p>
+                  </div>
+                  <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] p-5 sm:col-span-2">
+                    <p className="text-xs font-semibold tracking-wider text-zinc-500">참가비</p>
+                    <p className="mt-2 text-xl font-bold text-amber-300">{participationFee === 0 ? "무료" : `${participationFee.toLocaleString("ko-KR")}원`}</p>
+                    <p className="mt-2 text-xs leading-5 text-zinc-500">모임 시작 24시간 전까지 취소하면 100% 환불됩니다.</p>
                   </div>
                 </div>
               </article>
@@ -812,6 +824,19 @@ export default function EventDetailPage() {
               )}
             </aside>
           </section>
+
+          {!isEnded && !isCancelled && !isClosed && (
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-zinc-950/95 px-4 py-3 shadow-[0_-12px_35px_rgba(0,0,0,0.45)] backdrop-blur">
+              <div className="mx-auto flex max-w-3xl items-center gap-3">
+                <div className="hidden min-w-0 flex-1 sm:block"><p className="truncate text-sm font-bold">{event.title}</p><p className="mt-1 text-xs text-zinc-500">참가비 {participationFee === 0 ? "무료" : `${participationFee.toLocaleString("ko-KR")}원`}</p></div>
+                {!user ? <Link href="/login" className="min-h-12 flex-1 rounded-xl bg-amber-400 px-6 py-3 text-center font-black text-zinc-950 sm:flex-none">로그인 후 참가</Link>
+                  : isJoined || isWaitlisted ? <button type="button" onClick={handleCancelJoin} disabled={isActionLoading || isCreator} className="min-h-12 flex-1 rounded-xl border border-white/15 px-6 font-bold text-zinc-200 disabled:opacity-50 sm:flex-none">{isCreator ? "생성자 참가 중" : isWaitlisted ? "대기 취소" : "참가 취소"}</button>
+                  : <button type="button" onClick={openJoinDialog} disabled={isActionLoading} className="min-h-12 flex-1 rounded-xl bg-amber-400 px-6 font-black text-zinc-950 disabled:opacity-50 sm:flex-none">{isAtCapacity ? "대기 신청" : `참가 신청 · ${participationFee === 0 ? "무료" : `${participationFee.toLocaleString("ko-KR")}원`}`}</button>}
+              </div>
+            </div>
+          )}
+
+          {joinDialogOpen && <EventJoinPaymentDialog eventTitle={event.title} participationFee={participationFee} waitlisted={isAtCapacity} busy={isActionLoading} onClose={() => setJoinDialogOpen(false)} onConfirm={handleJoin} />}
         </>
       )}
     </main>

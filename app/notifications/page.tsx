@@ -23,6 +23,7 @@ const ICONS: Record<string, string> = {
   ACHIEVEMENT: "🏅",
   EVENT_NOTICE: "📢",
   ATTENDANCE: "✅",
+  EVENT_CANCELLED: "🚫",
 };
 
 function timeLabel(value: string) {

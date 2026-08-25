@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import Header from "../components/Header";
 import { createClient } from "@/lib/supabase/client";
 
 type EventParticipant = { id: string; user_id: string };
@@ -163,7 +162,6 @@ export default function EventsPage() {
   const selectClass = "min-w-0 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-zinc-300 outline-none focus:border-amber-400/60";
 
   return <main className="min-h-screen bg-zinc-950 text-white">
-    <Header />
     <section className="border-b border-white/10"><div className="mx-auto max-w-7xl px-5 py-14 sm:px-6 sm:py-20">
       <div className="flex flex-col gap-7 sm:flex-row sm:items-end sm:justify-between"><div>
         <p className="text-sm font-semibold tracking-[0.3em] text-amber-400">EVENTS</p>

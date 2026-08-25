@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Header from "../../components/Header";
 import { createClient } from "../../../lib/supabase/server";
 import MemberStatusManager from "./MemberStatusManager";
 
@@ -12,7 +11,6 @@ export default async function AdminMembersPage() {
 
   return (
     <main className="min-h-screen bg-[#08090b] text-white">
-      <Header />
       <MemberStatusManager />
     </main>
   );

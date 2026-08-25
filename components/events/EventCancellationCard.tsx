@@ -30,16 +30,15 @@ export default function EventCancellationCard({
 
   if (!canCancel && !canDelete) return null;
 
-  async function toggleCancellation() {
-    const message = isCancelled
-      ? "이 이벤트를 다시 열까요? 참가 신청과 운영 기능을 다시 사용할 수 있습니다."
-      : "이 이벤트를 취소할까요? 참가자와 대기자에게 알림이 전송됩니다.";
+  async function cancelEvent() {
+    if (isCancelled) return;
+    const message = "이 이벤트를 취소할까요? 참가자와 대기자에게 알림을 보낸 뒤 참가·대기·조 편성·플레이 기록을 삭제합니다. 이 작업은 되돌릴 수 없습니다.";
     if (!window.confirm(message)) return;
 
     setBusy(true);
     const { error } = await supabase.rpc("set_event_cancelled", {
       p_event_id: eventId,
-      p_cancelled: !isCancelled,
+      p_cancelled: true,
     });
     setBusy(false);
 
@@ -48,7 +47,7 @@ export default function EventCancellationCard({
       return;
     }
 
-    onChanged(!isCancelled);
+    onChanged(true);
     setOpen(false);
   }
 
@@ -106,7 +105,7 @@ export default function EventCancellationCard({
           </div>
 
           <p className="mt-2 text-xs leading-5 text-zinc-400">
-            취소하면 기록은 보존되며 다시 열 수 있습니다. 영구 삭제는 메인 관리자만 가능합니다.
+            시작 전 이벤트만 취소할 수 있습니다. 취소하면 관련 운영 기록이 삭제되고 반복 일정의 이후 Vol 번호가 당겨집니다.
           </p>
 
           <div className="mt-4 grid gap-2">
@@ -122,15 +121,13 @@ export default function EventCancellationCard({
             {canCancel && (
               <button
                 type="button"
-                onClick={toggleCancellation}
+                onClick={cancelEvent}
                 disabled={busy}
                 className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${
-                  isCancelled
-                    ? "bg-emerald-400 text-zinc-950 hover:bg-emerald-300"
-                    : "border border-red-400/40 text-red-300 hover:bg-red-400/10"
+                  "border border-red-400/40 text-red-300 hover:bg-red-400/10"
                 }`}
               >
-                {busy ? "처리 중..." : isCancelled ? "이벤트 다시 열기" : "이벤트 취소"}
+                {busy ? "처리 중..." : "이벤트 취소"}
               </button>
             )}
             {canDelete && (
