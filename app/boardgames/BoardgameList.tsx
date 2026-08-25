@@ -249,10 +249,9 @@ export default function BoardgameList({
 
     setBusyId(game.id);
 
-    const { error } = await supabase
-      .from("games")
-      .delete()
-      .eq("id", game.id);
+    const { error } = await supabase.rpc("admin_delete_boardgame", {
+      p_game_id: game.id,
+    });
 
     setBusyId(null);
 
@@ -555,7 +554,7 @@ export default function BoardgameList({
 
         .gameCard {
           display: grid;
-          grid-template-columns: 150px minmax(0, 1fr);
+          grid-template-columns: 160px minmax(0, 1fr);
           gap: 24px;
           padding: 20px;
           border-bottom: 1px solid #26282d;
@@ -567,8 +566,8 @@ export default function BoardgameList({
 
         .coverLink {
           display: block;
-          width: 150px;
-          height: 108px;
+          width: 160px;
+          height: 90px;
           overflow: hidden;
           border: 1px solid #3a3c42;
           border-radius: 12px;
@@ -737,14 +736,14 @@ export default function BoardgameList({
           }
 
           .gameCard {
-            grid-template-columns: 112px minmax(0, 1fr);
+            grid-template-columns: 128px minmax(0, 1fr);
             gap: 16px;
             padding: 16px;
           }
 
           .coverLink {
-            width: 112px;
-            height: 112px;
+            width: 128px;
+            height: 72px;
           }
 
           .gameTitle {
@@ -768,17 +767,17 @@ export default function BoardgameList({
 
         @media (max-width: 420px) {
           .gameCard {
-            grid-template-columns: 96px minmax(0, 1fr);
+            grid-template-columns: 112px minmax(0, 1fr);
             gap: 13px;
           }
 
           .coverLink {
-            width: 96px;
-            height: 112px;
+            width: 112px;
+            height: 63px;
           }
 
           .managerActions {
-            margin-left: -109px;
+            margin-left: -125px;
           }
         }
       `}</style>
