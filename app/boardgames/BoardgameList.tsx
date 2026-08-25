@@ -554,7 +554,7 @@ export default function BoardgameList({
 
         .gameCard {
           display: grid;
-          grid-template-columns: 160px minmax(0, 1fr);
+          grid-template-columns: 120px minmax(0, 1fr);
           gap: 24px;
           padding: 20px;
           border-bottom: 1px solid #26282d;
@@ -566,8 +566,8 @@ export default function BoardgameList({
 
         .coverLink {
           display: block;
-          width: 160px;
-          height: 90px;
+          width: 120px;
+          height: 150px;
           overflow: hidden;
           border: 1px solid #3a3c42;
           border-radius: 12px;
@@ -736,14 +736,14 @@ export default function BoardgameList({
           }
 
           .gameCard {
-            grid-template-columns: 128px minmax(0, 1fr);
+            grid-template-columns: 104px minmax(0, 1fr);
             gap: 16px;
             padding: 16px;
           }
 
           .coverLink {
-            width: 128px;
-            height: 72px;
+            width: 104px;
+            height: 130px;
           }
 
           .gameTitle {
@@ -767,17 +767,17 @@ export default function BoardgameList({
 
         @media (max-width: 420px) {
           .gameCard {
-            grid-template-columns: 112px minmax(0, 1fr);
+            grid-template-columns: 88px minmax(0, 1fr);
             gap: 13px;
           }
 
           .coverLink {
-            width: 112px;
-            height: 63px;
+            width: 88px;
+            height: 110px;
           }
 
           .managerActions {
-            margin-left: -125px;
+            margin-left: -101px;
           }
         }
       `}</style>
