@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import { formatEventLocation } from "@/lib/events/location";
+import { getEventGuideSummary } from "@/lib/events/guide";
 
 type EventParticipant = { id: string; user_id: string };
 type EventRow = {
@@ -69,18 +70,6 @@ function formatTimeRange(startedAt: string, endedAt: string | null) {
   const formatter = new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
   const start = formatter.format(new Date(startedAt));
   return endedAt ? `${start}–${formatter.format(new Date(endedAt))}` : start;
-}
-
-function getEventGuideSummary(event: EventRow) {
-  const defaultFee = event.event_kind === "MURDER_MYSTERY" ? 13000 : event.event_kind === "BOARDGAME" ? 10000 : 0;
-  const fee = event.participation_fee ?? defaultFee;
-  const feeLabel = fee === 0 ? "무료" : `${fee.toLocaleString("ko-KR")}원 선입금`;
-
-  if (event.event_kind === "BOARDGAME") {
-    return `🎲 파티·전략·마피아 중심 · 💳 ${feeLabel} 후 웹 참가 · ⏰ 늦참은 댓글 · 🙋 원하는 게임은 팟 만들기`;
-  }
-
-  return `📌 이벤트 안내 확인 · 💳 ${feeLabel} 후 웹 참가 · ⏰ 늦참은 댓글로 알려 주세요`;
 }
 
 function startOfDay(date: Date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }

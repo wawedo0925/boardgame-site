@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatEventLocation } from "@/lib/events/location";
+import { getEventGuideSummary } from "@/lib/events/guide";
 
 type HomeNotice = { id: string; title: string; important: boolean };
 type HomeEvent = {
@@ -12,6 +13,7 @@ type HomeEvent = {
   location: string | null;
   description: string | null;
   event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "GENERAL";
+  participation_fee: number | null;
   max_participants: number | null;
   event_participants: { id: string }[] | null;
 };
@@ -57,7 +59,7 @@ export default async function Home() {
       .limit(3),
     supabase
       .from("events")
-      .select("id,title,started_at,ended_at,location,description,event_kind,max_participants,event_participants(id)")
+      .select("id,title,started_at,ended_at,location,description,event_kind,participation_fee,max_participants,event_participants(id)")
       .gte("started_at", now)
       .eq("event_status", "OPEN")
       .order("started_at", { ascending: true })
@@ -140,7 +142,7 @@ export default async function Home() {
                 </h2>
 
                 <p className="mt-3 text-zinc-300">
-                  {featuredEvent?.description?.trim() || "보드라운지의 새로운 모임과 이벤트가 여기에 표시됩니다."}
+                  {featuredEvent ? getEventGuideSummary(featuredEvent) : "보드라운지의 새로운 모임과 이벤트가 여기에 표시됩니다."}
                 </p>
 
                 <div className="mt-7 flex flex-wrap gap-3 text-sm">
@@ -224,7 +226,7 @@ export default async function Home() {
                 <Link key={event.id} href={`/events/${event.id}`} className="rounded-3xl border border-white/10 bg-zinc-900 p-6 transition hover:border-amber-400/40">
                   <p className="text-sm text-amber-400">{eventKindLabel(event.event_kind)}</p>
                   <h3 className="mt-3 text-xl font-bold">{event.title}</h3>
-                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-400">{event.description?.trim() || "이벤트 상세 내용을 확인해보세요."}</p>
+                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-400">{getEventGuideSummary(event)}</p>
                   <p className="mt-7 text-sm text-zinc-300">{eventDate(event.started_at)}</p>
                 </Link>
               ))}
