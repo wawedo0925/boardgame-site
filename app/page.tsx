@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { formatEventLocation } from "@/lib/events/location";
 
 type HomeNotice = { id: string; title: string; important: boolean };
 type HomeEvent = {
@@ -152,7 +153,7 @@ export default async function Home() {
                   {featuredIsUrgent && featuredRemaining !== null && <span className="rounded-full bg-red-400/15 px-4 py-2 font-semibold text-red-300">{featuredRemaining}자리 남음</span>}
 
                   <span className="rounded-full bg-white/10 px-4 py-2">
-                    {featuredEvent?.location?.trim() || "장소 미정"}
+                    {formatEventLocation(featuredEvent?.location)}
                   </span>
                 </div>
               </div>

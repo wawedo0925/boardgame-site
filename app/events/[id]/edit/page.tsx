@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_EVENT_LOCATION } from "@/lib/events/location";
 
 type EventRow = {
   id: string;
@@ -111,7 +112,7 @@ export default function EventEditPage() {
         <div className="mt-6 space-y-6">
           <label className="grid gap-2"><span className="text-sm font-semibold">이벤트 제목 *</span><input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} className={inputClass} /><span className="text-right text-xs text-zinc-600">{title.length} / 80</span></label>
           <div className="grid gap-5 sm:grid-cols-2"><label className="grid gap-2"><span className="text-sm font-semibold">시작 날짜·시간 *</span><input type="datetime-local" value={startedAt} onChange={(e) => setStartedAt(e.target.value)} className={inputClass} /></label><label className="grid gap-2"><span className="text-sm font-semibold">종료 날짜·시간</span><input type="datetime-local" value={endedAt} onChange={(e) => setEndedAt(e.target.value)} className={inputClass} /></label></div>
-          <label className="grid gap-2"><span className="text-sm font-semibold">장소</span><input value={location} maxLength={120} onChange={(e) => setLocation(e.target.value)} placeholder="예: 와위두" className={inputClass} /></label>
+          <label className="grid gap-2"><span className="text-sm font-semibold">장소</span><input value={location} maxLength={120} onChange={(e) => setLocation(e.target.value)} placeholder={DEFAULT_EVENT_LOCATION} className={inputClass} /></label>
           <label className="grid gap-2"><span className="text-sm font-semibold">참가비</span><input type="number" min={0} step={1000} value={participationFee} onChange={(e) => setParticipationFee(e.target.value)} className={inputClass} /><span className="text-xs text-zinc-500">무료 이벤트는 0원을 입력하세요.</span></label>
           <label className="grid gap-2"><span className="text-sm font-semibold">상세 설명</span><textarea value={description} maxLength={1000} onChange={(e) => setDescription(e.target.value)} rows={7} className="w-full resize-none rounded-xl border border-white/10 bg-zinc-900 p-4 text-white outline-none focus:border-sky-400/60" /><span className="text-right text-xs text-zinc-600">{description.length} / 1000</span></label>
         </div>

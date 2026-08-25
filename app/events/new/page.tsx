@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_EVENT_LOCATION } from "@/lib/events/location";
 
 type EventForm = {
   title: string;
@@ -29,7 +30,7 @@ const initialForm: EventForm = {
   date: "",
   startTime: "19:20",
   endTime: "22:20",
-  location: "와위두",
+  location: DEFAULT_EVENT_LOCATION,
   description: "",
   maxParticipants: "",
   eventKind: "BOARDGAME",
@@ -412,7 +413,7 @@ export default function NewEventPage() {
                   onChange={(event) =>
                     updateForm("location", event.target.value)
                   }
-                  placeholder="예: 와위두"
+                  placeholder={DEFAULT_EVENT_LOCATION}
                   maxLength={100}
                   className="rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3.5 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-amber-400/60"
                 />

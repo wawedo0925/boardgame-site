@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { formatEventLocation } from "@/lib/events/location";
 
 type EventParticipant = { id: string; user_id: string };
 type EventRow = {
@@ -15,6 +16,7 @@ type EventRow = {
   description: string | null;
   created_by: string;
   max_participants: number | null;
+  participation_fee: number | null;
   event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "GENERAL";
   event_status: "OPEN" | "CLOSED" | "CANCELLED";
   murder_mysteries: { title: string } | { title: string }[] | null;
@@ -69,6 +71,18 @@ function formatTimeRange(startedAt: string, endedAt: string | null) {
   return endedAt ? `${start}–${formatter.format(new Date(endedAt))}` : start;
 }
 
+function getEventGuideSummary(event: EventRow) {
+  const defaultFee = event.event_kind === "MURDER_MYSTERY" ? 13000 : event.event_kind === "BOARDGAME" ? 10000 : 0;
+  const fee = event.participation_fee ?? defaultFee;
+  const feeLabel = fee === 0 ? "무료" : `${fee.toLocaleString("ko-KR")}원 선입금`;
+
+  if (event.event_kind === "BOARDGAME") {
+    return `🎲 파티·전략·마피아 중심 · 💳 ${feeLabel} 후 웹 참가 · ⏰ 늦참은 댓글 · 🙋 원하는 게임은 팟 만들기`;
+  }
+
+  return `📌 이벤트 안내 확인 · 💳 ${feeLabel} 후 웹 참가 · ⏰ 늦참은 댓글로 알려 주세요`;
+}
+
 function startOfDay(date: Date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
 function endOfDay(date: Date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999); }
 function startOfWeek(date: Date) {
@@ -109,7 +123,7 @@ export default function EventsPage() {
       const { data: authData } = await supabase.auth.getUser();
       const currentUserId = authData.user?.id ?? null;
       const [eventResult, waitlistResult] = await Promise.all([
-        supabase.from("events").select(`id,title,started_at,ended_at,location,description,created_by,max_participants,event_kind,event_status,murder_mysteries(title),event_participants(id,user_id)`).order("started_at", { ascending: true }),
+        supabase.from("events").select(`id,title,started_at,ended_at,location,description,created_by,max_participants,participation_fee,event_kind,event_status,murder_mysteries(title),event_participants(id,user_id)`).order("started_at", { ascending: true }),
         currentUserId
           ? supabase.from("event_waitlist").select("event_id").eq("user_id", currentUserId)
           : Promise.resolve({ data: [], error: null }),
@@ -200,7 +214,7 @@ export default function EventsPage() {
           <div className="grid lg:grid-cols-[180px_1fr_190px]">
             <div className="border-b border-white/10 p-6 lg:border-b-0 lg:border-r"><p className="text-sm font-semibold text-amber-400">{formatDate(event.started_at)}</p><p className="mt-2 text-2xl font-bold">{formatDay(event.started_at)}</p><p className="mt-2 text-sm text-zinc-400">{formatTimeRange(event.started_at, event.ended_at)}</p></div>
             <div className="p-6"><div className="flex flex-wrap gap-2"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${kind.className}`}>{kind.label}</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyle(status)}`}>{status}</span>{joined && <span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">참가 중</span>}{waitlisted && <span className="rounded-full bg-sky-400/10 px-3 py-1 text-xs font-semibold text-sky-300">대기 중</span>}{created && <span className="rounded-full bg-violet-400/10 px-3 py-1 text-xs font-semibold text-violet-300">내가 만든 이벤트</span>}</div>
-              <h2 className="mt-4 text-2xl font-bold">{event.title}</h2>{event.event_kind === "MURDER_MYSTERY" && mysteryTitle && <p className="mt-2 text-sm font-semibold text-red-300">진행 작품 · {mysteryTitle}</p>}<p className="mt-3 line-clamp-2 leading-7 text-zinc-400">{event.description?.trim() || "등록된 상세 설명이 없습니다."}</p><div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-400"><p>장소 <span className="text-zinc-200">{event.location?.trim() || "미정"}</span></p><p>참여 <span className="text-zinc-200">{event.event_participants?.length ?? 0}명 / {event.max_participants ?? "무제한"}</span></p></div>
+              <h2 className="mt-4 text-2xl font-bold">{event.title}</h2>{event.event_kind === "MURDER_MYSTERY" && mysteryTitle && <p className="mt-2 text-sm font-semibold text-red-300">진행 작품 · {mysteryTitle}</p>}<p className="mt-3 line-clamp-2 leading-7 text-zinc-400">{getEventGuideSummary(event)}</p><div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-400"><p>장소 <span className="text-zinc-200">{formatEventLocation(event.location)}</span></p><p>참여 <span className="text-zinc-200">{event.event_participants?.length ?? 0}명 / {event.max_participants ?? "무제한"}</span></p></div>
             </div>
             <div className="flex items-center border-t border-white/10 p-6 lg:border-l lg:border-t-0"><Link href={`/events/${event.id}`} className="w-full rounded-2xl bg-amber-400 px-5 py-3 text-center font-semibold text-zinc-950 hover:bg-amber-300">상세 보기</Link></div>
           </div></article>;

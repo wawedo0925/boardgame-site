@@ -16,8 +16,10 @@ import EventCapacityCard, {
 } from "@/components/events/EventCapacityCard";
 import EventCancellationCard from "@/components/events/EventCancellationCard";
 import EventJoinPaymentDialog from "@/components/events/EventJoinPaymentDialog";
+import EventCommentSection from "@/components/events/EventCommentSection";
 import type { AttendanceStatus } from "@/types/event";
 import { createClient } from "@/lib/supabase/client";
+import { formatEventLocation } from "@/lib/events/location";
 
 type EventRow = {
   id: string;
@@ -135,6 +137,7 @@ export default function EventDetailPage() {
   const [waitlist, setWaitlist] = useState<WaitlistMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [accountCopied, setAccountCopied] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [canOperate, setCanOperate] = useState(false);
   const [siteRole, setSiteRole] = useState("MEMBER");
@@ -346,13 +349,17 @@ export default function EventDetailPage() {
   const participationFee = event?.participation_fee ?? (event?.event_kind === "BOARDGAME" ? 10000 : event?.event_kind === "MURDER_MYSTERY" ? 13000 : 0);
   const isAtCapacity = Boolean(event?.max_participants !== null && participants.length >= (event?.max_participants ?? 0));
 
-  const descriptionText =
-    event?.description?.trim() || "등록된 이벤트 설명이 없습니다.";
 
-  const descriptionPreview =
-    descriptionText.length > 140
-      ? `${descriptionText.slice(0, 140)}…`
-      : descriptionText;
+  async function copyAccountNumber() {
+    const accountNumber = "94849203451";
+    try {
+      await navigator.clipboard.writeText(accountNumber);
+      setAccountCopied(true);
+      window.setTimeout(() => setAccountCopied(false), 1800);
+    } catch {
+      window.prompt("계좌번호를 복사해 주세요.", accountNumber);
+    }
+  }
 
   async function handleJoin() {
     if (!user) {
@@ -567,7 +574,7 @@ export default function EventDetailPage() {
             </div>
           </section>
 
-          <section className="mx-auto grid max-w-7xl gap-8 px-6 py-14 lg:grid-cols-[1fr_360px]">
+          <section className="mx-auto grid max-w-7xl gap-8 px-6 pb-8 pt-14 lg:grid-cols-[1fr_360px]">
             <div className="space-y-8">
               <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
                 <h2 className="text-2xl font-bold">이벤트 정보</h2>
@@ -599,7 +606,7 @@ export default function EventDetailPage() {
                       장소
                     </p>
                     <p className="mt-2 font-semibold text-zinc-100">
-                      {event.location?.trim() || "장소 미정"}
+                      {formatEventLocation(event.location)}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] p-5 sm:col-span-2">
@@ -623,9 +630,80 @@ export default function EventDetailPage() {
                   </button>
                 </div>
 
-                <p className="mt-6 whitespace-pre-wrap leading-8 text-zinc-400">
-                  {guideOpen ? descriptionText : descriptionPreview}
-                </p>
+                {guideOpen ? (
+                  <div className="mt-6 space-y-6 text-sm leading-7 text-zinc-300 sm:text-base sm:leading-8">
+                    <ol className="space-y-5">
+                      <li className="flex gap-3">
+                        <span aria-hidden="true" className="text-xl">🎲</span>
+                        <div>
+                          <strong className="text-zinc-100">정기 모임 진행 방식</strong>
+                          <p className="mt-1 text-zinc-400">
+                            기본적으로 파티·전략·마피아 게임으로 진행되며, 팟 구성이나 룰마에 따라 달라질 수 있습니다.
+                          </p>
+                          <p className="mt-1 font-semibold text-amber-300">
+                            신입 회원은 우선 정기 모임부터 참가할 수 있어요.
+                          </p>
+                        </div>
+                      </li>
+
+                      <li className="flex gap-3">
+                        <span aria-hidden="true" className="text-xl">💳</span>
+                        <div>
+                          <strong className="text-zinc-100">참가비 및 신청 방법</strong>
+                          <p className="mt-1 text-zinc-400">
+                            참가비 {participationFee === 0 ? "무료" : `${participationFee.toLocaleString("ko-KR")}원`}을 먼저 입금한 뒤, 웹사이트의 참가 버튼을 눌러 주세요.
+                          </p>
+                          {participationFee > 0 && (
+                            <div className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/[0.05] px-4 py-3 text-sm leading-6">
+                              <p className="font-semibold text-amber-300">boardlounge.kr</p>
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <p>국민은행 94849203451 · 예금주 이우영</p>
+                                <button
+                                  type="button"
+                                  onClick={() => void copyAccountNumber()}
+                                  className="rounded-lg bg-amber-400 px-3 py-1 text-xs font-bold text-zinc-950 transition hover:bg-amber-300"
+                                >
+                                  {accountCopied ? "복사 완료 ✓" : "계좌번호 복사"}
+                                </button>
+                              </div>
+                              <p>또는 카카오페이</p>
+                            </div>
+                          )}
+                        </div>
+                      </li>
+
+                      <li className="flex gap-3">
+                        <span aria-hidden="true" className="text-xl">⏰</span>
+                        <div>
+                          <strong className="text-zinc-100">늦게 참가하는 경우</strong>
+                          <p className="mt-1 text-zinc-400">
+                            입금 후 늦게 도착할 예정이라면 댓글에 <span className="font-semibold text-zinc-200">“늦참”</span>이라고 꼭 남겨 주세요.
+                          </p>
+                        </div>
+                      </li>
+
+                      <li className="flex gap-3">
+                        <span aria-hidden="true" className="text-xl">🙋</span>
+                        <div>
+                          <strong className="text-zinc-100">하고 싶은 게임이 있다면</strong>
+                          <p className="mt-1 text-zinc-400">
+                            원하는 게임의 팟을 꼭 만들어 주세요. 자세한 방법은 관련 공지를 확인해 주세요.
+                          </p>
+                        </div>
+                      </li>
+                    </ol>
+
+                    <div className="rounded-2xl border border-red-400/20 bg-red-400/[0.05] px-4 py-3 text-red-200">
+                      ⚠️ 입금이 확인되지 않으면 참석이 어려울 수 있으니 꼭 확인해 주세요.
+                    </div>
+
+                    <p className="font-bold text-amber-300">함께 재미있는 보드게임 해요! 🎉</p>
+                  </div>
+                ) : (
+                  <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4 text-sm leading-6 text-zinc-400">
+                    🎲 진행 방식 · 💳 참가비와 입금 · ⏰ 늦참 · 🙋 팟 만들기 안내를 확인해 주세요.
+                  </div>
+                )}
               </article>
 
               {isCancelled && (
@@ -636,69 +714,65 @@ export default function EventDetailPage() {
                 </div>
               )}
 
-              <div
-                className={`grid gap-4 ${
-                  canManage && !isCancelled
-                    ? "xl:grid-cols-2"
-                    : ""
-                }`}
-              >
-                <EventLifecycleCard
-                  eventId={eventId}
-                  isClosed={isClosed}
-                  canManage={canManage && !isCancelled}
-                  closedAt={event.closed_at}
-                  onChanged={(closed, closedAt) =>
-                    setEvent((current) =>
-                      current
-                        ? {
-                            ...current,
-                            event_status: closed
-                              ? "CLOSED"
-                              : "OPEN",
-                            closed_at: closedAt,
-                          }
-                        : current,
-                    )
-                  }
-                />
+              {canManage && (
+                <>
+                  <div className={`grid gap-4 ${!isCancelled ? "xl:grid-cols-2" : ""}`}>
+                    <EventLifecycleCard
+                      eventId={eventId}
+                      isClosed={isClosed}
+                      canManage={!isCancelled}
+                      closedAt={event.closed_at}
+                      onChanged={(closed, closedAt) =>
+                        setEvent((current) =>
+                          current
+                            ? {
+                                ...current,
+                                event_status: closed ? "CLOSED" : "OPEN",
+                                closed_at: closedAt,
+                              }
+                            : current,
+                        )
+                      }
+                    />
 
-                {canManage && !isCancelled && (
-                  <EventNoticeCard
+                    {!isCancelled && (
+                      <EventNoticeCard
+                        eventId={eventId}
+                        canManage
+                      />
+                    )}
+                  </div>
+
+                  <EventCapacityCard
                     eventId={eventId}
+                    maxParticipants={event.max_participants}
+                    participantCount={participants.length}
+                    waitlist={waitlist}
                     canManage
+                    isClosed={isLocked}
+                    onChanged={async (maxParticipants) => {
+                      setEvent((current) =>
+                        current
+                          ? {
+                              ...current,
+                              max_participants: maxParticipants,
+                            }
+                          : current,
+                      );
+
+                      await reloadParticipation();
+                    }}
                   />
-                )}
-              </div>
 
-              <EventCapacityCard
-                eventId={eventId}
-                maxParticipants={event.max_participants}
-                participantCount={participants.length}
-                waitlist={waitlist}
-                canManage={canManage}
-                isClosed={isLocked}
-                onChanged={async (maxParticipants) => {
-                  setEvent((current) =>
-                    current
-                      ? {
-                          ...current,
-                          max_participants: maxParticipants,
-                        }
-                      : current,
-                  );
-
-                  await reloadParticipation();
-                }}
-              />
-
-              <AttendanceManager
-                eventId={eventId}
-                participants={participants}
-                canManage={canManage}
-                isClosed={isLocked}
-                onChanged={loadParticipants}
-              />
+                  <AttendanceManager
+                    eventId={eventId}
+                    participants={participants}
+                    canManage
+                    isClosed={isLocked}
+                    onChanged={loadParticipants}
+                  />
+                </>
+              )}
 
               {event.event_kind === "MURDER_MYSTERY" &&
               event.murder_mystery_id ? (
@@ -825,13 +899,23 @@ export default function EventDetailPage() {
             </aside>
           </section>
 
+          <div className="mx-auto max-w-7xl px-5 pb-28 sm:px-6">
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+              <EventCommentSection
+                eventId={eventId}
+                currentUserId={user?.id ?? null}
+                canManage={canManage}
+              />
+            </div>
+          </div>
+
           {!isEnded && !isCancelled && !isClosed && (
-            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-zinc-950/95 px-4 py-3 shadow-[0_-12px_35px_rgba(0,0,0,0.45)] backdrop-blur">
-              <div className="mx-auto flex max-w-3xl items-center gap-3">
-                <div className="hidden min-w-0 flex-1 sm:block"><p className="truncate text-sm font-bold">{event.title}</p><p className="mt-1 text-xs text-zinc-500">참가비 {participationFee === 0 ? "무료" : `${participationFee.toLocaleString("ko-KR")}원`}</p></div>
-                {!user ? <Link href="/login" className="min-h-12 flex-1 rounded-xl bg-amber-400 px-6 py-3 text-center font-black text-zinc-950 sm:flex-none">로그인 후 참가</Link>
-                  : isJoined || isWaitlisted ? <button type="button" onClick={handleCancelJoin} disabled={isActionLoading || isCreator} className="min-h-12 flex-1 rounded-xl border border-white/15 px-6 font-bold text-zinc-200 disabled:opacity-50 sm:flex-none">{isCreator ? "생성자 참가 중" : isWaitlisted ? "대기 취소" : "참가 취소"}</button>
-                  : <button type="button" onClick={openJoinDialog} disabled={isActionLoading} className="min-h-12 flex-1 rounded-xl bg-amber-400 px-6 font-black text-zinc-950 disabled:opacity-50 sm:flex-none">{isAtCapacity ? "대기 신청" : `참가 신청 · ${participationFee === 0 ? "무료" : `${participationFee.toLocaleString("ko-KR")}원`}`}</button>}
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-zinc-950/95 px-4 py-4 shadow-[0_-12px_35px_rgba(0,0,0,0.45)] backdrop-blur">
+              <div className="mx-auto flex max-w-5xl flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-6">
+                <div className="min-w-0 flex-1"><p className="truncate text-base font-black sm:text-xl">{event.title}</p></div>
+                {!user ? <Link href="/login" className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-amber-400 px-10 text-base font-black text-zinc-950 sm:w-[360px]">로그인 후 참가</Link>
+                  : isJoined || isWaitlisted ? <button type="button" onClick={handleCancelJoin} disabled={isActionLoading || isCreator} className="min-h-14 w-full rounded-2xl border border-white/15 px-10 text-base font-bold text-zinc-200 disabled:opacity-50 sm:w-[360px]">{isCreator ? "생성자 참가 중" : isWaitlisted ? "대기 취소" : "참가 취소"}</button>
+                  : <button type="button" onClick={openJoinDialog} disabled={isActionLoading} className="min-h-14 w-full rounded-2xl bg-amber-400 px-10 text-base font-black text-zinc-950 disabled:opacity-50 sm:w-[360px]">{isAtCapacity ? "대기 신청" : "참가 신청"}</button>}
               </div>
             </div>
           )}
