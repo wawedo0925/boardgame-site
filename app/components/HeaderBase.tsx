@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -64,15 +63,6 @@ function getKakaoNickname(user: User | null) {
     user?.user_metadata?.preferred_username ??
     user?.user_metadata?.nickname ??
     "회원"
-  );
-}
-
-function getAvatarUrl(user: User | null) {
-  return (
-    user?.user_metadata?.avatar_url ??
-    user?.user_metadata?.picture ??
-    user?.user_metadata?.profile_image_url ??
-    null
   );
 }
 
@@ -264,15 +254,15 @@ export default function Header() {
 
   const kakaoNickname = getKakaoNickname(user);
   const displayName = makeDisplayName(profile) ?? kakaoNickname;
-  const avatarUrl = getAvatarUrl(user);
+  const mobileDisplayName = profile?.activity_name?.trim() || kakaoNickname;
   const playerLevel = getPlayerLevel(totalPlayCount);
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-zinc-950/90 text-white backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-5">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-4 sm:gap-6 sm:px-6 sm:py-5">
         <Link href="/" className="shrink-0">
           <p className="text-xs tracking-[0.35em] text-amber-400">WAWEDO</p>
-          <p className="mt-1 text-2xl font-bold">보드라운지</p>
+          <p className="mt-1 text-xl font-bold sm:text-2xl">보드라운지</p>
         </Link>
 
         <nav className="hidden items-center gap-6 lg:flex">
@@ -287,15 +277,15 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="flex min-w-[120px] shrink-0 justify-end">
+        <div className="flex min-w-0 shrink justify-end lg:min-w-[120px] lg:shrink-0">
           {isAuthLoading ? (
-            <div className="h-10 w-32 animate-pulse rounded-full bg-white/10" />
+            <div className="h-10 w-24 animate-pulse rounded-full bg-white/10 sm:w-32" />
           ) : user ? (
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               {siteRole === "MAIN_ADMIN" && (
                 <Link
                   href="/admin"
-                  className="flex h-10 items-center justify-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-3 text-sm font-semibold text-amber-300 transition hover:border-amber-300 hover:bg-amber-400 hover:text-zinc-950"
+                  className="hidden h-10 items-center justify-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-3 text-sm font-semibold text-amber-300 transition hover:border-amber-300 hover:bg-amber-400 hover:text-zinc-950 lg:flex"
                   title="관리자 페이지"
                   aria-label="관리자 페이지"
                 >
@@ -303,27 +293,12 @@ export default function Header() {
                   <span className="hidden xl:inline">관리자</span>
                 </Link>
               )}
-              <NotificationBell userId={user.id} />
+              <div className="hidden lg:block"><NotificationBell userId={user.id} /></div>
               <Link
                 href="/mypage"
-                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1.5 pl-1.5 pr-3 transition hover:border-amber-400/40 hover:bg-white/10"
+                className="flex min-w-0 max-w-[9rem] items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 transition hover:border-amber-400/40 hover:bg-white/10 lg:max-w-none"
                 title={hasConfirmedAttendance ? `${playerLevel.name} · ${totalPlayCount}판` : "신규 회원 · 첫 출석 전"}
               >
-                {avatarUrl ? (
-                  <Image
-                    src={avatarUrl}
-                    alt={`${displayName} 프로필 이미지`}
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 rounded-full object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400 text-sm font-bold text-zinc-950">
-                    {displayName.slice(0, 1)}
-                  </div>
-                )}
-
                 {hasConfirmedAttendance ? (
                   <span className="text-base" aria-label={`${playerLevel.name} 등급`}>
                     {playerLevel.emoji}
@@ -335,7 +310,13 @@ export default function Header() {
                 )}
 
                 <span
-                  className="max-w-48 truncate text-sm font-medium text-zinc-200"
+                  className="truncate text-sm font-medium text-zinc-200 lg:hidden"
+                  title={mobileDisplayName}
+                >
+                  {mobileDisplayName}
+                </span>
+                <span
+                  className="hidden max-w-48 truncate text-sm font-medium text-zinc-200 lg:inline"
                   title={displayName}
                 >
                   {displayName}
@@ -346,7 +327,7 @@ export default function Header() {
                 type="button"
                 onClick={handleLogout}
                 disabled={isLogoutLoading}
-                className="whitespace-nowrap text-sm text-zinc-500 transition hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+                className="hidden whitespace-nowrap text-sm text-zinc-500 transition hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-50 lg:block"
               >
                 {isLogoutLoading ? "처리 중..." : "로그아웃"}
               </button>

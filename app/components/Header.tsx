@@ -11,6 +11,7 @@ const MOBILE_LINKS = [
   { href: "/reviews", label: "게임 평가" },
   { href: "/events", label: "이벤트 일정" },
   { href: "/rankings", label: "게임 랭킹" },
+  { href: "/notifications", label: "알림" },
   { href: "/mypage", label: "마이페이지" },
 ] as const;
 
@@ -36,7 +37,7 @@ export default function Header() {
         aria-expanded={open}
         aria-controls="mobile-site-menu"
         onClick={() => setOpen((current) => !current)}
-        className="fixed right-4 top-[76px] z-[80] flex h-11 w-11 items-center justify-center rounded-full border border-amber-400/50 bg-[#111113]/95 text-amber-300 shadow-xl backdrop-blur lg:hidden"
+        className="fixed right-4 top-[84px] z-[80] flex h-11 w-11 items-center justify-center rounded-full border border-amber-400/50 bg-[#111113]/95 text-amber-300 shadow-xl backdrop-blur lg:hidden"
       >
         <span className="sr-only">{open ? "메뉴 닫기" : "메뉴 열기"}</span>
         <span className="relative block h-5 w-6" aria-hidden="true">
@@ -69,7 +70,7 @@ export default function Header() {
           <nav
             id="mobile-site-menu"
             aria-label="모바일 메뉴"
-            className="fixed right-4 top-[132px] z-[80] w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-white/15 bg-[#111113]/98 p-2 shadow-2xl backdrop-blur lg:hidden"
+            className="fixed right-4 top-[140px] z-[80] w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-white/15 bg-[#111113]/98 p-2 shadow-2xl backdrop-blur lg:hidden"
           >
             <div className="px-4 pb-2 pt-3 text-xs font-bold tracking-[0.24em] text-amber-300">
               MENU
