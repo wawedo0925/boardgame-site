@@ -18,6 +18,7 @@ export default function EventCapacityCard({
   canManage,
   isClosed,
   onChanged,
+  onMemberRemove,
 }: {
   eventId: string;
   maxParticipants: number | null;
@@ -26,6 +27,7 @@ export default function EventCapacityCard({
   canManage: boolean;
   isClosed: boolean;
   onChanged: (maxParticipants: number | null) => Promise<void> | void;
+  onMemberRemove: (userId: string, memberName: string) => Promise<void> | void;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [value, setValue] = useState(maxParticipants?.toString() ?? "");
@@ -108,7 +110,8 @@ export default function EventCapacityCard({
             {waitlist.map((member, index) => (
               <div key={member.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/10 px-4 py-3">
                 <span className="font-bold text-sky-300">{index + 1}</span>
-                <span className="font-semibold text-zinc-200">{member.profile?.activity_name?.trim() || "멤버"}</span>
+                <span className="min-w-0 flex-1 font-semibold text-zinc-200">{member.profile?.activity_name?.trim() || "멤버"}</span>
+                {canManage && !isClosed && <button type="button" onClick={() => void onMemberRemove(member.user_id, member.profile?.activity_name?.trim() || "멤버")} className="shrink-0 rounded-lg border border-red-400/25 px-3 py-2 text-xs font-bold text-red-300">대기 취소</button>}
               </div>
             ))}
           </div>

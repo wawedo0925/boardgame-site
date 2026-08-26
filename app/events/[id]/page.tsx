@@ -432,6 +432,26 @@ export default function EventDetailPage() {
     setIsActionLoading(false);
   }
 
+  async function handleRemoveMember(targetUserId: string, memberName: string) {
+    if (!canManage || !window.confirm(`${memberName} 님을 이 이벤트에서 제외할까요?`)) return;
+
+    setIsActionLoading(true);
+    const { error } = await supabase.rpc("remove_event_member", {
+      p_event_id: eventId,
+      p_user_id: targetUserId,
+    });
+
+    if (error) {
+      console.error("이벤트 멤버 제외 오류:", error);
+      alert(`멤버를 제외하지 못했습니다: ${error.message}`);
+      setIsActionLoading(false);
+      return;
+    }
+
+    await reloadParticipation();
+    setIsActionLoading(false);
+  }
+
   return (
     <main className="min-h-screen bg-zinc-950 pb-28 text-white">
       {isLoading ? (
@@ -634,15 +654,20 @@ export default function EventDetailPage() {
                   <div className="mt-6 space-y-6 text-sm leading-7 text-zinc-300 sm:text-base sm:leading-8">
                     <ol className="space-y-5">
                       <li className="flex gap-3">
-                        <span aria-hidden="true" className="text-xl">🎲</span>
+                        <span aria-hidden="true" className="text-xl">{event.event_kind === "MURDER_MYSTERY" ? "🎭" : "🎲"}</span>
                         <div>
-                          <strong className="text-zinc-100">정기 모임 진행 방식</strong>
-                          <p className="mt-1 text-zinc-400">
-                            기본적으로 파티·전략·마피아 게임으로 진행되며, 팟 구성이나 룰마에 따라 달라질 수 있습니다.
-                          </p>
-                          <p className="mt-1 font-semibold text-amber-300">
-                            신입 회원은 우선 정기 모임부터 참가할 수 있어요.
-                          </p>
+                          <strong className="text-zinc-100">{event.event_kind === "MURDER_MYSTERY" ? "머더미스터리 진행 안내" : "정기 모임 진행 방식"}</strong>
+                          {event.event_kind === "MURDER_MYSTERY" ? (
+                            <>
+                              <p className="mt-1 text-zinc-400">머더미스터리 특성상 늦참은 불가능합니다.</p>
+                              <p className="mt-1 font-semibold text-red-300">5~10분 정도 늦을 경우 GM 또는 운영진에게 필히 알려 주세요.</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="mt-1 text-zinc-400">기본적으로 파티·전략·마피아 게임으로 진행되며, 팟 구성이나 룰마에 따라 달라질 수 있습니다.</p>
+                              <p className="mt-1 font-semibold text-amber-300">신입 회원은 우선 정기 모임부터 참가할 수 있어요.</p>
+                            </>
+                          )}
                         </div>
                       </li>
 
@@ -673,16 +698,18 @@ export default function EventDetailPage() {
                       </li>
 
                       <li className="flex gap-3">
-                        <span aria-hidden="true" className="text-xl">⏰</span>
+                        <span aria-hidden="true" className="text-xl">{event.event_kind === "MURDER_MYSTERY" ? "🤫" : "⏰"}</span>
                         <div>
-                          <strong className="text-zinc-100">늦게 참가하는 경우</strong>
-                          <p className="mt-1 text-zinc-400">
-                            입금 후 늦게 도착할 예정이라면 댓글에 <span className="font-semibold text-zinc-200">“늦참”</span>이라고 꼭 남겨 주세요.
-                          </p>
+                          <strong className="text-zinc-100">{event.event_kind === "MURDER_MYSTERY" ? "스포일러 및 재참가 안내" : "늦게 참가하는 경우"}</strong>
+                          {event.event_kind === "MURDER_MYSTERY" ? (
+                            <p className="mt-1 text-zinc-400">작품 내용과 역할에 관한 스포일러는 금지됩니다. 이미 플레이한 작품은 일반 참가가 제한될 수 있습니다.</p>
+                          ) : (
+                            <p className="mt-1 text-zinc-400">입금 후 늦게 도착할 예정이라면 댓글에 <span className="font-semibold text-zinc-200">“늦참”</span>과 도착 예정 시간을 꼭 남겨 주세요.</p>
+                          )}
                         </div>
                       </li>
 
-                      <li className="flex gap-3">
+                      {event.event_kind !== "MURDER_MYSTERY" && <li className="flex gap-3">
                         <span aria-hidden="true" className="text-xl">🙋</span>
                         <div>
                           <strong className="text-zinc-100">하고 싶은 게임이 있다면</strong>
@@ -690,18 +717,24 @@ export default function EventDetailPage() {
                             원하는 게임의 팟을 꼭 만들어 주세요. 자세한 방법은 관련 공지를 확인해 주세요.
                           </p>
                         </div>
-                      </li>
+                      </li>}
                     </ol>
 
                     <div className="rounded-2xl border border-red-400/20 bg-red-400/[0.05] px-4 py-3 text-red-200">
-                      ⚠️ 입금이 확인되지 않으면 참석이 어려울 수 있으니 꼭 확인해 주세요.
+                      {event.event_kind === "MURDER_MYSTERY"
+                        ? "⚠️ 입금이 확인되지 않거나 사전 연락 없이 시작 시간에 늦으면 참석이 어렵습니다."
+                        : "⚠️ 입금이 확인되지 않으면 참석이 어려울 수 있으니 꼭 확인해 주세요."}
                     </div>
 
-                    <p className="font-bold text-amber-300">함께 재미있는 보드게임 해요! 🎉</p>
+                    <p className={`font-bold ${event.event_kind === "MURDER_MYSTERY" ? "text-red-300" : "text-amber-300"}`}>
+                      {event.event_kind === "MURDER_MYSTERY" ? "모두 함께 정시에 시작해요! 🎭" : "함께 재미있는 보드게임 해요! 🎉"}
+                    </p>
                   </div>
                 ) : (
                   <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4 text-sm leading-6 text-zinc-400">
-                    🎲 진행 방식 · 💳 참가비와 입금 · ⏰ 늦참 · 🙋 팟 만들기 안내를 확인해 주세요.
+                    {event.event_kind === "MURDER_MYSTERY"
+                      ? "🎭 머더미스터리 특성상 늦참 불가 · 5~10분 지각 시 GM·운영진에게 필히 연락해 주세요."
+                      : "🎲 진행 방식 · 💳 참가비와 입금 · ⏰ 늦참 · 🙋 팟 만들기 안내를 확인해 주세요."}
                   </div>
                 )}
               </article>
@@ -762,6 +795,7 @@ export default function EventDetailPage() {
 
                       await reloadParticipation();
                     }}
+                    onMemberRemove={handleRemoveMember}
                   />
 
                   <AttendanceManager
@@ -826,16 +860,15 @@ export default function EventDetailPage() {
                       participant.user_id === event.created_by;
 
                     return (
-                      <Link
+                      <div
                         key={participant.id}
-                        href={`/members/${participant.user_id}`}
                         className="flex items-center gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-3 transition hover:border-amber-400/30 hover:bg-white/[0.06]"
                       >
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-sm font-bold text-zinc-950">
                           {getInitial(participant.profile)}
                         </div>
 
-                        <div className="min-w-0 flex-1">
+                        <Link href={`/members/${participant.user_id}`} className="min-w-0 flex-1">
                           <p
                             className="truncate text-sm font-semibold text-zinc-200"
                             title={participantName}
@@ -888,10 +921,12 @@ export default function EventDetailPage() {
                                 : ""}
                             </p>
                           )}
-                        </div>
+                        </Link>
 
-                        <span className="text-zinc-600">›</span>
-                      </Link>
+                        {canManage && isUpcoming && !isLocked && !participantIsCreator ? (
+                          <button type="button" onClick={() => void handleRemoveMember(participant.user_id, participantName)} disabled={isActionLoading} className="shrink-0 rounded-lg border border-red-400/25 px-3 py-2 text-xs font-bold text-red-300 disabled:opacity-50">참가 제외</button>
+                        ) : <span className="text-zinc-600">›</span>}
+                      </div>
                     );
                   })}
                 </div>
@@ -914,13 +949,13 @@ export default function EventDetailPage() {
               <div className="mx-auto flex max-w-5xl flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-6">
                 <div className="min-w-0 flex-1"><p className="truncate text-base font-black sm:text-xl">{event.title}</p></div>
                 {!user ? <Link href="/login" className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-amber-400 px-10 text-base font-black text-zinc-950 sm:w-[360px]">로그인 후 참가</Link>
-                  : isJoined || isWaitlisted ? <button type="button" onClick={handleCancelJoin} disabled={isActionLoading || isCreator} className="min-h-14 w-full rounded-2xl border border-white/15 px-10 text-base font-bold text-zinc-200 disabled:opacity-50 sm:w-[360px]">{isCreator ? "생성자 참가 중" : isWaitlisted ? "대기 취소" : "참가 취소"}</button>
+                  : isJoined || isWaitlisted ? <button type="button" onClick={handleCancelJoin} disabled={isActionLoading || isCreator} className="min-h-14 w-full rounded-2xl border border-white/15 px-10 text-base font-bold text-zinc-200 disabled:opacity-50 sm:w-[360px]">{isCreator ? "생성자 참가 중" : isWaitlisted ? "대기 신청 취소" : "이벤트 나가기"}</button>
                   : <button type="button" onClick={openJoinDialog} disabled={isActionLoading} className="min-h-14 w-full rounded-2xl bg-amber-400 px-10 text-base font-black text-zinc-950 disabled:opacity-50 sm:w-[360px]">{isAtCapacity ? "대기 신청" : "참가 신청"}</button>}
               </div>
             </div>
           )}
 
-          {joinDialogOpen && <EventJoinPaymentDialog eventTitle={event.title} participationFee={participationFee} waitlisted={isAtCapacity} busy={isActionLoading} onClose={() => setJoinDialogOpen(false)} onConfirm={handleJoin} />}
+          {joinDialogOpen && <EventJoinPaymentDialog eventTitle={event.title} participationFee={participationFee} eventKind={event.event_kind} waitlisted={isAtCapacity} busy={isActionLoading} onClose={() => setJoinDialogOpen(false)} onConfirm={handleJoin} />}
         </>
       )}
     </main>

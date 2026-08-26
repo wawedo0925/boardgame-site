@@ -9,6 +9,7 @@ const ACCOUNT_HOLDER = "이우영";
 export default function EventJoinPaymentDialog({
   eventTitle,
   participationFee,
+  eventKind,
   waitlisted,
   busy,
   onClose,
@@ -16,13 +17,16 @@ export default function EventJoinPaymentDialog({
 }: {
   eventTitle: string;
   participationFee: number;
+  eventKind: "BOARDGAME" | "MURDER_MYSTERY" | "GENERAL";
   waitlisted: boolean;
   busy: boolean;
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
+  const [showMurderNotice, setShowMurderNotice] = useState(false);
   const isFree = participationFee === 0;
+  const isMurderMystery = eventKind === "MURDER_MYSTERY";
 
   async function copyAccount() {
     try {
@@ -32,6 +36,37 @@ export default function EventJoinPaymentDialog({
     } catch {
       window.prompt("계좌번호를 복사해 주세요.", ACCOUNT_NUMBER);
     }
+  }
+
+  function handlePaymentConfirm() {
+    if (isMurderMystery) {
+      setShowMurderNotice(true);
+      return;
+    }
+
+    void onConfirm();
+  }
+
+  if (showMurderNotice) {
+    return (
+      <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="murder-join-notice-title">
+        <section className="w-full rounded-t-3xl border border-red-400/25 bg-zinc-950 p-6 text-white shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-8">
+          <p className="text-sm font-bold tracking-[0.18em] text-red-300">MURDER MYSTERY NOTICE</p>
+          <h2 id="murder-join-notice-title" className="mt-2 text-2xl font-black">참가 전 꼭 확인해 주세요!</h2>
+
+          <div className="mt-6 space-y-4 rounded-2xl border border-red-400/20 bg-red-400/[0.06] p-5 leading-7 text-zinc-200">
+            <p className="font-bold text-white">절대 일정을 잊거나 늦지 마세요!</p>
+            <p>늦으면 다른 멤버들이 기다리게 됩니다.</p>
+            <p>📅 캘박 바로 ㄱㄱ! 일정을 잊거나 늦을 경우 불이익이 생길 수 있습니다.</p>
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button type="button" onClick={() => setShowMurderNotice(false)} disabled={busy} className="min-h-12 rounded-xl border border-white/15 font-semibold text-zinc-300 disabled:opacity-50">이전으로</button>
+            <button type="button" onClick={() => void onConfirm()} disabled={busy} className="min-h-12 rounded-xl bg-red-400 font-black text-zinc-950 disabled:opacity-50">{busy ? "처리 중..." : "인지했습니다"}</button>
+          </div>
+        </section>
+      </div>
+    );
   }
 
   return (
@@ -65,7 +100,7 @@ export default function EventJoinPaymentDialog({
 
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button type="button" onClick={onClose} disabled={busy} className="min-h-12 rounded-xl border border-white/15 font-semibold text-zinc-300 disabled:opacity-50">나중에 하기</button>
-          <button type="button" onClick={() => void onConfirm()} disabled={busy} className="min-h-12 rounded-xl bg-amber-400 font-black text-zinc-950 disabled:opacity-50">{busy ? "처리 중..." : "완료! 참가"}</button>
+          <button type="button" onClick={handlePaymentConfirm} disabled={busy} className="min-h-12 rounded-xl bg-amber-400 font-black text-zinc-950 disabled:opacity-50">{busy ? "처리 중..." : "완료! 참가"}</button>
         </div>
       </section>
     </div>

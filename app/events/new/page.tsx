@@ -7,6 +7,10 @@ import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_EVENT_LOCATION } from "@/lib/events/location";
+import {
+  BOARDGAME_EVENT_DESCRIPTION_PRESET,
+  MURDER_MYSTERY_EVENT_DESCRIPTION_PRESET,
+} from "@/lib/events/guide";
 
 type EventForm = {
   title: string;
@@ -31,7 +35,7 @@ const initialForm: EventForm = {
   startTime: "19:20",
   endTime: "22:20",
   location: DEFAULT_EVENT_LOCATION,
-  description: "",
+  description: BOARDGAME_EVENT_DESCRIPTION_PRESET,
   maxParticipants: "",
   eventKind: "BOARDGAME",
   murderMysteryId: "",
@@ -123,6 +127,39 @@ export default function NewEventPage() {
     }));
   }
 
+  function selectEventKind(eventKind: EventForm["eventKind"]) {
+    setForm((current) => {
+      const usesPreset =
+        !current.description.trim() ||
+        current.description === BOARDGAME_EVENT_DESCRIPTION_PRESET ||
+        current.description === MURDER_MYSTERY_EVENT_DESCRIPTION_PRESET;
+
+      return {
+        ...current,
+        eventKind,
+        title: eventKind === "MURDER_MYSTERY" ? "" : current.title,
+        murderMysteryId: eventKind === "MURDER_MYSTERY" ? current.murderMysteryId : "",
+        recurrence: eventKind === "BOARDGAME" ? current.recurrence : "NONE",
+        description: usesPreset
+          ? eventKind === "MURDER_MYSTERY"
+            ? MURDER_MYSTERY_EVENT_DESCRIPTION_PRESET
+            : eventKind === "BOARDGAME"
+              ? BOARDGAME_EVENT_DESCRIPTION_PRESET
+              : ""
+          : current.description,
+      };
+    });
+  }
+
+  function selectMurderMystery(murderMysteryId: string) {
+    const work = murderMysteries.find((item) => item.id === murderMysteryId);
+    setForm((current) => ({
+      ...current,
+      murderMysteryId,
+      title: work ? `[머미] ${work.title}` : "",
+    }));
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -131,7 +168,10 @@ export default function NewEventPage() {
       return;
     }
 
-    const title = form.title.trim();
+    const selectedMystery = murderMysteries.find((work) => work.id === form.murderMysteryId);
+    const title = form.eventKind === "MURDER_MYSTERY" && selectedMystery
+      ? `[머미] ${selectedMystery.title}`
+      : form.title.trim();
     const location = form.location.trim();
     const description = form.description.trim();
     const maxParticipants = form.maxParticipants.trim() === "" ? null : Number(form.maxParticipants);
@@ -324,14 +364,15 @@ export default function NewEventPage() {
               <div className="grid gap-3">
                 <span className="text-sm font-semibold text-zinc-200">이벤트 종류</span>
                 <div className="grid gap-2 sm:grid-cols-3">
-                  <button type="button" onClick={() => updateForm("eventKind", "GENERAL")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "GENERAL" ? "border-sky-400 bg-sky-400/10 text-sky-300" : "border-white/10 text-zinc-500"}`}>일반 이벤트</button>
-                  <button type="button" onClick={() => updateForm("eventKind", "BOARDGAME")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "BOARDGAME" ? "border-amber-400 bg-amber-400/10 text-amber-300" : "border-white/10 text-zinc-500"}`}>보드게임</button>
-                  <button type="button" onClick={() => updateForm("eventKind", "MURDER_MYSTERY")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "MURDER_MYSTERY" ? "border-red-400 bg-red-400/10 text-red-300" : "border-white/10 text-zinc-500"}`}>머더미스터리</button>
+                  <button type="button" onClick={() => selectEventKind("GENERAL")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "GENERAL" ? "border-sky-400 bg-sky-400/10 text-sky-300" : "border-white/10 text-zinc-500"}`}>일반 이벤트</button>
+                  <button type="button" onClick={() => selectEventKind("BOARDGAME")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "BOARDGAME" ? "border-amber-400 bg-amber-400/10 text-amber-300" : "border-white/10 text-zinc-500"}`}>보드게임</button>
+                  <button type="button" onClick={() => selectEventKind("MURDER_MYSTERY")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "MURDER_MYSTERY" ? "border-red-400 bg-red-400/10 text-red-300" : "border-white/10 text-zinc-500"}`}>머더미스터리</button>
                 </div>
               </div>
 
               {form.eventKind === "MURDER_MYSTERY" && <div className="grid gap-4 rounded-2xl border border-red-400/20 bg-red-400/[0.04] p-4">
-                <label className="grid gap-2"><span className="text-sm font-semibold text-red-200">진행 작품 *</span><select value={form.murderMysteryId} onChange={e => updateForm("murderMysteryId", e.target.value)} className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-3"><option value="">작품을 선택하세요</option>{murderMysteries.map(work => <option key={work.id} value={work.id}>{work.title} ({work.min_players ?? "?"}~{work.max_players ?? "?"}명)</option>)}</select></label>
+                <label className="grid gap-2"><span className="text-sm font-semibold text-red-200">진행 작품 *</span><select value={form.murderMysteryId} onChange={e => selectMurderMystery(e.target.value)} className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-3"><option value="">작품을 선택하세요</option>{murderMysteries.map(work => <option key={work.id} value={work.id}>{work.title} ({work.min_players ?? "?"}~{work.max_players ?? "?"}명)</option>)}</select></label>
+                {form.title && <div className="rounded-xl border border-red-400/20 bg-black/10 px-4 py-3"><p className="text-xs text-zinc-500">자동 생성 제목</p><p className="mt-1 font-bold text-red-200">{form.title}</p></div>}
                 <label className="grid gap-2"><span className="text-sm font-semibold text-red-200">내 참여 역할</span><select value={form.creatorRole} onChange={e => updateForm("creatorRole", e.target.value as "PLAYER" | "GM")} className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-3"><option value="PLAYER">플레이어</option>{["MAIN_ADMIN","ADMIN","RULE_MASTER"].includes(siteRole) && <option value="GM">GM</option>}</select></label>
                 <p className="text-xs leading-5 text-zinc-500">같은 작품을 이미 플레이한 멤버는 일반 참가가 제한됩니다. 담당자는 상세 화면에서 재참가를 별도로 허용할 수 있습니다.</p>
               </div>}
@@ -419,7 +460,7 @@ export default function NewEventPage() {
                 />
               </label>
 
-              <label className="grid gap-3">
+              {form.eventKind !== "MURDER_MYSTERY" && <label className="grid gap-3">
                 <span className="text-sm font-semibold text-zinc-200">참가 정원</span>
                 <input
                   type="number"
@@ -431,7 +472,7 @@ export default function NewEventPage() {
                   className="rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3.5 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-amber-400/60"
                 />
                 <span className="text-xs text-zinc-500">이벤트를 만든 뒤에도 관리자가 변경할 수 있습니다.</span>
-              </label>
+              </label>}
 
               <label className="grid gap-3">
                 <span className="text-sm font-semibold text-zinc-200">참가비</span>
@@ -445,11 +486,11 @@ export default function NewEventPage() {
                   className="rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3.5 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-amber-400/60"
                 />
                 <span className="text-xs leading-5 text-zinc-500">
-                  비워두면 종류별 기본 참가비가 적용됩니다. 무료 이벤트는 0원을 입력하세요.
+                  비워두면 현재 이벤트의 기본 참가비 <strong className="text-zinc-300">{form.eventKind === "BOARDGAME" ? "10,000원" : form.eventKind === "MURDER_MYSTERY" ? "13,000원" : "무료"}</strong>가 적용됩니다. 무료 이벤트는 0원을 입력하세요.
                 </span>
               </label>
 
-              <label className="grid gap-3">
+              {form.eventKind === "BOARDGAME" && <label className="grid gap-3">
                 <span className="text-sm font-semibold text-zinc-200">반복 일정</span>
                 <select
                   value={form.recurrence}
@@ -463,11 +504,11 @@ export default function NewEventPage() {
                 <span className="text-xs leading-5 text-zinc-500">
                   반복 일정은 선택한 날짜를 기준으로 앞으로 2개월치가 생성되며, 일정별 Vol 번호가 독립적으로 붙습니다. 공휴일도 생성됩니다.
                 </span>
-              </label>
+              </label>}
 
               <label className="grid gap-3">
                 <span className="text-sm font-semibold text-zinc-200">
-                  이벤트 설명
+                  이벤트 안내 프리셋 <span className="text-xs font-normal text-zinc-500">(수정 가능)</span>
                 </span>
 
                 <textarea
