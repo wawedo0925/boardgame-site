@@ -21,6 +21,8 @@ type Mystery = {
 type Profile = { id: string; activity_name: string | null; birth_year: string | number | null; region: string | null; gender: string | null };
 type History = { user_id: string; participation_role: "PLAYER" | "GM"; completed_at: string | null };
 type Review = { id: string; user_id: string; review_text: string; created_at: string; updated_at: string | null };
+type Interest = { user_id: string; created_at: string };
+type PersonalRecord = { user_id: string };
 
 const hostLabel = (value: string | null) =>
   value === "REQUIRED" ? "진행자 필요" : value === "RECOMMENDED" ? "진행자 권장" : "진행자 불필요";
@@ -40,33 +42,42 @@ export default function MurderMysteryDetailPage() {
   const [history, setHistory] = useState<History[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [interests, setInterests] = useState<Interest[]>([]);
+  const [personalRecords, setPersonalRecords] = useState<PersonalRecord[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [warningAccepted, setWarningAccepted] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [interestSaving, setInterestSaving] = useState(false);
   const [error, setError] = useState("");
 
   async function load() {
     setLoading(true);
     setError("");
     try {
-      const [{ data: mysteryData, error: mysteryError }, { data: historyData, error: historyError }, { data: reviewData, error: reviewError }, auth] = await Promise.all([
+      const [{ data: mysteryData, error: mysteryError }, { data: historyData, error: historyError }, { data: reviewData, error: reviewError }, { data: interestData, error: interestError }, { data: personalData, error: personalError }, auth] = await Promise.all([
         supabase.from("murder_mysteries").select("id,title,cover_url,min_players,max_players,play_time,difficulty,host_requirement,replayable,theme,synopsis").eq("id", id).single(),
         supabase.from("murder_mystery_history").select("user_id,participation_role,completed_at").eq("murder_mystery_id", id).order("completed_at", { ascending: false }),
         supabase.from("murder_mystery_reviews").select("id,user_id,review_text,created_at,updated_at").eq("murder_mystery_id", id).order("created_at", { ascending: false }),
+        supabase.from("murder_mystery_interests").select("user_id,created_at").eq("murder_mystery_id", id).order("created_at"),
+        supabase.from("murder_mystery_personal_records").select("user_id").eq("murder_mystery_id", id),
         supabase.auth.getUser(),
       ]);
       if (mysteryError) throw mysteryError;
       if (historyError) throw historyError;
       if (reviewError && reviewError.code !== "42P01") throw reviewError;
+      if (interestError && interestError.code !== "42P01") throw interestError;
+      if (personalError && personalError.code !== "42P01") throw personalError;
       setMystery(mysteryData as Mystery);
       setHistory((historyData ?? []) as History[]);
       setReviews((reviewData ?? []) as Review[]);
+      setInterests((interestData ?? []) as Interest[]);
+      setPersonalRecords((personalData ?? []) as PersonalRecord[]);
       setUserId(auth.data.user?.id ?? null);
 
-      const ids = [...new Set([...(historyData ?? []).map((row) => row.user_id), ...(reviewData ?? []).map((row) => row.user_id)])];
+      const ids = [...new Set([...(historyData ?? []).map((row) => row.user_id), ...(reviewData ?? []).map((row) => row.user_id), ...(interestData ?? []).map((row) => row.user_id)])];
       if (ids.length) {
         const { data } = await supabase.from("profiles").select("id,activity_name,birth_year,region,gender").in("id", ids);
         setProfiles(Object.fromEntries(((data ?? []) as Profile[]).map((profile) => [profile.id, profile])));
@@ -83,6 +94,8 @@ export default function MurderMysteryDetailPage() {
   const players = history.filter((row) => row.participation_role === "PLAYER");
   const gms = history.filter((row) => row.participation_role === "GM");
   const canReview = Boolean(userId && players.some((row) => row.user_id === userId));
+  const hasPlayed = Boolean(userId && (history.some((row) => row.user_id === userId) || personalRecords.some((row) => row.user_id === userId)));
+  const isInterested = Boolean(userId && interests.some((row) => row.user_id === userId));
 
   const grouped = (rows: History[]) => Object.entries(rows.reduce<Record<string, number>>((acc, row) => {
     acc[row.user_id] = (acc[row.user_id] ?? 0) + 1;
@@ -108,6 +121,18 @@ export default function MurderMysteryDetailPage() {
     await load();
   }
 
+  async function toggleInterest() {
+    if (!userId) return router.push("/login");
+    if (hasPlayed) return;
+    setInterestSaving(true);
+    const result = isInterested
+      ? await supabase.from("murder_mystery_interests").delete().eq("murder_mystery_id", id).eq("user_id", userId)
+      : await supabase.from("murder_mystery_interests").insert({ murder_mystery_id: id, user_id: userId });
+    setInterestSaving(false);
+    if (result.error) return alert(`플레이 희망을 변경하지 못했습니다: ${result.error.message}`);
+    await load();
+  }
+
   if (loading) return <main className="mx-auto min-h-screen max-w-5xl px-5 py-20 text-white">불러오는 중...</main>;
   if (error || !mystery) return <main className="mx-auto min-h-screen max-w-5xl px-5 py-20 text-red-300">{error || "작품이 없습니다."}</main>;
 
@@ -130,6 +155,14 @@ export default function MurderMysteryDetailPage() {
           <h2 className="mt-8 text-lg font-bold">스포일러 없는 작품 소개</h2>
           <p className="mt-3 whitespace-pre-wrap break-words leading-8 text-slate-300">{mystery.synopsis || "등록된 소개가 없습니다."}</p>
         </div>
+      </section>
+
+      <section className="mt-8 rounded-3xl border border-amber-400/20 bg-[#101012] p-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div><p className="text-xs font-bold tracking-[.18em] text-amber-300">PLAYER INTEREST</p><h2 className="mt-1 text-2xl font-black">이 작품 플레이 희망</h2><p className="mt-2 text-sm text-slate-400">플레이를 원하는 멤버가 모이면 이벤트 개설에 참고할 수 있습니다.</p></div>
+          {hasPlayed ? <span className="rounded-xl border border-white/10 px-5 py-3 text-sm font-bold text-zinc-500">이미 플레이한 작품</span> : <button type="button" onClick={toggleInterest} disabled={interestSaving} className={`rounded-xl px-5 py-3 font-black disabled:opacity-50 ${isInterested ? "border border-amber-400/30 text-amber-300" : "bg-amber-400 text-zinc-950"}`}>{interestSaving ? "처리 중..." : isInterested ? "희망 취소" : "플레이 희망 등록"}</button>}
+        </div>
+        {interests.length ? <div className="mt-5 flex flex-wrap gap-2">{interests.map((interest, index) => <span key={interest.user_id} className="rounded-full border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-200"><span className="mr-2 text-amber-300">{index + 1}</span>{profileName(profiles[interest.user_id])}</span>)}</div> : <p className="mt-5 rounded-2xl border border-dashed border-white/10 py-8 text-center text-sm text-slate-500">아직 플레이 희망 멤버가 없습니다. 첫 번째로 등록해 보세요!</p>}
       </section>
 
       <section className="mt-8 grid gap-5 md:grid-cols-2">
