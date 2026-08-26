@@ -41,6 +41,16 @@ type GameReviewRow = {
   created_at: string;
 };
 
+type EventGameReviewRow = GameReviewRow & {
+  round_id: string | null;
+  event_id: string | null;
+  play_number: number | null;
+  review_number: number | null;
+  games: GameRow | GameRow[] | null;
+  events: { title: string; started_at: string } | { title: string; started_at: string }[] | null;
+  event_game_rounds: { event_round_players: { score: number | null }[] | null } | { event_round_players: { score: number | null }[] | null }[] | null;
+};
+
 type ProfileRow = {
   id: string;
   nickname: string | null;
@@ -63,6 +73,8 @@ type Review = {
   score: number | null;
   comment: string;
   createdAt: string;
+  playNumber?: number | null;
+  reviewNumber?: number | null;
 };
 
 function getSingleGame(value: GameRow | GameRow[] | null) {
@@ -278,8 +290,45 @@ export default function ReviewsPage() {
         }),
       );
 
+      const { data: eventReviewData, error: eventReviewError } = await supabase
+        .from("game_reviews")
+        .select("id, game_id, author_name, rating, content, created_at, round_id, event_id, play_number, review_number, games(id,name,type), events(title,started_at), event_game_rounds(event_round_players(score))")
+        .not("round_id", "is", null)
+        .order("created_at", { ascending: false });
+
+      if (eventReviewError) {
+        if (isMounted) {
+          setErrorMessage(`이벤트 평가를 불러오지 못했습니다: ${eventReviewError.message}`);
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const eventReviews: Review[] = ((eventReviewData ?? []) as unknown as EventGameReviewRow[]).flatMap((row) => {
+        const game = getSingleGame(row.games);
+        const event = Array.isArray(row.events) ? row.events[0] ?? null : row.events;
+        const round = Array.isArray(row.event_game_rounds) ? row.event_game_rounds[0] ?? null : row.event_game_rounds;
+        if (!game || !event) return [];
+        return [{
+          id: row.id,
+          userName: row.author_name?.trim() || "보드라운지 회원",
+          gameType: determineGameType(game.type),
+          gameId: game.id,
+          gameName: game.name,
+          eventName: event.title,
+          playedAt: formatDate(event.started_at.slice(0, 10)),
+          playedAtRaw: event.started_at,
+          rating: row.rating,
+          score: round?.event_round_players?.[0]?.score ?? null,
+          comment: row.content?.trim() || "아직 한줄평이 없습니다.",
+          createdAt: row.created_at,
+          playNumber: row.play_number,
+          reviewNumber: row.review_number,
+        }];
+      });
+
       if (isMounted) {
-        setReviews(mappedReviews);
+        setReviews([...eventReviews, ...mappedReviews]);
         setIsLoading(false);
       }
     }
@@ -532,6 +581,11 @@ export default function ReviewsPage() {
                     <p className="text-sm leading-6 text-zinc-400">
                       {review.comment}
                     </p>
+                    {review.playNumber && (
+                      <p className="mt-1 text-xs text-zinc-600">
+                        {review.playNumber}번째 플레이 · {review.reviewNumber ?? "-"}번째 평가
+                      </p>
+                    )}
                   </div>
 
                   <div>
