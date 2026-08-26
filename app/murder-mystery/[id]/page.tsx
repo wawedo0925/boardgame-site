@@ -133,11 +133,12 @@ export default function MurderMysteryDetailPage() {
     await load();
   }
 
-  if (loading) return <main className="mx-auto min-h-screen max-w-5xl px-5 py-20 text-white">불러오는 중...</main>;
-  if (error || !mystery) return <main className="mx-auto min-h-screen max-w-5xl px-5 py-20 text-red-300">{error || "작품이 없습니다."}</main>;
+  if (loading) return <main className="min-h-screen bg-zinc-950 text-white"><div className="mx-auto max-w-5xl px-5 py-20">불러오는 중...</div></main>;
+  if (error || !mystery) return <main className="min-h-screen bg-zinc-950 text-red-300"><div className="mx-auto max-w-5xl px-5 py-20">{error || "작품이 없습니다."}</div></main>;
 
   return (
-    <main className="mx-auto min-h-screen max-w-5xl px-5 py-12 text-white">
+    <main className="min-h-screen bg-zinc-950 text-white">
+      <div className="mx-auto max-w-5xl px-5 py-12">
       <button onClick={() => router.push("/murder-mystery")} className="mb-8 text-sm text-slate-400 hover:text-white">← 머더미스터리 목록</button>
       <section className="grid gap-8 rounded-3xl border border-red-900/60 bg-[#101012] p-6 md:grid-cols-[220px_1fr]">
         <div className="aspect-[3/4] overflow-hidden rounded-2xl bg-zinc-900">
@@ -193,6 +194,7 @@ export default function MurderMysteryDetailPage() {
           {reviews.length ? reviews.map((review) => <article key={review.id} className="rounded-2xl bg-zinc-900 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><strong>{profileName(profiles[review.user_id])}</strong><span className="text-xs text-slate-500">{new Date(review.updated_at || review.created_at).toLocaleDateString("ko-KR")}</span></div><p className="mt-3 whitespace-pre-wrap break-words leading-7 text-slate-300">{review.review_text}</p>{review.user_id === userId && <div className="mt-3 flex gap-2"><button onClick={() => { setEditingId(review.id); setText(review.review_text); setWarningAccepted(false); }} className="text-xs text-amber-300">수정</button><button onClick={() => removeReview(review.id)} className="text-xs text-red-400">삭제</button></div>}</article>) : <p className="text-sm text-slate-500">아직 등록된 리뷰가 없습니다.</p>}
         </div>
       </section>
+      </div>
     </main>
   );
 }

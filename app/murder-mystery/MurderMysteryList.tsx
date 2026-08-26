@@ -28,7 +28,7 @@ function safeFileName(name: string) {
   return `cover-${Date.now()}.${extension.replace(/[^a-z0-9]/g, "") || "jpg"}`;
 }
 
-export default function MurderMysteryList({ mysteries, isAdmin }: { mysteries: MurderMystery[]; isAdmin: boolean }) {
+export default function MurderMysteryList({ mysteries, isAdmin, interestCounts }: { mysteries: MurderMystery[]; isAdmin: boolean; interestCounts: Record<string, number> }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [query, setQuery] = useState("");
@@ -182,7 +182,7 @@ export default function MurderMysteryList({ mysteries, isAdmin }: { mysteries: M
                 router.push(`/murder-mystery/${item.id}`);
               }
             }}
-            className="grid cursor-pointer gap-5 border-b border-white/10 px-5 py-5 last:border-b-0 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-400 lg:grid-cols-[100px_1.5fr_0.8fr_0.8fr_0.8fr] lg:items-center lg:px-6"
+            className="grid cursor-pointer gap-5 border-b border-white/10 px-5 py-5 last:border-b-0 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-400 lg:grid-cols-[100px_1.5fr_0.65fr_0.65fr_0.75fr_0.75fr] lg:items-center lg:px-6"
           >
             <div>
               <div className="flex h-28 w-20 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-red-400/10 text-4xl">
@@ -214,6 +214,7 @@ export default function MurderMysteryList({ mysteries, isAdmin }: { mysteries: M
             <p className="text-sm text-zinc-300">{playerText(item)}</p>
             <p className="text-sm text-zinc-300">{item.play_time ? `${item.play_time}분` : "시간 미정"}</p>
             <p className="text-sm text-zinc-300">{hostText(item)}</p>
+            <p className="text-sm font-bold text-amber-300">플레이 희망 {interestCounts[item.id] ?? 0}명</p>
           </article>
         ))}
         {!visible.length && <div className="px-6 py-16 text-center text-sm text-zinc-500">조건에 맞는 작품이 없습니다.</div>}
