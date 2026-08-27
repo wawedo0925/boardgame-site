@@ -24,6 +24,57 @@ type Game = {
   thumbnail: string | null;
 };
 
+type GameEditDraft = {
+  name: string;
+  type: string;
+  min_players: string;
+  max_players: string;
+  best_players: string;
+  play_time: string;
+  difficulty: string;
+  genre: string;
+  weight: string;
+  publisher: string;
+  icon: string;
+  min_age: string;
+  year_published: string;
+  bgg_url: string;
+  description: string;
+  thumbnail: string;
+};
+
+const emptyEditDraft: GameEditDraft = {
+  name: "",
+  type: "SCORE",
+  min_players: "",
+  max_players: "",
+  best_players: "",
+  play_time: "",
+  difficulty: "",
+  genre: "",
+  weight: "",
+  publisher: "",
+  icon: "",
+  min_age: "",
+  year_published: "",
+  bgg_url: "",
+  description: "",
+  thumbnail: "",
+};
+
+function draftText(value: unknown) {
+  return value == null ? "" : String(value);
+}
+
+function nullableText(value: string) {
+  const normalized = value.trim();
+  return normalized === "" ? null : normalized;
+}
+
+function nullableNumber(value: string) {
+  return value.trim() === "" ? null : Number(value);
+}
+
 type Props = {
   games: Game[];
   total: number;
@@ -66,6 +117,12 @@ export default function BoardgameList({
     useState(Boolean(canManage));
   const [busyId, setBusyId] = useState<string | null>(null);
   const [coverGame, setCoverGame] = useState<Game | null>(null);
+  const [editingGame, setEditingGame] = useState<Game | null>(null);
+  const [editDraft, setEditDraft] =
+    useState<GameEditDraft>(emptyEditDraft);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editMessage, setEditMessage] = useState("");
 
   const fileInput = useRef<HTMLInputElement | null>(null);
 
@@ -76,6 +133,23 @@ export default function BoardgameList({
   useEffect(() => {
     setResolvedCanManage(Boolean(canManage));
   }, [canManage]);
+
+  useEffect(() => {
+    if (!editingGame) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape" && !editSaving) setEditingGame(null);
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [editingGame, editSaving]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const firstNumber = total === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -202,6 +276,144 @@ export default function BoardgameList({
     router.refresh();
   }
 
+  async function openEditModal(game: Game) {
+    if (!resolvedCanManage) return;
+
+    setEditingGame(game);
+    setEditDraft({ ...emptyEditDraft, name: game.name ?? "" });
+    setEditMessage("");
+    setEditLoading(true);
+
+    const { data, error } = await supabase
+      .from("games")
+      .select(
+        "id,name,type,min_players,max_players,best_players,play_time,difficulty,genre,weight,publisher,icon,min_age,year_published,bgg_url,description,thumbnail",
+      )
+      .eq("id", game.id)
+      .single();
+
+    setEditLoading(false);
+
+    if (error) {
+      setEditMessage(`정보를 불러오지 못했습니다. ${error.message}`);
+      return;
+    }
+
+    setEditDraft({
+      name: draftText(data.name),
+      type: draftText(data.type) || "SCORE",
+      min_players: draftText(data.min_players),
+      max_players: draftText(data.max_players),
+      best_players: draftText(data.best_players),
+      play_time: draftText(data.play_time),
+      difficulty: draftText(data.difficulty),
+      genre: draftText(data.genre),
+      weight: draftText(data.weight),
+      publisher: draftText(data.publisher),
+      icon: draftText(data.icon),
+      min_age: draftText(data.min_age),
+      year_published: draftText(data.year_published),
+      bgg_url: draftText(data.bgg_url),
+      description: draftText(data.description),
+      thumbnail: draftText(data.thumbnail),
+    });
+  }
+
+  function updateEditDraft(name: keyof GameEditDraft, value: string) {
+    setEditDraft((current) => ({ ...current, [name]: value }));
+  }
+
+  async function saveEdit() {
+    if (!editingGame || !resolvedCanManage || editLoading) return;
+
+    if (!editDraft.name.trim()) {
+      setEditMessage("게임 이름을 입력해 주세요.");
+      return;
+    }
+
+    setEditSaving(true);
+    setEditMessage("");
+
+    const payload = {
+      name: editDraft.name.trim(),
+      type: editDraft.type || "SCORE",
+      min_players: nullableNumber(editDraft.min_players),
+      max_players: nullableNumber(editDraft.max_players),
+      best_players: nullableText(editDraft.best_players),
+      play_time: nullableNumber(editDraft.play_time),
+      difficulty: nullableNumber(editDraft.difficulty),
+      genre: nullableText(editDraft.genre),
+      weight: nullableNumber(editDraft.weight),
+      publisher: nullableText(editDraft.publisher),
+      icon: nullableText(editDraft.icon),
+      min_age: nullableNumber(editDraft.min_age),
+      year_published: nullableNumber(editDraft.year_published),
+      bgg_url: nullableText(editDraft.bgg_url),
+      description: nullableText(editDraft.description),
+      thumbnail: nullableText(editDraft.thumbnail),
+    };
+
+    const { error } = await supabase
+      .from("games")
+      .update(payload)
+      .eq("id", editingGame.id);
+
+    setEditSaving(false);
+
+    if (error) {
+      setEditMessage(`수정하지 못했습니다. ${error.message}`);
+      return;
+    }
+
+    setItems((current) =>
+      current.map((item) =>
+        item.id === editingGame.id
+          ? {
+              ...item,
+              name: payload.name,
+              genre: payload.genre,
+              min_players: payload.min_players,
+              max_players: payload.max_players,
+              best_players: payload.best_players,
+              play_time: payload.play_time,
+              publisher: payload.publisher,
+              thumbnail: payload.thumbnail,
+            }
+          : item,
+      ),
+    );
+    setEditingGame(null);
+    router.refresh();
+  }
+
+  const EditField = ({
+    label,
+    name,
+    type = "text",
+    min,
+    max,
+    step,
+  }: {
+    label: string;
+    name: keyof GameEditDraft;
+    type?: string;
+    min?: number;
+    max?: number;
+    step?: number;
+  }) => (
+    <label className="editField">
+      <span>{label}</span>
+      <input
+        type={type}
+        min={min}
+        max={max}
+        step={step}
+        value={editDraft[name]}
+        onChange={(event) => updateEditDraft(name, event.target.value)}
+      />
+    </label>
+  );
+
   return (
     <section className="listSection">
       <input
@@ -321,14 +533,14 @@ export default function BoardgameList({
                           : "표지 등록"}
                     </button>
 
-                    <Link
+                    <button
+                      type="button"
                       className="editButton"
-                      href={`/admin/library?edit=${encodeURIComponent(
-                        game.id,
-                      )}&kind=boardgame`}
+                      disabled={busyId === game.id}
+                      onClick={() => void openEditModal(game)}
                     >
                       정보 수정
-                    </Link>
+                    </button>
 
                     <button
                       type="button"
@@ -403,6 +615,109 @@ export default function BoardgameList({
             </Link>
           )}
         </nav>
+      )}
+
+      {editingGame && (
+        <div
+          className="editModalBackdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !editSaving) {
+              setEditingGame(null);
+            }
+          }}
+        >
+          <section
+            className="editModal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="boardgame-edit-title"
+          >
+            <header className="editModalHeader">
+              <div>
+                <p>BOARDGAME EDIT</p>
+                <h2 id="boardgame-edit-title">게임 정보 수정</h2>
+              </div>
+              <button
+                type="button"
+                aria-label="팝업 닫기"
+                disabled={editSaving}
+                onClick={() => setEditingGame(null)}
+              >
+                ×
+              </button>
+            </header>
+
+            {editLoading ? (
+              <div className="editModalLoading">게임 정보를 불러오는 중...</div>
+            ) : (
+              <>
+                <div className="editFormGrid">
+                  <EditField label="게임 이름" name="name" />
+                  <label className="editField">
+                    <span>결과 방식</span>
+                    <select
+                      value={editDraft.type}
+                      onChange={(event) =>
+                        updateEditDraft("type", event.target.value)
+                      }
+                    >
+                      <option value="SCORE">점수형</option>
+                      <option value="SIMPLE_SCORE">등수형</option>
+                      <option value="ROLE">역할형</option>
+                      <option value="COOP">협력형</option>
+                    </select>
+                  </label>
+                  <EditField label="최소 인원" name="min_players" type="number" />
+                  <EditField label="최대 인원" name="max_players" type="number" />
+                  <EditField label="베스트 인원" name="best_players" />
+                  <EditField label="플레이 시간(분)" name="play_time" type="number" />
+                  <EditField label="난이도(1~5)" name="difficulty" type="number" min={1} max={5} step={0.01} />
+                  <EditField label="장르" name="genre" />
+                  <EditField label="BGG 웨이트" name="weight" type="number" min={0} max={5} step={0.01} />
+                  <EditField label="출판사" name="publisher" />
+                  <EditField label="아이콘" name="icon" />
+                  <EditField label="권장 나이" name="min_age" type="number" />
+                  <EditField label="출시 연도" name="year_published" type="number" />
+                  <EditField label="BGG 주소" name="bgg_url" />
+                  <div className="editWideField">
+                    <EditField label="표지 이미지 주소" name="thumbnail" />
+                  </div>
+                  <label className="editField editWideField">
+                    <span>게임 설명</span>
+                    <textarea
+                      value={editDraft.description}
+                      onChange={(event) =>
+                        updateEditDraft("description", event.target.value)
+                      }
+                    />
+                  </label>
+                </div>
+
+                {editMessage && <p className="editMessage">{editMessage}</p>}
+
+                <footer className="editModalActions">
+                  <button
+                    type="button"
+                    className="editCancelButton"
+                    disabled={editSaving}
+                    onClick={() => setEditingGame(null)}
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    className="editSaveButton"
+                    disabled={editSaving}
+                    onClick={() => void saveEdit()}
+                  >
+                    {editSaving ? "저장 중..." : "수정사항 저장"}
+                  </button>
+                </footer>
+              </>
+            )}
+          </section>
+        </div>
       )}
 
       <style>{`
@@ -593,6 +908,180 @@ export default function BoardgameList({
           background: transparent;
         }
 
+        .editModalBackdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1000;
+          display: grid;
+          place-items: center;
+          padding: 24px;
+          background: rgba(0, 0, 0, 0.78);
+          backdrop-filter: blur(8px);
+        }
+
+        .editModal {
+          width: min(920px, 100%);
+          max-height: min(860px, calc(100dvh - 48px));
+          overflow-y: auto;
+          border: 1px solid #4b3b17;
+          border-radius: 24px;
+          padding: 24px;
+          color: #fff;
+          background: #101113;
+          box-shadow: 0 28px 90px rgba(0, 0, 0, 0.65);
+        }
+
+        .editModalHeader {
+          position: sticky;
+          top: -24px;
+          z-index: 2;
+          margin: -24px -24px 22px;
+          padding: 22px 24px 18px;
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 20px;
+          border-bottom: 1px solid #292b30;
+          background: rgba(16, 17, 19, 0.96);
+          backdrop-filter: blur(10px);
+        }
+
+        .editModalHeader p {
+          margin: 0 0 6px;
+          color: #ffbd00;
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: 0.2em;
+        }
+
+        .editModalHeader h2 {
+          margin: 0;
+          font-size: 25px;
+        }
+
+        .editModalHeader button {
+          width: 42px;
+          height: 42px;
+          flex: none;
+          border: 1px solid #383a40;
+          border-radius: 50%;
+          color: #fff;
+          background: #202126;
+          font-size: 26px;
+          line-height: 1;
+          cursor: pointer;
+        }
+
+        .editModalLoading {
+          padding: 70px 20px;
+          color: #91a0ba;
+          text-align: center;
+        }
+
+        .editFormGrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 16px;
+        }
+
+        .editField {
+          min-width: 0;
+          display: block;
+        }
+
+        .editField > span {
+          display: block;
+          margin-bottom: 7px;
+          color: #b8becb;
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .editField input,
+        .editField select,
+        .editField textarea {
+          width: 100%;
+          min-width: 0;
+          border: 1px solid #35373d;
+          border-radius: 12px;
+          padding: 12px 14px;
+          color: #fff;
+          background: #191a1e;
+          font: inherit;
+          outline: none;
+        }
+
+        .editField input,
+        .editField select {
+          height: 48px;
+        }
+
+        .editField textarea {
+          min-height: 130px;
+          resize: vertical;
+          line-height: 1.6;
+        }
+
+        .editField input:focus,
+        .editField select:focus,
+        .editField textarea:focus {
+          border-color: #ffbd00;
+          box-shadow: 0 0 0 3px rgba(255, 189, 0, 0.1);
+        }
+
+        .editWideField {
+          grid-column: 1 / -1;
+        }
+
+        .editMessage {
+          margin: 16px 0 0;
+          border: 1px solid #8a3138;
+          border-radius: 12px;
+          padding: 12px 14px;
+          color: #ff9ca3;
+          background: #1d0d10;
+          font-size: 14px;
+        }
+
+        .editModalActions {
+          position: sticky;
+          bottom: -24px;
+          margin: 22px -24px -24px;
+          padding: 18px 24px 24px;
+          display: grid;
+          grid-template-columns: 0.7fr 1.3fr;
+          gap: 12px;
+          border-top: 1px solid #292b30;
+          background: rgba(16, 17, 19, 0.96);
+          backdrop-filter: blur(10px);
+        }
+
+        .editModalActions button {
+          min-height: 50px;
+          border-radius: 13px;
+          font: inherit;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .editModalActions button:disabled,
+        .editModalHeader button:disabled {
+          cursor: wait;
+          opacity: 0.55;
+        }
+
+        .editCancelButton {
+          border: 1px solid #3a3c42;
+          color: #d6d9df;
+          background: #191a1e;
+        }
+
+        .editSaveButton {
+          border: 1px solid #ffbd00;
+          color: #171000;
+          background: #ffbd00;
+        }
+
         .deleteButton {
           border: 1px solid #9f2934;
           color: #ff6974;
@@ -697,6 +1186,42 @@ export default function BoardgameList({
           .managerActions button,
           .managerActions a {
             flex: 1 1 auto;
+          }
+
+          .editModalBackdrop {
+            place-items: end center;
+            padding: 0;
+          }
+
+          .editModal {
+            width: 100%;
+            max-height: 92dvh;
+            border-right: 0;
+            border-bottom: 0;
+            border-left: 0;
+            border-radius: 24px 24px 0 0;
+            padding: 20px;
+          }
+
+          .editModalHeader {
+            top: -20px;
+            margin: -20px -20px 18px;
+            padding: 18px 20px 15px;
+          }
+
+          .editFormGrid {
+            grid-template-columns: 1fr;
+            gap: 14px;
+          }
+
+          .editWideField {
+            grid-column: auto;
+          }
+
+          .editModalActions {
+            bottom: -20px;
+            margin: 20px -20px -20px;
+            padding: 15px 20px calc(18px + env(safe-area-inset-bottom));
           }
         }
 
