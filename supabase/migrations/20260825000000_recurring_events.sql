@@ -142,8 +142,9 @@ begin
     raise exception '이벤트 취소 권한이 없습니다.';
   end if;
 
-  insert into public.notifications(recipient_id, type, title, message, link)
-  select user_id, 'EVENT_CANCELLED', '이벤트 취소', target.title || ' 일정이 취소되었습니다.', '/events/' || target.id
+  insert into public.notifications(recipient_id, type, title, message, link, dedupe_key)
+  select user_id, 'EVENT_CANCELLED', '이벤트 취소', target.title || ' 일정이 취소되었습니다.', '/events/' || target.id,
+         'event-cancelled:' || target.id || ':' || user_id || ':' || gen_random_uuid()
   from (
     select user_id from public.event_participants where event_id = target.id
     union

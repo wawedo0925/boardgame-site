@@ -72,13 +72,14 @@ begin
       values (p_event_id, promoted_user_id, 'PLAYER')
       on conflict do nothing;
 
-      insert into public.notifications(recipient_id, type, title, message, link)
+      insert into public.notifications(recipient_id, type, title, message, link, dedupe_key)
       values (
         promoted_user_id,
         'EVENT_WAITLIST_PROMOTED',
         '이벤트 참가 확정',
         target.title || ' 이벤트의 참가자로 확정되었습니다.',
-        '/events/' || target.id
+        '/events/' || target.id,
+        'event-waitlist-promoted:' || target.id || ':' || promoted_user_id || ':' || gen_random_uuid()
       );
     end if;
   elsif exists (
@@ -91,13 +92,14 @@ begin
     raise exception '해당 멤버는 참가자 또는 대기자가 아닙니다.';
   end if;
 
-  insert into public.notifications(recipient_id, type, title, message, link)
+  insert into public.notifications(recipient_id, type, title, message, link, dedupe_key)
   values (
     p_user_id,
     'EVENT_PARTICIPATION_REMOVED',
     '이벤트 참가 변경',
     target.title || case when removed_kind = 'WAITLIST' then ' 이벤트의 대기 신청이 관리자에 의해 취소되었습니다.' else ' 이벤트 참가가 관리자에 의해 취소되었습니다.' end,
-    '/events/' || target.id
+    '/events/' || target.id,
+    'event-participation-removed:' || target.id || ':' || p_user_id || ':' || gen_random_uuid()
   );
 
   return removed_kind;
