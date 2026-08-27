@@ -16,3 +16,12 @@ export async function saveGroups(supabase:SupabaseClient,eventId:string,userId:s
 }
 
 export async function clearGroups(supabase:SupabaseClient,eventId:string){const {error}=await supabase.from("event_groups").delete().eq("event_id",eventId);if(error)throw error;}
+
+export async function clearEventPlayRecords(supabase:SupabaseClient,eventId:string){
+ const {data:sessions,error:sessionReadError}=await supabase.from("event_game_sessions").select("id").eq("event_id",eventId);if(sessionReadError)throw sessionReadError;
+ const sessionIds=(sessions??[]).map(row=>row.id);if(!sessionIds.length)return;
+ const {data:rounds,error:roundReadError}=await supabase.from("event_game_rounds").select("id").in("session_id",sessionIds);if(roundReadError)throw roundReadError;
+ const roundIds=(rounds??[]).map(row=>row.id);
+ if(roundIds.length){const players=await supabase.from("event_round_players").delete().in("round_id",roundIds);if(players.error)throw players.error;const roundDelete=await supabase.from("event_game_rounds").delete().in("id",roundIds);if(roundDelete.error)throw roundDelete.error;}
+ const sessionDelete=await supabase.from("event_game_sessions").delete().in("id",sessionIds);if(sessionDelete.error)throw sessionDelete.error;
+}

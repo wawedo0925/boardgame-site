@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getEventGroups, saveGroups, clearGroups } from "@/lib/services/groups";
+import { getEventGroups, saveGroups, clearGroups, clearEventPlayRecords } from "@/lib/services/groups";
 import { getEventGames } from "@/lib/services/events";
 import type { GroupDraft, GroupParticipant } from "@/types/group";
 import type { EventGame } from "@/types/event";
@@ -27,10 +27,13 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   const supabase = useMemo(() => createClient(), []);
   const [drafts, setDrafts] = useState<GroupDraft[]>([]);
   const [games, setGames] = useState<EventGame[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [memberPickerGroupId, setMemberPickerGroupId] = useState<string | null>(null);
+  const [pickerSelected, setPickerSelected] = useState<string[]>([]);
   const [adding, setAdding] = useState<GroupDraft | null>(null);
   const [recommending, setRecommending] = useState<GroupDraft | null>(null);
   const [busy, setBusy] = useState(false);
+  const groupRefs = useRef(new Map<string, HTMLElement>());
   const editable = Boolean(canManage && !isClosed);
 
   const load = useCallback(async () => {
@@ -62,16 +65,39 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   const assigned = new Set(drafts.flatMap(group => group.userIds));
   const unassigned = eligibleParticipants.filter(participant => !assigned.has(participant.user_id));
 
-  function move(userId: string, groupId: string) {
+  function toggleSelected(userId: string) {
+    if (!editable) return;
+    setSelected(current => current.includes(userId) ? current.filter(id => id !== userId) : [...current, userId]);
+  }
+
+  function move(userIds: string[], groupId: string) {
     if (!editable) return;
     setDrafts(current => current
-      .map(group => ({ ...group, userIds: group.userIds.filter(id => id !== userId), ruleMasterUserId: group.ruleMasterUserId===userId?null:group.ruleMasterUserId }))
-      .map(group => group.id === groupId ? { ...group, userIds: [...group.userIds, userId] } : group));
-    setSelected(null);
+      .map(group => ({
+        ...group,
+        userIds: group.userIds.filter(id => !userIds.includes(id)),
+        ruleMasterUserId: group.ruleMasterUserId && userIds.includes(group.ruleMasterUserId) ? null : group.ruleMasterUserId,
+      }))
+      .map(group => group.id === groupId ? { ...group, userIds: [...group.userIds, ...userIds.filter(id => !group.userIds.includes(id))] } : group));
+    setSelected([]);
   }
 
   function addGroup() {
-    setDrafts(current => [...current, { id: draftId(), name: `${current.length + 1}조`, sessionId: null, ruleMasterUserId: null, userIds: [] }]);
+    const id = draftId();
+    setDrafts(current => [...current, { id, name: `${current.length + 1}조`, sessionId: null, ruleMasterUserId: null, userIds: [] }]);
+    window.setTimeout(() => groupRefs.current.get(id)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+  }
+
+  function openMemberPicker(groupId: string) {
+    setPickerSelected([]);
+    setMemberPickerGroupId(groupId);
+  }
+
+  function applyMemberPicker() {
+    if (!memberPickerGroupId || !pickerSelected.length) return;
+    move(pickerSelected, memberPickerGroupId);
+    setMemberPickerGroupId(null);
+    setPickerSelected([]);
   }
 
   function balance() {
@@ -108,9 +134,21 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   }
 
   async function reset() {
-    if (!editable || !confirm("조 편성을 전체 초기화할까요?")) return;
+    if (!editable || !confirm("조 편성만 초기화할까요? 입력한 게임과 점수 기록은 유지됩니다.")) return;
     await clearGroups(supabase, eventId);
     await load();
+  }
+
+  async function resetPlayRecords() {
+    if (!editable || !confirm("입력한 모든 게임, 판, 점수와 이벤트 통계를 삭제할까요? 이미 작성된 해당 판의 평가도 함께 삭제되며 되돌릴 수 없습니다.")) return;
+    try {
+      setBusy(true);
+      await clearEventPlayRecords(supabase, eventId);
+      window.location.reload();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "플레이 기록을 초기화하지 못했습니다.");
+      setBusy(false);
+    }
   }
 
   return <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 text-white sm:p-7">
@@ -119,20 +157,21 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
       {editable && <div className="flex gap-2"><button onClick={balance} className="rounded-xl bg-white/10 px-4">자동 균등 배정</button><button onClick={addGroup} className="rounded-xl bg-amber-400 px-4 font-bold text-zinc-950">+ 조 추가</button></div>}
     </div>
     {isClosed && <p className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-3 text-sm text-emerald-200">이벤트가 마감되어 기록을 볼 수만 있습니다.</p>}
-    <div className="mt-5 rounded-xl border border-dashed border-white/10 p-4"><p className="text-sm font-bold">미배정 {unassigned.length}명</p><div className="mt-2 flex flex-wrap gap-2">{unassigned.map(participant => <button disabled={!editable} key={participant.user_id} onClick={() => setSelected(participant.user_id)} className="rounded-xl bg-white/10 px-3 py-2 disabled:cursor-default"><ParticipantName participant={participant}/></button>)}</div></div>
+    <div className="mt-5 rounded-xl border border-dashed border-white/10 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold">미배정 {unassigned.length}명</p>{editable && selected.length > 0 && <p className="text-xs font-semibold text-amber-300">{selected.length}명 선택 · 이동할 조를 눌러주세요</p>}</div><div className="mt-2 flex flex-wrap gap-2">{unassigned.map(participant => {const active=selected.includes(participant.user_id);return <button disabled={!editable} key={participant.user_id} onClick={() => toggleSelected(participant.user_id)} className={`rounded-xl border px-3 py-2 transition disabled:cursor-default ${active?"border-amber-300 bg-amber-400/20 text-amber-100":"border-transparent bg-white/10"}`}><ParticipantName participant={participant}/></button>})}</div></div>
     <div className="mt-5 space-y-5">{drafts.map(group => {
       const groupGames = games.map(game => ({ ...game, rounds: game.rounds.filter(round => round.group_id === group.id) })).filter(game => game.rounds.length);
       const groupEditable=Boolean(!isClosed&&(editable||group.ruleMasterUserId===currentUserId));
-      return <article key={group.id} onClick={() => selected && move(selected, group.id)} className={`rounded-2xl border p-4 ${selected && editable ? "border-amber-400" : "border-white/10"}`}>
+      return <article key={group.id} ref={node => {if(node)groupRefs.current.set(group.id,node);else groupRefs.current.delete(group.id)}} onClick={() => selected.length && move(selected, group.id)} className={`rounded-2xl border p-4 transition ${selected.length && editable ? "cursor-pointer border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.2)]" : "border-white/10"}`}>
         <div className="flex gap-2"><input disabled={!editable} value={group.name} onChange={event => setDrafts(current => current.map(item => item.id === group.id ? { ...item, name: event.target.value } : item))} className="h-11 flex-1 rounded-xl bg-white/10 px-3 font-bold disabled:opacity-80"/>{editable && <button onClick={event => { event.stopPropagation(); setDrafts(current => current.filter(item => item.id !== group.id)); }} className="text-red-300">삭제</button>}</div>
-        <div className="mt-3 flex flex-wrap gap-2">{group.userIds.map(userId => { const participant = participants.find(item => item.user_id === userId); return <button disabled={!editable} key={userId} onClick={event => { event.stopPropagation(); setSelected(userId); }} className="rounded-xl bg-white/5 px-3 py-2 disabled:cursor-default">{participant ? <ParticipantName participant={participant}/> : "회원"}{editable ? <span className="ml-1">· 이동</span> : null}</button>; })}</div>
+        <div className="mt-3 flex flex-wrap gap-2">{group.userIds.map(userId => { const participant = participants.find(item => item.user_id === userId); const active=selected.includes(userId); return <button disabled={!editable} key={userId} onClick={event => { event.stopPropagation(); toggleSelected(userId); }} className={`rounded-xl border px-3 py-2 transition disabled:cursor-default ${active?"border-amber-300 bg-amber-400/20 text-amber-100":"border-transparent bg-white/5"}`}>{participant ? <ParticipantName participant={participant}/> : "회원"}</button>; })}</div>
         {editable&&<label className="mt-3 block text-sm text-zinc-400">조 룰마스터<select value={group.ruleMasterUserId??""} onChange={event=>setDrafts(current=>current.map(item=>item.id===group.id?{...item,ruleMasterUserId:event.target.value||null}:item))} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 text-white"><option value="">룰마스터 미지정</option>{group.userIds.map(userId=>{const participant=participants.find(item=>item.user_id===userId);return <option key={userId} value={userId}>{participant?`${participantLabel(participant)} · ${participantBirthLabel(participant)}`.replace(/ · $/,""):"회원"}</option>})}</select></label>}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-4"><h3 className="font-bold">플레이 기록</h3>{groupEditable && <div className="flex gap-2"><button onClick={event => { event.stopPropagation(); group.id.startsWith("draft-") ? alert("먼저 조 편성을 저장해 주세요.") : setRecommending(group); }} className="rounded-xl bg-emerald-400/15 px-4 py-2 font-bold text-emerald-300">게임 추천</button><button onClick={event => { event.stopPropagation(); group.id.startsWith("draft-") ? alert("먼저 조 편성을 저장해 주세요.") : setAdding(group); }} className="rounded-xl bg-amber-400 px-4 py-2 font-bold text-zinc-950">+ 게임 한 판 추가</button></div>}</div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-4"><h3 className="font-bold">플레이 기록</h3>{groupEditable && <div className="flex flex-wrap gap-2"><button onClick={event => { event.stopPropagation(); openMemberPicker(group.id); }} className="rounded-xl bg-sky-400/15 px-4 py-2 font-bold text-sky-300">인원 추가</button><button onClick={event => { event.stopPropagation(); group.id.startsWith("draft-") ? alert("먼저 조 편성을 저장해 주세요.") : setRecommending(group); }} className="rounded-xl bg-emerald-400/15 px-4 py-2 font-bold text-emerald-300">게임 추천</button><button onClick={event => { event.stopPropagation(); group.id.startsWith("draft-") ? alert("먼저 조 편성을 저장해 주세요.") : setAdding(group); }} className="rounded-xl bg-amber-400 px-4 py-2 font-bold text-zinc-950">게임 추가</button></div>}</div>
         <GroupRoundHistory games={groupGames} canManage={groupEditable} onChanged={load}/>
       </article>;
     })}</div>
-    {editable && <div className="mt-5 grid grid-cols-2 gap-3"><button onClick={reset} className="h-12 rounded-xl border border-red-400/30 text-red-300">전체 초기화</button><button disabled={busy} onClick={save} className="h-12 rounded-xl bg-amber-400 font-bold text-zinc-950">조 편성 확정</button></div>}
+    {editable && <div className="mt-5 grid gap-3 sm:grid-cols-3"><button disabled={busy} onClick={reset} className="h-12 rounded-xl border border-white/15 text-zinc-300 disabled:opacity-50">조 편성 초기화</button><button disabled={busy} onClick={resetPlayRecords} className="h-12 rounded-xl border border-red-400/40 text-red-300 disabled:opacity-50">플레이 기록 전체 초기화</button><button disabled={busy} onClick={save} className="h-12 rounded-xl bg-amber-400 font-bold text-zinc-950 disabled:opacity-50">조 편성 확정</button></div>}
     {adding && <AddGroupRoundDialog eventId={eventId} groupId={adding.id} userIds={adding.userIds} onClose={() => setAdding(null)} onSaved={load}/>} 
     {recommending && <GameRecommendationDialog eventId={eventId} groupId={recommending.id} userIds={recommending.userIds} history={games.map(game => ({ ...game, rounds: game.rounds.filter(round => round.group_id === recommending.id) }))} onClose={() => setRecommending(null)} onSaved={load}/>} 
+    {memberPickerGroupId && <div className="fixed inset-0 z-[130] flex items-end bg-black/75 sm:items-center sm:justify-center" onClick={() => setMemberPickerGroupId(null)}><section className="flex max-h-[88dvh] w-full flex-col rounded-t-3xl border border-white/10 bg-zinc-950 p-5 sm:max-w-xl sm:rounded-3xl sm:p-6" onClick={event => event.stopPropagation()}><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-sky-300">MEMBER MOVE</p><h3 className="mt-1 text-xl font-bold">{drafts.find(group=>group.id===memberPickerGroupId)?.name}에 인원 추가</h3><p className="mt-1 text-sm text-zinc-400">여러 명을 선택하면 기존 조에서 이 조로 이동합니다.</p></div><button onClick={() => setMemberPickerGroupId(null)} className="h-11 w-11 shrink-0 rounded-full bg-white/10 text-xl">×</button></div><div className="mt-5 overflow-y-auto pr-1">{[{label:"미배정",ids:unassigned.map(item=>item.user_id)},...drafts.filter(group=>group.id!==memberPickerGroupId).map(group=>({label:group.name,ids:group.userIds}))].map(source=><div key={source.label} className="mb-5"><p className="mb-2 text-sm font-bold text-zinc-300">{source.label} {source.ids.length}명</p>{source.ids.length?<div className="flex flex-wrap gap-2">{source.ids.map(userId=>{const participant=participants.find(item=>item.user_id===userId);const active=pickerSelected.includes(userId);return <button key={userId} onClick={()=>setPickerSelected(current=>current.includes(userId)?current.filter(id=>id!==userId):[...current,userId])} className={`rounded-xl border px-3 py-2 transition ${active?"border-amber-300 bg-amber-400/20 text-amber-100":"border-white/10 bg-white/5"}`}>{participant?<ParticipantName participant={participant}/>:"회원"}</button>})}</div>:<p className="text-sm text-zinc-600">선택할 멤버가 없습니다.</p>}</div>)}</div><button disabled={!pickerSelected.length} onClick={applyMemberPicker} className="mt-2 min-h-12 rounded-xl bg-amber-400 font-bold text-zinc-950 disabled:opacity-40">선택한 {pickerSelected.length}명 추가</button></section></div>}
   </section>;
 }
