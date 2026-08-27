@@ -55,11 +55,8 @@ function formatDate(value: string) {
 
 function difficultyLabel(value: number | null) {
   if (value === null) return "미입력";
-  if (value <= 1) return "매우 쉬움";
-  if (value === 2) return "쉬움";
-  if (value === 3) return "보통";
-  if (value === 4) return "어려움";
-  return "매우 어려움";
+  const description = value < 1.5 ? "매우 쉬움" : value < 2.5 ? "쉬움" : value < 3.5 ? "보통" : value < 4.5 ? "어려움" : "매우 어려움";
+  return `${Number(value.toFixed(2))} / 5 · ${description}`;
 }
 
 function RatingStars({ rating, size = "normal" }: { rating: number; size?: "normal" | "large" }) {

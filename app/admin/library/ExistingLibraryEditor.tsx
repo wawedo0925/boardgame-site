@@ -62,7 +62,7 @@ export default function ExistingLibraryEditor() {
       description: nullable(draft.description), thumbnail: nullable(draft.thumbnail),
     } : {
       title: draft.title.trim(), min_players: numberOrNull(draft.min_players), max_players: numberOrNull(draft.max_players),
-      play_time: numberOrNull(draft.play_time), difficulty: nullable(draft.difficulty),
+      play_time: numberOrNull(draft.play_time), difficulty: numberOrNull(draft.difficulty),
       host_requirement: draft.host_requirement || "RECOMMENDED", host_required: draft.host_requirement === "REQUIRED",
       replayable: draft.replayable === "true", theme: nullable(draft.theme), synopsis: nullable(draft.synopsis),
       cover_url: nullable(draft.cover_url),
@@ -74,9 +74,9 @@ export default function ExistingLibraryEditor() {
     setSaving(false);
   }
 
-  const Field = ({ label, name, type = "text" }: { label: string; name: string; type?: string }) => (
+  const Field = ({ label, name, type = "text", min, max, step }: { label: string; name: string; type?: string; min?: number; max?: number; step?: number }) => (
     <label className="block"><span className="mb-1.5 block text-xs font-semibold text-zinc-400">{label}</span>
-      <input type={type} value={draft[name] ?? ""} onChange={(e) => set(name, e.target.value)} className={inputClass} />
+      <input type={type} min={min} max={max} step={step} value={draft[name] ?? ""} onChange={(e) => set(name, e.target.value)} className={inputClass} />
     </label>
   );
 
@@ -101,14 +101,14 @@ export default function ExistingLibraryEditor() {
           <Field label="게임 이름" name="name" /><label className="block"><span className="mb-1.5 block text-xs font-semibold text-zinc-400">결과 방식</span><select value={draft.type ?? "SCORE"} onChange={(e) => set("type", e.target.value)} className={inputClass}><option value="SCORE">점수형</option><option value="SIMPLE_SCORE">등수형</option><option value="ROLE">역할형</option><option value="COOP">협력형</option></select></label>
           <Field label="최소 인원" name="min_players" type="number" /><Field label="최대 인원" name="max_players" type="number" />
           <Field label="베스트 인원" name="best_players" /><Field label="플레이 시간(분)" name="play_time" type="number" />
-          <Field label="난이도(1~5)" name="difficulty" type="number" /><Field label="장르" name="genre" />
+          <Field label="난이도(1~5)" name="difficulty" type="number" min={1} max={5} step={0.01} /><Field label="장르" name="genre" />
           <Field label="BGG 웨이트" name="weight" type="number" /><Field label="출판사" name="publisher" />
           <Field label="아이콘" name="icon" /><Field label="권장 나이" name="min_age" type="number" />
           <Field label="출시 연도" name="year_published" type="number" /><Field label="BGG 주소" name="bgg_url" />
           <div className="sm:col-span-2"><Field label="표지 이미지 주소" name="thumbnail" /></div>
           <label className="sm:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-zinc-400">설명</span><textarea value={draft.description ?? ""} onChange={(e) => set("description", e.target.value)} className={`${inputClass} min-h-28`} /></label>
         </> : <>
-          <Field label="작품 이름" name="title" /><Field label="난이도" name="difficulty" />
+          <Field label="작품 이름" name="title" /><Field label="난이도(1~5)" name="difficulty" type="number" min={1} max={5} step={0.01} />
           <Field label="최소 인원" name="min_players" type="number" /><Field label="최대 인원" name="max_players" type="number" />
           <Field label="진행 시간(분)" name="play_time" type="number" /><label><span className="mb-1.5 block text-xs font-semibold text-zinc-400">진행자</span><select value={draft.host_requirement ?? "RECOMMENDED"} onChange={(e) => set("host_requirement", e.target.value)} className={inputClass}><option value="REQUIRED">필요</option><option value="RECOMMENDED">권장</option><option value="NOT_REQUIRED">불필요</option></select></label>
           <label><span className="mb-1.5 block text-xs font-semibold text-zinc-400">리플레이</span><select value={draft.replayable ?? "false"} onChange={(e) => set("replayable", e.target.value)} className={inputClass}><option value="false">불가</option><option value="true">가능</option></select></label><Field label="테마" name="theme" />

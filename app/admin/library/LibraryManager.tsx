@@ -77,7 +77,7 @@ export default function LibraryManager() {
           min_players: numberValue(data, "min_players"),
           max_players: numberValue(data, "max_players"),
           play_time: numberValue(data, "play_time"),
-          difficulty: value(data, "mystery_difficulty") || null,
+          difficulty: numberValue(data, "mystery_difficulty"),
           host_required: value(data, "host_requirement") === "REQUIRED",
           host_requirement: value(data, "host_requirement") || "RECOMMENDED",
           replayable: value(data, "replayable") === "true",
@@ -114,7 +114,7 @@ export default function LibraryManager() {
         {tab === "BOARDGAME" ? (
           <>
             <label><span className="mb-2 block text-sm">결과 방식</span><select name="result_type" className={field}><option value="SCORE">점수형</option><option value="SIMPLE_SCORE">등수형</option><option value="ROLE">역할형</option><option value="COOP">협력형</option></select></label>
-            <label><span className="mb-2 block text-sm">난이도(1~5)</span><input name="difficulty" type="number" min="1" max="5" className={field} /></label>
+            <label><span className="mb-2 block text-sm">난이도(1~5)</span><input name="difficulty" type="number" min="1" max="5" step="0.01" className={field} /></label>
             <label><span className="mb-2 block text-sm">장르</span><input name="genre" className={field} /></label>
             <label><span className="mb-2 block text-sm">베스트 인원</span><input name="best_players" placeholder="예: 4명" className={field} /></label>
             <label><span className="mb-2 block text-sm">BGG 웨이트</span><input name="weight" type="number" min="0" max="5" step="0.01" className={field} /></label>
@@ -127,7 +127,7 @@ export default function LibraryManager() {
           </>
         ) : (
           <>
-            <label><span className="mb-2 block text-sm">난이도</span><select name="mystery_difficulty" className={field}><option value="">미정</option><option>쉬움</option><option>보통</option><option>어려움</option></select></label>
+            <label><span className="mb-2 block text-sm">난이도(1~5)</span><input name="mystery_difficulty" type="number" min="1" max="5" step="0.01" placeholder="예: 3.25" className={field} /></label>
             <label><span className="mb-2 block text-sm">진행자</span><select name="host_requirement" className={field}><option value="REQUIRED">필요</option><option value="RECOMMENDED">권장</option><option value="NOT_REQUIRED">불필요</option></select></label>
             <label><span className="mb-2 block text-sm">리플레이</span><select name="replayable" className={field}><option value="false">불가</option><option value="true">가능</option></select></label>
             <label><span className="mb-2 block text-sm">테마</span><input name="theme" className={field} /></label>

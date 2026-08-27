@@ -11,7 +11,7 @@ type Mystery = {
   min_players: number | null;
   max_players: number | null;
   play_time: number | null;
-  difficulty: string | null;
+  difficulty: number | null;
   host_requirement: string | null;
   replayable: boolean | null;
   theme: string | null;
@@ -26,6 +26,8 @@ type PersonalRecord = { user_id: string };
 
 const hostLabel = (value: string | null) =>
   value === "REQUIRED" ? "진행자 필요" : value === "RECOMMENDED" ? "진행자 권장" : "진행자 불필요";
+
+const difficultyLabel = (value: number | null) => value === null ? "난이도 미정" : `난이도 ${Number(value.toFixed(2))} / 5`;
 
 const profileName = (profile?: Profile) => {
   if (!profile) return "알 수 없는 멤버";
@@ -150,6 +152,7 @@ export default function MurderMysteryDetailPage() {
           <div className="mt-5 flex flex-wrap gap-2 text-sm text-slate-300">
             <span className="rounded-full bg-zinc-800 px-3 py-2">{mystery.min_players ?? "?"}~{mystery.max_players ?? "?"}명</span>
             <span className="rounded-full bg-zinc-800 px-3 py-2">{mystery.play_time ?? "?"}분</span>
+            <span className="rounded-full bg-zinc-800 px-3 py-2">{difficultyLabel(mystery.difficulty)}</span>
             <span className="rounded-full bg-zinc-800 px-3 py-2">{hostLabel(mystery.host_requirement)}</span>
             <span className="rounded-full bg-zinc-800 px-3 py-2">{mystery.replayable ? "리플레이 가능" : "리플레이 불가"}</span>
           </div>
