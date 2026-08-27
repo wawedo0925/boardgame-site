@@ -16,11 +16,11 @@ const participantBirthLabel = (participant?: GroupParticipant) => {
   const value = participant?.profile?.birth_year?.trim();
   if (!value) return "";
   const numeric = Number(value.replace(/[^0-9]/g, ""));
-  if (!Number.isFinite(numeric)) return value.includes("년생") ? value : `${value}년생`;
+  if (!Number.isFinite(numeric)) return value.replace(/년생/g, "").trim();
   const shortYear = numeric >= 1900 ? numeric % 100 : numeric;
-  return `${String(shortYear).padStart(2, "0")}년생`;
+  return String(shortYear).padStart(2, "0");
 };
-const ParticipantName = ({ participant }: { participant: GroupParticipant }) => <span className="inline-flex items-start gap-1.5"><span>{participantLabel(participant)}</span>{participantBirthLabel(participant) && <small className="mt-0.5 text-[10px] font-medium leading-none text-zinc-500">{participantBirthLabel(participant)}</small>}</span>;
+const ParticipantName = ({ participant }: { participant: GroupParticipant }) => <span className="inline-flex items-start gap-1.5"><span>{participantLabel(participant)}</span>{participantBirthLabel(participant) && <small className="mt-0.5 text-[10px] font-medium leading-none text-white">{participantBirthLabel(participant)}</small>}</span>;
 const draftId = () => `draft-${Date.now()}-${Math.random()}`;
 
 export default function GroupPlaySection({ eventId, participants, currentUserId, canManage, isClosed = false }: Props) {
