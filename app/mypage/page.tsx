@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -110,15 +109,6 @@ function getKakaoNickname(user: User) {
   );
 }
 
-function getAvatarUrl(user: User) {
-  return (
-    user.user_metadata?.avatar_url ??
-    user.user_metadata?.picture ??
-    user.user_metadata?.profile_image_url ??
-    null
-  );
-}
-
 function makeDisplayName(profile: Profile | null) {
   if (!profile?.activity_name) {
     return null;
@@ -132,6 +122,15 @@ function makeDisplayName(profile: Profile | null) {
   ].filter(Boolean);
 
   return parts.join(" / ");
+}
+
+function hasCompleteActivityProfile(profile: Profile | null) {
+  return Boolean(
+    profile?.activity_name?.trim() &&
+      profile?.birth_year?.trim() &&
+      profile?.region?.trim() &&
+      profile?.gender?.trim(),
+  );
 }
 
 
@@ -197,6 +196,7 @@ export default function MyPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -255,7 +255,7 @@ export default function MyPage() {
           region: loadedProfile.region ?? "",
           gender: loadedProfile.gender ?? "",
         });
-        setIsEditing(false);
+        setIsEditing(!hasCompleteActivityProfile(loadedProfile));
       } else {
         setProfile(null);
         setForm(initialForm);
@@ -340,6 +340,23 @@ export default function MyPage() {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!isAccountModalOpen) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsAccountModalOpen(false);
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isAccountModalOpen]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -494,7 +511,6 @@ export default function MyPage() {
   }
 
   const kakaoNickname = getKakaoNickname(user);
-  const avatarUrl = getAvatarUrl(user);
   const displayName = makeDisplayName(profile);
 
   const flattenedGames = playRecords.flatMap((record) =>
@@ -566,34 +582,17 @@ export default function MyPage() {
           </p>
 
           <div className="mt-7 flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              {avatarUrl ? (
-                <Image
-                  src={avatarUrl}
-                  alt="카카오 프로필 이미지"
-                  width={112}
-                  height={112}
-                  className="h-24 w-24 rounded-full border border-white/10 object-cover sm:h-28 sm:w-28"
-                  unoptimized
-                />
-              ) : (
-                <div className="flex h-24 w-24 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-4xl font-bold text-amber-300 sm:h-28 sm:w-28">
-                  {(profile?.activity_name ?? kakaoNickname).slice(0, 1)}
-                </div>
-              )}
+            <div>
+              <p className="text-sm text-zinc-500">보드라운지 활동 프로필</p>
 
-              <div>
-                <p className="text-sm text-zinc-500">보드라운지 활동 프로필</p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-5xl">
+                {displayName ?? "활동 프로필을 등록해주세요"}
+              </h1>
 
-                <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-5xl">
-                  {displayName ?? "활동 프로필을 등록해주세요"}
-                </h1>
-
-                <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
-                  이 활동명은 앞으로 리뷰와 댓글 등 보드라운지 활동에
-                  사용됩니다.
-                </p>
-              </div>
+              <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
+                이 활동명은 앞으로 리뷰와 댓글 등 보드라운지 활동에
+                사용됩니다.
+              </p>
             </div>
 
             {profile && !isEditing && (
@@ -614,51 +613,27 @@ export default function MyPage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-6 py-12 sm:py-14">
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_1.85fr]">
+        <div>
           <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-            <p className="text-sm font-semibold tracking-[0.2em] text-amber-400">
-              ACCOUNT
-            </p>
-
-            <h2 className="mt-2 text-2xl font-bold">계정 정보</h2>
-
-            <dl className="mt-8 space-y-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <dt className="text-sm text-zinc-500">카카오 계정 이름</dt>
-                <dd className="mt-2 font-semibold text-zinc-200">
-                  {kakaoNickname}
-                </dd>
+                <p className="text-sm font-semibold tracking-[0.2em] text-amber-400">
+                  COMMUNITY PROFILE
+                </p>
+
+                <h2 className="mt-2 text-2xl font-bold">
+                  {isEditing ? "활동 프로필 입력" : "내 활동 프로필"}
+                </h2>
               </div>
 
-              <div className="border-t border-white/10 pt-6">
-                <dt className="text-sm text-zinc-500">이메일</dt>
-                <dd className="mt-2 break-all font-medium text-zinc-300">
-                  {user.email ?? "이메일 정보 없음"}
-                </dd>
-              </div>
-
-              <div className="border-t border-white/10 pt-6">
-                <dt className="text-sm text-zinc-500">가입일</dt>
-                <dd className="mt-2 font-medium text-zinc-300">
-                  {formatDate(user.created_at)}
-                </dd>
-              </div>
-            </dl>
-
-            <p className="mt-8 rounded-2xl bg-white/[0.03] p-4 text-sm leading-6 text-zinc-500">
-              카카오 계정 정보는 로그인 확인에 사용되며, 다른 회원에게 보여줄
-              사이트 표시 프로필과는 별도로 관리됩니다.
-            </p>
-          </article>
-
-          <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-            <p className="text-sm font-semibold tracking-[0.2em] text-amber-400">
-              COMMUNITY PROFILE
-            </p>
-
-            <h2 className="mt-2 text-2xl font-bold">
-              {isEditing ? "활동 프로필 입력" : "내 활동 프로필"}
-            </h2>
+              <button
+                type="button"
+                onClick={() => setIsAccountModalOpen(true)}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-amber-400/40 hover:text-amber-300"
+              >
+                계정 정보
+              </button>
+            </div>
 
             {isEditing ? (
               <form onSubmit={handleSubmit} className="mt-8 space-y-6">
@@ -806,7 +781,7 @@ export default function MyPage() {
                     {isSaving ? "저장 중..." : "프로필 저장"}
                   </button>
 
-                  {profile && (
+                  {profile && hasCompleteActivityProfile(profile) && (
                     <button
                       type="button"
                       onClick={handleCancel}
@@ -1041,6 +1016,81 @@ export default function MyPage() {
           </div>
         )}
       </section>
+
+      {isAccountModalOpen && (
+        <div
+          className="fixed inset-0 z-[100] grid place-items-center bg-black/80 p-5 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsAccountModalOpen(false);
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="account-modal-title"
+            className="w-full max-w-lg rounded-3xl border border-white/10 bg-zinc-950 p-6 shadow-2xl sm:p-8"
+          >
+            <div className="flex items-start justify-between gap-5">
+              <div>
+                <p className="text-sm font-semibold tracking-[0.2em] text-amber-400">
+                  ACCOUNT
+                </p>
+                <h2 id="account-modal-title" className="mt-2 text-2xl font-bold">
+                  계정 정보
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                aria-label="계정 정보 닫기"
+                onClick={() => setIsAccountModalOpen(false)}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-2xl text-zinc-300 transition hover:border-amber-400/40 hover:text-amber-300"
+              >
+                ×
+              </button>
+            </div>
+
+            <dl className="mt-7 space-y-5">
+              <div className="rounded-2xl border border-white/10 p-5">
+                <dt className="text-sm text-zinc-500">카카오 계정 이름</dt>
+                <dd className="mt-2 font-semibold text-zinc-200">
+                  {kakaoNickname}
+                </dd>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 p-5">
+                <dt className="text-sm text-zinc-500">이메일</dt>
+                <dd className="mt-2 break-all font-medium text-zinc-300">
+                  {user.email ?? "이메일 정보 없음"}
+                </dd>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 p-5">
+                <dt className="text-sm text-zinc-500">가입일</dt>
+                <dd className="mt-2 font-medium text-zinc-300">
+                  {formatDate(user.created_at)}
+                </dd>
+              </div>
+            </dl>
+
+            <p className="mt-5 rounded-2xl bg-white/[0.03] p-4 text-sm leading-6 text-zinc-500">
+              계정 정보는 로그인 확인에만 사용되며 다른 회원에게 공개되지
+              않습니다.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setIsAccountModalOpen(false)}
+              className="mt-6 w-full rounded-2xl bg-amber-400 px-5 py-3.5 font-bold text-zinc-950 transition hover:bg-amber-300"
+            >
+              확인
+            </button>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

@@ -33,7 +33,44 @@ export async function updateSession(request: NextRequest) {
 
   // 로그인 세션이 만료되기 전에 갱신하고,
   // 갱신된 쿠키를 브라우저 응답에 반영합니다.
-  await supabase.auth.getClaims();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  const pathname = request.nextUrl.pathname;
+  const isProfileSetupPath =
+    pathname === "/mypage" ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/auth/");
+
+  if (userId && !isProfileSetupPath) {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("activity_name,birth_year,region,gender")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (!profileError) {
+      const hasCompleteActivityProfile = Boolean(
+        profile?.activity_name?.trim() &&
+          profile?.birth_year?.trim() &&
+          profile?.region?.trim() &&
+          profile?.gender?.trim(),
+      );
+
+      if (!hasCompleteActivityProfile) {
+        const profileUrl = request.nextUrl.clone();
+        profileUrl.pathname = "/mypage";
+        profileUrl.search = "";
+        profileUrl.searchParams.set("required", "profile");
+
+        const redirectResponse = NextResponse.redirect(profileUrl);
+        response.cookies.getAll().forEach((cookie) => {
+          redirectResponse.cookies.set(cookie);
+        });
+
+        return redirectResponse;
+      }
+    }
+  }
 
   return response;
 }
