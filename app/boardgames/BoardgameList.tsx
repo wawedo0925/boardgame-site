@@ -12,6 +12,8 @@ import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 
+const BOARDGAME_COVER_BUCKET = "boardgame-covers";
+
 type Game = {
   id: string;
   name: string | null;
@@ -203,7 +205,7 @@ export default function BoardgameList({
     const path = `${game.id}/${Date.now()}.${extension}`;
 
     const { error: uploadError } = await supabase.storage
-      .from("game-covers")
+      .from(BOARDGAME_COVER_BUCKET)
       .upload(path, file, {
         upsert: false,
         contentType: file.type || undefined,
@@ -216,7 +218,7 @@ export default function BoardgameList({
     }
 
     const { data } = supabase.storage
-      .from("game-covers")
+      .from(BOARDGAME_COVER_BUCKET)
       .getPublicUrl(path);
 
     const { error: updateError } = await supabase
@@ -227,7 +229,7 @@ export default function BoardgameList({
     setBusyId(null);
 
     if (updateError) {
-      await supabase.storage.from("game-covers").remove([path]);
+      await supabase.storage.from(BOARDGAME_COVER_BUCKET).remove([path]);
 
       alert(
         `표지 주소를 저장하지 못했습니다.\n${updateError.message}`,
