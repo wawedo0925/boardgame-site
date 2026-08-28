@@ -81,7 +81,19 @@ export default function NewReviewPage() {
       const { error: saveError } = await supabase.rpc("save_event_play_review", { p_round_id: play.roundId, p_rating: rating, p_content: comments[play.roundId]?.trim() || null });
       if (saveError) throw saveError;
       setPlays(current => current.filter(item => item.roundId !== play.roundId));
-    } catch (cause) { alert(cause instanceof Error ? cause.message : "평가를 저장하지 못했습니다."); }
+    } catch (cause) {
+      const message =
+        cause instanceof Error
+          ? cause.message
+          : typeof cause === "object" &&
+              cause !== null &&
+              "message" in cause &&
+              typeof cause.message === "string"
+            ? cause.message
+            : "평가를 저장하지 못했습니다.";
+      console.error("평가 저장 실패", cause);
+      alert(`평가를 저장하지 못했습니다.\n${message}`);
+    }
     finally { setSaving(null); }
   }
 

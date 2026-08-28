@@ -43,6 +43,40 @@ type PlayRecord = {
   play_record_games: PlayRecordGame[] | null;
 };
 
+type EventRoundPlay = {
+  id: string;
+  round_id: string;
+  event_game_rounds:
+    | {
+        id: string;
+        created_at: string;
+        event_game_sessions:
+          | {
+              event_id: string;
+              games: GameInfo | GameInfo[] | null;
+              events:
+                | { id: string; title: string; started_at: string }
+                | { id: string; title: string; started_at: string }[]
+                | null;
+            }
+          | {
+              event_id: string;
+              games: GameInfo | GameInfo[] | null;
+              events:
+                | { id: string; title: string; started_at: string }
+                | { id: string; title: string; started_at: string }[]
+                | null;
+            }[]
+          | null;
+      }
+    | {
+        id: string;
+        created_at: string;
+        event_game_sessions: never;
+      }[]
+    | null;
+};
+
 type ReviewRow = {
   id: string;
   game_id: string;
@@ -143,6 +177,10 @@ function getSingleGame(value: GameInfo | GameInfo[] | null) {
   return value;
 }
 
+function getSingleRelation<T>(value: T | T[] | null) {
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
 function getPlayerGrade(totalPlays: number): PlayerGrade {
   if (totalPlays >= 50) {
     return { emoji: "👑", name: "마스터", description: "50판 이상 플레이" };
@@ -202,6 +240,7 @@ export default function MyPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const [playRecords, setPlayRecords] = useState<PlayRecord[]>([]);
+  const [eventRoundPlays, setEventRoundPlays] = useState<EventRoundPlay[]>([]);
   const [myReviews, setMyReviews] = useState<ReviewRow[]>([]);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
 
@@ -267,7 +306,7 @@ export default function MyPage() {
       const reviewAuthorName =
         loadedProfile?.activity_name?.trim() || getKakaoNickname(currentUser);
 
-      const [recordResponse, reviewResponse] = await Promise.all([
+      const [recordResponse, eventRoundResponse, reviewResponse] = await Promise.all([
         supabase
           .from("play_records")
           .select(
@@ -293,6 +332,24 @@ export default function MyPage() {
           .order("played_at", { ascending: false })
           .order("created_at", { ascending: false }),
         supabase
+          .from("event_round_players")
+          .select(
+            `
+              id,
+              round_id,
+              event_game_rounds!inner (
+                id,
+                created_at,
+                event_game_sessions!inner (
+                  event_id,
+                  games (id, name),
+                  events (id, title, started_at)
+                )
+              )
+            `,
+          )
+          .eq("user_id", currentUser.id),
+        supabase
           .from("game_reviews")
           .select(
             `
@@ -316,6 +373,17 @@ export default function MyPage() {
         console.error("플레이 통계를 불러오지 못했습니다.", recordResponse.error);
       } else {
         setPlayRecords((recordResponse.data ?? []) as unknown as PlayRecord[]);
+      }
+
+      if (eventRoundResponse.error) {
+        console.error(
+          "이벤트 플레이 기록을 불러오지 못했습니다.",
+          eventRoundResponse.error,
+        );
+      } else {
+        setEventRoundPlays(
+          (eventRoundResponse.data ?? []) as unknown as EventRoundPlay[],
+        );
       }
 
       if (reviewResponse.error) {
@@ -513,7 +581,7 @@ export default function MyPage() {
   const kakaoNickname = getKakaoNickname(user);
   const displayName = makeDisplayName(profile);
 
-  const flattenedGames = playRecords.flatMap((record) =>
+  const legacyGames = playRecords.flatMap((record) =>
     (record.play_record_games ?? []).flatMap((recordGame) => {
       const game = getSingleGame(recordGame.games);
       if (!game) return [];
@@ -527,6 +595,20 @@ export default function MyPage() {
       ];
     }),
   );
+
+  const eventGames = eventRoundPlays.flatMap((roundPlayer) => {
+    const round = getSingleRelation(roundPlayer.event_game_rounds);
+    const session = round
+      ? getSingleRelation(round.event_game_sessions)
+      : null;
+    const game = session ? getSingleGame(session.games) : null;
+
+    return game
+      ? [{ gameId: game.id, gameName: game.name, playCount: 1 }]
+      : [];
+  });
+
+  const flattenedGames = [...legacyGames, ...eventGames];
 
   const totalPlayCount = flattenedGames.reduce(
     (sum, game) => sum + game.playCount,
@@ -558,7 +640,7 @@ export default function MyPage() {
     )
     .slice(0, 5);
 
-  const recentPlays: RecentPlay[] = playRecords.slice(0, 5).map((record) => ({
+  const legacyRecentPlays: RecentPlay[] = playRecords.map((record) => ({
     id: record.id,
     playedAt: record.played_at,
     eventName:
@@ -570,6 +652,41 @@ export default function MyPage() {
         : [];
     }),
   }));
+
+  const eventPlayMap = new Map<string, RecentPlay>();
+  eventRoundPlays.forEach((roundPlayer) => {
+    const round = getSingleRelation(roundPlayer.event_game_rounds);
+    const session = round
+      ? getSingleRelation(round.event_game_sessions)
+      : null;
+    const event = session ? getSingleRelation(session.events) : null;
+    const game = session ? getSingleGame(session.games) : null;
+    if (!event || !game) return;
+
+    const existing = eventPlayMap.get(event.id);
+    if (existing) {
+      const existingGame = existing.games.find((item) => item.name === game.name);
+      if (existingGame) existingGame.playCount += 1;
+      else existing.games.push({ name: game.name, playCount: 1 });
+      return;
+    }
+
+    eventPlayMap.set(event.id, {
+      id: `event-${event.id}`,
+      playedAt: event.started_at,
+      eventName: event.title,
+      games: [{ name: game.name, playCount: 1 }],
+    });
+  });
+
+  const eventRecentPlays = [...eventPlayMap.values()];
+  const recentPlays = [...legacyRecentPlays, ...eventRecentPlays]
+    .sort(
+      (a, b) =>
+        new Date(b.playedAt).getTime() - new Date(a.playedAt).getTime(),
+    )
+    .slice(0, 5);
+  const totalEventCount = playRecords.length + eventPlayMap.size;
 
   const grade = getPlayerGrade(totalPlayCount);
 
@@ -871,7 +988,7 @@ export default function MyPage() {
 
         <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
           {[
-            ["총 이벤트", `${playRecords.length}회`, "📅"],
+            ["총 이벤트", `${totalEventCount}회`, "📅"],
             ["플레이한 게임", `${uniqueGameCount}종`, "🎲"],
             ["총 플레이 판수", `${totalPlayCount}판`, "🏁"],
             ["평균 별점", myReviews.length ? averageRating.toFixed(1) : "-", "⭐"],
