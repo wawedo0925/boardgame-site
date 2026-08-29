@@ -48,7 +48,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
     >
       🔔
       {count > 0 && (
-        <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-zinc-950">
+        <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white shadow-[0_0_0_2px_#09090b]">
           {count > 99 ? "99+" : count}
         </span>
       )}

@@ -322,6 +322,7 @@ export default function Header() {
                   {displayName}
                 </span>
               </Link>
+              <div className="lg:hidden"><NotificationBell userId={user.id} /></div>
 
               <button
                 type="button"

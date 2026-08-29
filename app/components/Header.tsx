@@ -11,7 +11,6 @@ const MOBILE_LINKS = [
   { href: "/reviews", label: "게임 평가" },
   { href: "/events", label: "이벤트 일정" },
   { href: "/rankings", label: "게임 랭킹" },
-  { href: "/notifications", label: "알림" },
   { href: "/mypage", label: "마이페이지" },
 ] as const;
 
