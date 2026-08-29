@@ -53,7 +53,7 @@ type EventGameReviewRow = GameReviewRow & {
 
 type ProfileRow = {
   id: string;
-  nickname: string | null;
+  activity_name: string | null;
 };
 
 type RoundRecord = {
@@ -223,7 +223,7 @@ export default function ReviewsPage() {
 
       const [profileResponse, reviewResponse] = await Promise.all([
         userIds.length
-          ? supabase.from("profiles").select("id, nickname").in("id", userIds)
+          ? supabase.from("profiles").select("id, activity_name").in("id", userIds)
           : Promise.resolve({ data: [], error: null }),
         gameIds.length
           ? supabase
@@ -240,7 +240,7 @@ export default function ReviewsPage() {
       const profileMap = new Map(
         profiles.map((profile) => [
           profile.id,
-          profile.nickname?.trim() || "보드라운지 회원",
+          profile.activity_name?.trim() || "보드라운지 회원",
         ]),
       );
 
