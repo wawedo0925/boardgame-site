@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
 import GroupPlaySection from "@/components/events/GroupPlaySection";
+import ClocktowerResultPanel from "@/components/events/ClocktowerResultPanel";
 import EventStatistics from "@/components/events/EventStatistics";
 import EventLifecycleCard from "@/components/events/EventLifecycleCard";
 import EventNoticeCard from "@/components/events/EventNoticeCard";
@@ -830,6 +831,14 @@ export default function EventDetailPage() {
                   eventId={eventId}
                   participants={participants}
                   currentUserId={user?.id ?? null}
+                  canManage={canManage}
+                  isClosed={isLocked}
+                />
+              ) : event.event_kind === "CLOCKTOWER" ? (
+                <ClocktowerResultPanel
+                  eventId={eventId}
+                  title={event.title}
+                  participants={participants}
                   canManage={canManage}
                   isClosed={isLocked}
                 />

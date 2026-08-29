@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import GameGuideSection from "@/components/boardgames/GameGuideSection";
 import GameReviewAction from "@/components/boardgames/GameReviewAction";
+import ClocktowerCharacterTips from "@/components/boardgames/ClocktowerCharacterTips";
 import CommentSection from "./CommentSection";
 
 type GameRow = {
@@ -224,6 +225,8 @@ export default function BoardGameDetailPage() {
         </div>
 
         <GameGuideSection gameId={gameId} />
+
+        {game.name.includes("시계탑에 흐른 피") && <ClocktowerCharacterTips gameId={gameId} />}
 
         <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
           <section>

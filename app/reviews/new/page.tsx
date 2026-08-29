@@ -7,8 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 type ResultRow = { round_id: string; score: number | null; rank: number | null; role_name: string | null; team_name: string | null; is_winner: boolean | null };
 type RoundRow = { id: string; session_id: string; round_number: number; created_at: string };
 type SessionRow = { id: string; event_id: string; game_id: string; games: { name: string } | { name: string }[] | null };
-type EventRow = { id: string; title: string; started_at: string };
-type Play = ResultRow & { roundId: string; gameId: string; gameName: string; eventId: string; eventTitle: string; eventDate: string; roundNumber: number; playedAt: string; playNumber: number; reviewNumber: number; totalPlays: number };
+type EventRow = { id: string; title: string; started_at: string; event_kind: string };
+type Play = ResultRow & { roundId: string; gameId: string; gameName: string; eventId: string; eventTitle: string; eventDate: string; eventKind: string; roundNumber: number; playedAt: string; playNumber: number; reviewNumber: number; totalPlays: number };
 
 function one<T>(value: T | T[] | null) { return Array.isArray(value) ? value[0] ?? null : value; }
 function dateText(value: string) { return new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(value)); }
@@ -24,6 +24,7 @@ export default function NewReviewPage() {
   const [error, setError] = useState("");
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
+  const [characterTips, setCharacterTips] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export default function NewReviewPage() {
         const eventIds = [...new Set(sessions.map(row => row.event_id))];
         const gameIds = [...new Set(sessions.map(row => row.game_id))];
         const [{ data: eventData, error: eventError }, { data: reviewData, error: reviewError }] = await Promise.all([
-          supabase.from("events").select("id, title, started_at").in("id", eventIds),
+          supabase.from("events").select("id, title, started_at, event_kind").in("id", eventIds),
           supabase.from("game_reviews").select("round_id, game_id").eq("user_id", user.id).in("game_id", gameIds),
         ]);
         if (eventError) throw eventError;
@@ -61,7 +62,7 @@ export default function NewReviewPage() {
         const all = results.flatMap(result => {
           const round = roundMap.get(result.round_id); const session = round ? sessionMap.get(round.session_id) : null; const event = session ? eventMap.get(session.event_id) : null; const game = session ? one(session.games) : null;
           if (!round || !session || !event || !game) return [];
-          return [{ ...result, roundId: round.id, gameId: session.game_id, gameName: game.name, eventId: event.id, eventTitle: event.title, eventDate: event.started_at, roundNumber: round.round_number, playedAt: round.created_at }];
+          return [{ ...result, roundId: round.id, gameId: session.game_id, gameName: game.name, eventId: event.id, eventTitle: event.title, eventDate: event.started_at, eventKind:event.event_kind, roundNumber: round.round_number, playedAt: round.created_at }];
         }).sort((a, b) => new Date(a.playedAt).getTime() - new Date(b.playedAt).getTime());
         const counts = new Map<string, number>(); const totals = new Map<string, number>();
         all.forEach(play => totals.set(play.gameId, (totals.get(play.gameId) ?? 0) + 1));
@@ -78,7 +79,10 @@ export default function NewReviewPage() {
       setSaving(play.roundId);
       const rating = ratings[play.roundId] ?? 0;
       if (!rating) throw new Error("별점을 선택해 주세요.");
-      const { error: saveError } = await supabase.rpc("save_event_play_review", { p_round_id: play.roundId, p_rating: rating, p_content: comments[play.roundId]?.trim() || null });
+      const response = play.eventKind === "CLOCKTOWER"
+        ? await supabase.rpc("save_clocktower_play_review", { p_round_id: play.roundId, p_rating: rating, p_content: comments[play.roundId]?.trim() || null, p_character_tip: characterTips[play.roundId]?.trim() || null })
+        : await supabase.rpc("save_event_play_review", { p_round_id: play.roundId, p_rating: rating, p_content: comments[play.roundId]?.trim() || null });
+      const saveError = response.error;
       if (saveError) throw saveError;
       setPlays(current => current.filter(item => item.roundId !== play.roundId));
     } catch (cause) {
@@ -103,6 +107,7 @@ export default function NewReviewPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-sm text-amber-300">{dateText(play.eventDate)} · {play.roundNumber}판</p><h2 className="mt-2 text-2xl font-bold">{play.gameName}</h2><Link href={`/events/${play.eventId}`} className="mt-2 inline-block text-sm text-zinc-400 hover:text-white">{play.eventTitle} →</Link></div><div className="rounded-2xl bg-white/[0.05] px-4 py-3 text-sm"><b className="text-emerald-300">{resultText(play)}</b><p className="mt-1 text-zinc-500">총 {play.totalPlays}회 플레이 · 이번은 {play.playNumber}번째 플레이</p><p className="text-zinc-500">작성하면 {play.reviewNumber}번째 평가</p></div></div>
       <div className="mt-6 flex gap-1" aria-label="별점 선택">{[1,2,3,4,5].map(n => <button type="button" key={n} onClick={() => setRatings(value => ({ ...value, [play.roundId]: n }))} className={`text-4xl ${n <= (ratings[play.roundId] ?? 0) ? "text-amber-400" : "text-zinc-700"}`} aria-label={`${n}점`}>★</button>)}</div>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row"><input value={comments[play.roundId] ?? ""} onChange={event => setComments(value => ({ ...value, [play.roundId]: event.target.value }))} maxLength={200} placeholder="한줄평을 남겨주세요. (선택)" className="h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-zinc-900 px-4 outline-none focus:border-amber-400/60"/><button onClick={() => void save(play)} disabled={saving === play.roundId} className="h-12 rounded-xl bg-amber-400 px-7 font-bold text-zinc-950 disabled:opacity-50">{saving === play.roundId ? "저장 중..." : "평가 저장"}</button></div>
+      {play.eventKind === "CLOCKTOWER" && <div className="mt-4 rounded-2xl border border-violet-400/20 bg-violet-400/[0.04] p-4"><p className="font-bold text-violet-200">{play.role_name || "플레이 캐릭터"}에 대한 느낌·팁</p><p className="mt-1 text-xs text-zinc-500">다른 멤버가 볼 수 있는 공개 팁입니다. 스포일러는 피해주세요.</p><textarea value={characterTips[play.roundId]??""} onChange={event=>setCharacterTips(value=>({...value,[play.roundId]:event.target.value}))} maxLength={1000} rows={3} placeholder="이 캐릭터를 플레이하며 느낀 점이나 도움이 될 팁 (선택)" className="mt-3 w-full resize-none rounded-xl border border-white/10 bg-zinc-900 px-4 py-3 outline-none focus:border-violet-400/60"/></div>}
     </article>)}</div>}
   </section></main>;
 }
