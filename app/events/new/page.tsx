@@ -57,6 +57,21 @@ function getMinimumDate() {
   return `${year}-${month}-${day}`;
 }
 
+function addHoursToTime(time: string, hours: number) {
+  const [hour, minute] = time.split(":").map(Number);
+
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) {
+    return "";
+  }
+
+  const minutesInDay = 24 * 60;
+  const totalMinutes = (hour * 60 + minute + hours * 60) % minutesInDay;
+  const nextHour = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+  const nextMinute = String(totalMinutes % 60).padStart(2, "0");
+
+  return `${nextHour}:${nextMinute}`;
+}
+
 export default function NewEventPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -157,6 +172,14 @@ export default function NewEventPage() {
       ...current,
       murderMysteryId,
       title: work ? `[머미] ${work.title}` : "",
+    }));
+  }
+
+  function updateStartTime(startTime: string) {
+    setForm((current) => ({
+      ...current,
+      startTime,
+      endTime: startTime ? addHoursToTime(startTime, 3) : "",
     }));
   }
 
@@ -378,7 +401,7 @@ export default function NewEventPage() {
               </div>}
 
               {form.eventKind === "GENERAL" && <div className="rounded-2xl border border-sky-400/20 bg-sky-400/[0.04] p-4 text-sm leading-6 text-zinc-400"><strong className="text-sky-300">일반 이벤트</strong><br/>페스티벌, 엠티, 번개 모임처럼 게임 진행이 필요 없는 일정입니다. 참가 신청·정원·대기자·출석·공지 기능만 사용합니다.</div>}
-              <label className="grid gap-3">
+              {form.eventKind !== "MURDER_MYSTERY" && <label className="grid gap-3">
                 <span className="text-sm font-semibold text-zinc-200">
                   이벤트 제목 <span className="text-amber-400">*</span>
                 </span>
@@ -395,7 +418,7 @@ export default function NewEventPage() {
                 <span className="text-right text-xs text-zinc-600">
                   {form.title.length} / 80
                 </span>
-              </label>
+              </label>}
 
               <div className="grid gap-6 md:grid-cols-3">
                 <label className="grid gap-3">
@@ -420,9 +443,7 @@ export default function NewEventPage() {
                   <input
                     type="time"
                     value={form.startTime}
-                    onChange={(event) =>
-                      updateForm("startTime", event.target.value)
-                    }
+                    onChange={(event) => updateStartTime(event.target.value)}
                     className="rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3.5 text-zinc-200 outline-none transition focus:border-amber-400/60"
                   />
                 </label>
