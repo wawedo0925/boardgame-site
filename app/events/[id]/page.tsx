@@ -834,7 +834,7 @@ export default function EventDetailPage() {
                   canManage={canManage}
                   isClosed={isLocked}
                 />
-              ) : event.event_kind === "CLOCKTOWER" ? (
+              ) : event.event_kind === "CLOCKTOWER" && canManage ? (
                 <ClocktowerResultPanel
                   eventId={eventId}
                   title={event.title}
