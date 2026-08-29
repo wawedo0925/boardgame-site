@@ -1,25 +1,3 @@
-alter table public.game_reviews
-  add column if not exists clocktower_difficulty text,
-  add column if not exists character_name text,
-  add column if not exists character_tip text;
-
-create table if not exists public.clocktower_tip_votes (
-  review_id uuid not null references public.game_reviews(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade default auth.uid(),
-  created_at timestamptz not null default now(),
-  primary key (review_id, user_id)
-);
-
-alter table public.clocktower_tip_votes enable row level security;
-grant select on table public.clocktower_tip_votes to anon, authenticated;
-grant insert, delete on table public.clocktower_tip_votes to authenticated;
-drop policy if exists "clocktower tip votes readable" on public.clocktower_tip_votes;
-create policy "clocktower tip votes readable" on public.clocktower_tip_votes for select using (true);
-drop policy if exists "members create own clocktower tip votes" on public.clocktower_tip_votes;
-create policy "members create own clocktower tip votes" on public.clocktower_tip_votes for insert to authenticated with check (user_id = auth.uid());
-drop policy if exists "members delete own clocktower tip votes" on public.clocktower_tip_votes;
-create policy "members delete own clocktower tip votes" on public.clocktower_tip_votes for delete to authenticated using (user_id = auth.uid());
-
 create or replace function public.save_clocktower_event_results(
   p_event_id uuid,
   p_difficulty text,
@@ -70,26 +48,3 @@ end; $$;
 
 revoke all on function public.save_clocktower_event_results(uuid,text,text,jsonb) from public,anon;
 grant execute on function public.save_clocktower_event_results(uuid,text,text,jsonb) to authenticated;
-
-create or replace function public.save_clocktower_play_review(
-  p_round_id uuid,
-  p_rating integer,
-  p_content text default null,
-  p_character_tip text default null
-) returns uuid
-language plpgsql security definer set search_path = public
-as $$
-declare saved_id uuid; target_role text; target_team text;
-begin
-  if length(coalesce(p_character_tip,'')) > 1000 then raise exception '캐릭터 팁은 1,000자 이내로 입력해 주세요.'; end if;
-  select role_name,team_name into target_role,target_team from public.event_round_players where round_id=p_round_id and user_id=auth.uid();
-  if target_role is null then raise exception '기록된 캐릭터가 없습니다.'; end if;
-  saved_id := public.save_event_play_review(p_round_id,p_rating,p_content);
-  update public.game_reviews set character_name=target_role,
-    clocktower_difficulty=split_part(coalesce(target_team,''),' · ',1),
-    character_tip=nullif(trim(p_character_tip),'') where id=saved_id;
-  return saved_id;
-end; $$;
-
-revoke all on function public.save_clocktower_play_review(uuid,integer,text,text) from public,anon;
-grant execute on function public.save_clocktower_play_review(uuid,integer,text,text) to authenticated;
