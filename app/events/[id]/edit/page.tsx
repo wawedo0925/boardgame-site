@@ -15,7 +15,7 @@ type EventRow = {
   location: string | null;
   description: string | null;
   created_by: string;
-  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "GENERAL";
+  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "GENERAL";
   participation_fee: number;
 };
 
@@ -29,6 +29,7 @@ function toLocalInput(value: string | null) {
 function kindLabel(kind: EventRow["event_kind"]) {
   if (kind === "GENERAL") return "일반 이벤트";
   if (kind === "MURDER_MYSTERY") return "머더미스터리";
+  if (kind === "CLOCKTOWER") return "시계탑에 흐른 피";
   return "보드게임";
 }
 
@@ -108,7 +109,7 @@ export default function EventEditPage() {
     <section className="mx-auto max-w-4xl px-5 py-10 sm:px-6 sm:py-14">
       {loading ? <div className="h-96 animate-pulse rounded-3xl border border-white/10 bg-white/[0.03]" /> : !event ? <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-8 text-center text-red-300">{errorMessage}</div> :
       <form onSubmit={save} className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-8">
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-4"><p className="text-xs text-zinc-500">이벤트 종류</p><p className="mt-1 font-bold">{kindLabel(event.event_kind)}</p><p className="mt-2 text-xs text-zinc-600">이벤트 종류와 머더미스터리 작품은 생성 후 변경할 수 없습니다.</p></div>
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4"><p className="text-xs text-zinc-500">이벤트 종류</p><p className="mt-1 font-bold">{kindLabel(event.event_kind)}</p><p className="mt-2 text-xs text-zinc-600">이벤트 종류와 연결된 작품·난이도는 생성 후 변경할 수 없습니다.</p></div>
         <div className="mt-6 space-y-6">
           <label className="grid gap-2"><span className="text-sm font-semibold">이벤트 제목 *</span><input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} className={inputClass} /><span className="text-right text-xs text-zinc-600">{title.length} / 80</span></label>
           <div className="grid gap-5 sm:grid-cols-2"><label className="grid gap-2"><span className="text-sm font-semibold">시작 날짜·시간 *</span><input type="datetime-local" value={startedAt} onChange={(e) => setStartedAt(e.target.value)} className={inputClass} /></label><label className="grid gap-2"><span className="text-sm font-semibold">종료 날짜·시간</span><input type="datetime-local" value={endedAt} onChange={(e) => setEndedAt(e.target.value)} className={inputClass} /></label></div>

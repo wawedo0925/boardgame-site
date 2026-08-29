@@ -1,5 +1,5 @@
 type GuideEvent = {
-  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "GENERAL";
+  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "GENERAL";
   participation_fee: number | null;
 };
 
@@ -28,8 +28,19 @@ export const MURDER_MYSTERY_EVENT_DESCRIPTION_PRESET = `🎭 머더미스터리 
 
 ⚠️ 입금이 확인되지 않거나 사전 연락 없이 시작 시간에 늦으면 참석이 어렵습니다.`;
 
+export const CLOCKTOWER_EVENT_DESCRIPTION_PRESET = `🕰️ 시계탑에 흐른 피 특성상 늦참은 불가능합니다.
+5~10분 정도 늦을 경우 GM 또는 운영진에게 필히 알려 주세요.
+
+💳 참가비 10,000원을 먼저 입금한 뒤 웹사이트의 참가 버튼을 눌러 주세요.
+국민은행 94849203451 · 예금주 이우영
+또는 카카오페이
+
+🤫 원활한 진행을 위해 룰이나 캐릭터 능력을 모르는 분은 이벤트 시작 30분 전까지 와 주세요.
+
+⚠️ 입금이 확인되지 않거나 사전 연락 없이 시작 시간에 늦으면 참석이 어렵습니다.`;
+
 export function getEventGuideSummary(event: GuideEvent) {
-  const defaultFee = event.event_kind === "MURDER_MYSTERY" ? 13000 : event.event_kind === "BOARDGAME" ? 10000 : 0;
+  const defaultFee = event.event_kind === "MURDER_MYSTERY" ? 13000 : event.event_kind === "BOARDGAME" || event.event_kind === "CLOCKTOWER" ? 10000 : 0;
   const fee = event.participation_fee ?? defaultFee;
   const feeLabel = fee === 0 ? "무료" : `${fee.toLocaleString("ko-KR")}원 선입금`;
 
@@ -39,6 +50,10 @@ export function getEventGuideSummary(event: GuideEvent) {
 
   if (event.event_kind === "MURDER_MYSTERY") {
     return `🎭 머더미스터리 특성상 늦참 불가 · 💳 ${feeLabel} 후 웹 참가 · ⏰ 5~10분 지각 시 GM·운영진에게 필히 연락 · 🤫 스포일러 금지`;
+  }
+
+  if (event.event_kind === "CLOCKTOWER") {
+    return `🕰️ 시계탑에 흐른 피 · 늦참 불가 · 💳 ${feeLabel} 후 웹 참가 · 📖 초보자는 시작 30분 전 도착`;
   }
 
   return `📌 이벤트 안내 확인 · 💳 ${feeLabel} 후 웹 참가`;

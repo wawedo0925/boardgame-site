@@ -17,7 +17,7 @@ export default function EventJoinPaymentDialog({
 }: {
   eventTitle: string;
   participationFee: number;
-  eventKind: "BOARDGAME" | "MURDER_MYSTERY" | "GENERAL";
+  eventKind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "GENERAL";
   waitlisted: boolean;
   busy: boolean;
   onClose: () => void;

@@ -12,7 +12,7 @@ type HomeEvent = {
   ended_at: string | null;
   location: string | null;
   description: string | null;
-  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "GENERAL";
+  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "GENERAL";
   participation_fee: number | null;
   max_participants: number | null;
   event_participants: { id: string }[] | null;
@@ -20,6 +20,7 @@ type HomeEvent = {
 
 function eventKindLabel(kind: HomeEvent["event_kind"]) {
   if (kind === "MURDER_MYSTERY") return "머더미스터리";
+  if (kind === "CLOCKTOWER") return "시계탑에 흐른 피";
   if (kind === "GENERAL") return "SPECIAL EVENT";
   return "보드게임 이벤트";
 }

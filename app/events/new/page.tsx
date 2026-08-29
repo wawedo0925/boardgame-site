@@ -9,8 +9,19 @@ import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_EVENT_LOCATION } from "@/lib/events/location";
 import {
   BOARDGAME_EVENT_DESCRIPTION_PRESET,
+  CLOCKTOWER_EVENT_DESCRIPTION_PRESET,
   MURDER_MYSTERY_EVENT_DESCRIPTION_PRESET,
 } from "@/lib/events/guide";
+
+type EventKind = "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "GENERAL";
+type ClocktowerDifficulty = "점철되는 혼란" | "피로 물든 달" | "화단에 꽃피운 이단" | "캐러셀";
+
+const CLOCKTOWER_DIFFICULTIES: ClocktowerDifficulty[] = [
+  "점철되는 혼란",
+  "피로 물든 달",
+  "화단에 꽃피운 이단",
+  "캐러셀",
+];
 
 type EventForm = {
   title: string;
@@ -20,8 +31,9 @@ type EventForm = {
   location: string;
   description: string;
   maxParticipants: string;
-  eventKind: "BOARDGAME" | "MURDER_MYSTERY" | "GENERAL";
+  eventKind: EventKind;
   murderMysteryId: string;
+  clocktowerDifficulty: ClocktowerDifficulty | "";
   creatorRole: "PLAYER" | "GM";
   recurrence: "NONE" | "WEEKLY" | "BIWEEKLY";
   participationFee: string;
@@ -39,6 +51,7 @@ const initialForm: EventForm = {
   maxParticipants: "",
   eventKind: "BOARDGAME",
   murderMysteryId: "",
+  clocktowerDifficulty: "",
   creatorRole: "PLAYER",
   recurrence: "NONE",
   participationFee: "",
@@ -142,22 +155,32 @@ export default function NewEventPage() {
     }));
   }
 
-  function selectEventKind(eventKind: EventForm["eventKind"]) {
+  function selectEventKind(eventKind: EventKind) {
     setForm((current) => {
       const usesPreset =
         !current.description.trim() ||
         current.description === BOARDGAME_EVENT_DESCRIPTION_PRESET ||
-        current.description === MURDER_MYSTERY_EVENT_DESCRIPTION_PRESET;
+        current.description === MURDER_MYSTERY_EVENT_DESCRIPTION_PRESET ||
+        current.description === CLOCKTOWER_EVENT_DESCRIPTION_PRESET;
 
       return {
         ...current,
         eventKind,
-        title: eventKind === "MURDER_MYSTERY" ? "" : current.title,
+        title: eventKind === "MURDER_MYSTERY" || eventKind === "CLOCKTOWER" ? "" : current.title,
         murderMysteryId: eventKind === "MURDER_MYSTERY" ? current.murderMysteryId : "",
+        clocktowerDifficulty: eventKind === "CLOCKTOWER" ? current.clocktowerDifficulty : "",
+        maxParticipants:
+          eventKind === "CLOCKTOWER"
+            ? "16"
+            : current.eventKind === "CLOCKTOWER" && current.maxParticipants === "16"
+              ? ""
+              : current.maxParticipants,
         recurrence: eventKind === "BOARDGAME" ? current.recurrence : "NONE",
         description: usesPreset
           ? eventKind === "MURDER_MYSTERY"
             ? MURDER_MYSTERY_EVENT_DESCRIPTION_PRESET
+            : eventKind === "CLOCKTOWER"
+              ? CLOCKTOWER_EVENT_DESCRIPTION_PRESET
             : eventKind === "BOARDGAME"
               ? BOARDGAME_EVENT_DESCRIPTION_PRESET
               : ""
@@ -172,6 +195,14 @@ export default function NewEventPage() {
       ...current,
       murderMysteryId,
       title: work ? `[머미] ${work.title}` : "",
+    }));
+  }
+
+  function selectClocktowerDifficulty(clocktowerDifficulty: ClocktowerDifficulty | "") {
+    setForm((current) => ({
+      ...current,
+      clocktowerDifficulty,
+      title: clocktowerDifficulty ? `[시계탑] ${clocktowerDifficulty}` : "",
     }));
   }
 
@@ -194,11 +225,13 @@ export default function NewEventPage() {
     const selectedMystery = murderMysteries.find((work) => work.id === form.murderMysteryId);
     const title = form.eventKind === "MURDER_MYSTERY" && selectedMystery
       ? `[머미] ${selectedMystery.title}`
-      : form.title.trim();
+      : form.eventKind === "CLOCKTOWER" && form.clocktowerDifficulty
+        ? `[시계탑] ${form.clocktowerDifficulty}`
+        : form.title.trim();
     const location = form.location.trim();
     const description = form.description.trim();
     const maxParticipants = form.maxParticipants.trim() === "" ? null : Number(form.maxParticipants);
-    const defaultParticipationFee = form.eventKind === "BOARDGAME" ? 10000 : form.eventKind === "MURDER_MYSTERY" ? 13000 : 0;
+    const defaultParticipationFee = form.eventKind === "MURDER_MYSTERY" ? 13000 : form.eventKind === "BOARDGAME" || form.eventKind === "CLOCKTOWER" ? 10000 : 0;
     const participationFee = form.participationFee.trim() === "" ? defaultParticipationFee : Number(form.participationFee);
 
     if (form.eventKind === "MURDER_MYSTERY" && !form.murderMysteryId) {
@@ -212,6 +245,10 @@ export default function NewEventPage() {
 
     if (maxParticipants !== null && (!Number.isInteger(maxParticipants) || maxParticipants < 1)) {
       setErrorMessage("참가 정원은 1명 이상의 정수로 입력해 주세요.");
+      return;
+    }
+    if (form.eventKind === "CLOCKTOWER" && !form.clocktowerDifficulty) {
+      setErrorMessage("시계탑에 흐른 피 난이도를 선택해 주세요.");
       return;
     }
     if (!Number.isInteger(participationFee) || participationFee < 0) {
@@ -235,9 +272,13 @@ export default function NewEventPage() {
     }
 
     const startedAt = toLocalDateTime(form.date, form.startTime);
-    const endedAt = form.endTime
+    let endedAt = form.endTime
       ? toLocalDateTime(form.date, form.endTime)
       : null;
+
+    if (endedAt && endedAt <= startedAt) {
+      endedAt = new Date(endedAt.getTime() + 24 * 60 * 60 * 1000);
+    }
 
     if (Number.isNaN(startedAt.getTime())) {
       setErrorMessage("날짜와 시작 시간을 다시 확인해 주세요.");
@@ -246,11 +287,6 @@ export default function NewEventPage() {
 
     if (endedAt && Number.isNaN(endedAt.getTime())) {
       setErrorMessage("종료 시간을 다시 확인해 주세요.");
-      return;
-    }
-
-    if (endedAt && endedAt < startedAt) {
-      setErrorMessage("종료 시간은 시작 시간보다 늦어야 합니다.");
       return;
     }
 
@@ -386,10 +422,11 @@ export default function NewEventPage() {
             <div className="grid gap-7">
               <div className="grid gap-3">
                 <span className="text-sm font-semibold text-zinc-200">이벤트 종류</span>
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   <button type="button" onClick={() => selectEventKind("GENERAL")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "GENERAL" ? "border-sky-400 bg-sky-400/10 text-sky-300" : "border-white/10 text-zinc-500"}`}>일반 이벤트</button>
                   <button type="button" onClick={() => selectEventKind("BOARDGAME")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "BOARDGAME" ? "border-amber-400 bg-amber-400/10 text-amber-300" : "border-white/10 text-zinc-500"}`}>보드게임</button>
                   <button type="button" onClick={() => selectEventKind("MURDER_MYSTERY")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "MURDER_MYSTERY" ? "border-red-400 bg-red-400/10 text-red-300" : "border-white/10 text-zinc-500"}`}>머더미스터리</button>
+                  <button type="button" onClick={() => selectEventKind("CLOCKTOWER")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "CLOCKTOWER" ? "border-violet-400 bg-violet-400/10 text-violet-300" : "border-white/10 text-zinc-500"}`}>시계탑에 흐른 피</button>
                 </div>
               </div>
 
@@ -400,8 +437,14 @@ export default function NewEventPage() {
                 <p className="text-xs leading-5 text-zinc-500">같은 작품을 이미 플레이한 멤버는 일반 참가가 제한됩니다. 담당자는 상세 화면에서 재참가를 별도로 허용할 수 있습니다.</p>
               </div>}
 
+              {form.eventKind === "CLOCKTOWER" && <div className="grid gap-4 rounded-2xl border border-violet-400/20 bg-violet-400/[0.04] p-4">
+                <label className="grid gap-2"><span className="text-sm font-semibold text-violet-200">난이도 *</span><select value={form.clocktowerDifficulty} onChange={(event) => selectClocktowerDifficulty(event.target.value as ClocktowerDifficulty)} className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-3"><option value="">난이도를 선택하세요</option>{CLOCKTOWER_DIFFICULTIES.map((difficulty) => <option key={difficulty} value={difficulty}>{difficulty}</option>)}</select></label>
+                {form.title && <div className="rounded-xl border border-violet-400/20 bg-black/10 px-4 py-3"><p className="text-xs text-zinc-500">자동 생성 제목</p><p className="mt-1 font-bold text-violet-200">{form.title}</p></div>}
+                <p className="text-xs leading-5 text-zinc-500">선택한 난이도로 제목이 자동 생성됩니다. 시계탑에 흐른 피 이벤트는 정시에 함께 시작합니다.</p>
+              </div>}
+
               {form.eventKind === "GENERAL" && <div className="rounded-2xl border border-sky-400/20 bg-sky-400/[0.04] p-4 text-sm leading-6 text-zinc-400"><strong className="text-sky-300">일반 이벤트</strong><br/>페스티벌, 엠티, 번개 모임처럼 게임 진행이 필요 없는 일정입니다. 참가 신청·정원·대기자·출석·공지 기능만 사용합니다.</div>}
-              {form.eventKind !== "MURDER_MYSTERY" && <label className="grid gap-3">
+              {form.eventKind !== "MURDER_MYSTERY" && form.eventKind !== "CLOCKTOWER" && <label className="grid gap-3">
                 <span className="text-sm font-semibold text-zinc-200">
                   이벤트 제목 <span className="text-amber-400">*</span>
                 </span>
@@ -503,11 +546,11 @@ export default function NewEventPage() {
                   step={1000}
                   value={form.participationFee}
                   onChange={(event) => updateForm("participationFee", event.target.value)}
-                  placeholder={form.eventKind === "BOARDGAME" ? "기본 10,000원" : form.eventKind === "MURDER_MYSTERY" ? "기본 13,000원" : "기본 무료"}
+                  placeholder={form.eventKind === "BOARDGAME" || form.eventKind === "CLOCKTOWER" ? "기본 10,000원" : form.eventKind === "MURDER_MYSTERY" ? "기본 13,000원" : "기본 무료"}
                   className="rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3.5 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-amber-400/60"
                 />
                 <span className="text-xs leading-5 text-zinc-500">
-                  비워두면 현재 이벤트의 기본 참가비 <strong className="text-zinc-300">{form.eventKind === "BOARDGAME" ? "10,000원" : form.eventKind === "MURDER_MYSTERY" ? "13,000원" : "무료"}</strong>가 적용됩니다. 무료 이벤트는 0원을 입력하세요.
+                  비워두면 현재 이벤트의 기본 참가비 <strong className="text-zinc-300">{form.eventKind === "BOARDGAME" || form.eventKind === "CLOCKTOWER" ? "10,000원" : form.eventKind === "MURDER_MYSTERY" ? "13,000원" : "무료"}</strong>가 적용됩니다. 무료 이벤트는 0원을 입력하세요.
                 </span>
               </label>
 

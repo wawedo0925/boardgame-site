@@ -18,7 +18,7 @@ type EventRow = {
   created_by: string;
   max_participants: number | null;
   participation_fee: number | null;
-  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "GENERAL";
+  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "GENERAL";
   event_status: "OPEN" | "CLOSED" | "CANCELLED";
   murder_mysteries: { title: string } | { title: string }[] | null;
   event_participants: EventParticipant[] | null;
@@ -27,12 +27,13 @@ type EventRow = {
 type DateFilter = "all" | "week" | "month" | "next-month";
 type StatusFilter = "all" | "upcoming" | "ongoing" | "ended" | "cancelled";
 type SortOption = "soon" | "late" | "participants";
-type EventKindFilter = "all" | "GENERAL" | "BOARDGAME" | "MURDER_MYSTERY";
+type EventKindFilter = "all" | "GENERAL" | "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER";
 type MyEventFilter = "all" | "joined" | "waitlisted" | "created";
 
 function getKindMeta(kind: EventRow["event_kind"]) {
   if (kind === "GENERAL") return { label: "일반 이벤트", className: "bg-sky-400/10 text-sky-300" };
   if (kind === "MURDER_MYSTERY") return { label: "머더미스터리", className: "bg-red-400/10 text-red-300" };
+  if (kind === "CLOCKTOWER") return { label: "시계탑에 흐른 피", className: "bg-violet-400/10 text-violet-300" };
   return { label: "보드게임", className: "bg-amber-400/10 text-amber-300" };
 }
 
@@ -180,7 +181,7 @@ export default function EventsPage() {
       </div>}
 
       <div className="mb-5 grid grid-cols-2 gap-3 rounded-3xl border border-white/10 bg-white/[0.03] p-4 lg:grid-cols-5">
-        <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value as EventKindFilter)} className={selectClass}><option value="all">전체 종류</option><option value="GENERAL">일반 이벤트</option><option value="BOARDGAME">보드게임</option><option value="MURDER_MYSTERY">머더미스터리</option></select>
+        <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value as EventKindFilter)} className={selectClass}><option value="all">전체 종류</option><option value="GENERAL">일반 이벤트</option><option value="BOARDGAME">보드게임</option><option value="MURDER_MYSTERY">머더미스터리</option><option value="CLOCKTOWER">시계탑에 흐른 피</option></select>
         <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value as DateFilter)} className={selectClass}><option value="all">전체 일정</option><option value="week">이번 주</option><option value="month">이번 달</option><option value="next-month">다음 달</option></select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className={selectClass}><option value="all">예정·진행</option><option value="upcoming">예정</option><option value="ongoing">진행 중</option><option value="ended">종료</option><option value="cancelled">취소됨</option></select>
         <select value={sortOption} onChange={(e) => setSortOption(e.target.value as SortOption)} className={selectClass}><option value="soon">날짜 빠른 순</option><option value="late">날짜 늦은 순</option><option value="participants">참가자 많은 순</option></select>

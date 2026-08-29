@@ -20,6 +20,7 @@ import EventCommentSection from "@/components/events/EventCommentSection";
 import type { AttendanceStatus } from "@/types/event";
 import { createClient } from "@/lib/supabase/client";
 import { formatEventLocation } from "@/lib/events/location";
+import { CLOCKTOWER_EVENT_DESCRIPTION_PRESET } from "@/lib/events/guide";
 
 type EventRow = {
   id: string;
@@ -33,7 +34,7 @@ type EventRow = {
   event_status: "OPEN" | "CLOSED" | "CANCELLED";
   closed_at: string | null;
   max_participants: number | null;
-  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "GENERAL";
+  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "GENERAL";
   murder_mystery_id: string | null;
   participation_fee: number | null;
 };
@@ -346,7 +347,7 @@ export default function EventDetailPage() {
   const isCancelled = event?.event_status === "CANCELLED";
   const isUpcoming = event ? new Date(event.started_at).getTime() > Date.now() : false;
   const isLocked = isClosed || isCancelled;
-  const participationFee = event?.participation_fee ?? (event?.event_kind === "BOARDGAME" ? 10000 : event?.event_kind === "MURDER_MYSTERY" ? 13000 : 0);
+  const participationFee = event?.participation_fee ?? (event?.event_kind === "MURDER_MYSTERY" ? 13000 : event?.event_kind === "BOARDGAME" || event?.event_kind === "CLOCKTOWER" ? 10000 : 0);
   const isAtCapacity = Boolean(event?.max_participants !== null && participants.length >= (event?.max_participants ?? 0));
 
 
@@ -487,9 +488,11 @@ export default function EventDetailPage() {
               <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="rounded-full bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-300">
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${event.event_kind === "MURDER_MYSTERY" ? "bg-red-400/10 text-red-300" : event.event_kind === "CLOCKTOWER" ? "bg-violet-400/10 text-violet-300" : event.event_kind === "GENERAL" ? "bg-sky-400/10 text-sky-300" : "bg-amber-400/10 text-amber-300"}`}>
                       {event.event_kind === "MURDER_MYSTERY"
                         ? "머더미스터리 이벤트"
+                        : event.event_kind === "CLOCKTOWER"
+                          ? "시계탑에 흐른 피"
                         : event.event_kind === "GENERAL"
                           ? "일반 이벤트"
                           : "보드게임 이벤트"}
@@ -650,7 +653,11 @@ export default function EventDetailPage() {
                   </button>
                 </div>
 
-                {guideOpen ? (
+                {guideOpen && event.event_kind === "CLOCKTOWER" ? (
+                  <div className="mt-6 whitespace-pre-line rounded-2xl border border-violet-400/20 bg-violet-400/[0.04] px-5 py-5 text-sm leading-7 text-zinc-300 sm:text-base sm:leading-8">
+                    {event.description?.trim() || CLOCKTOWER_EVENT_DESCRIPTION_PRESET}
+                  </div>
+                ) : guideOpen ? (
                   <div className="mt-6 space-y-6 text-sm leading-7 text-zinc-300 sm:text-base sm:leading-8">
                     <ol className="space-y-5">
                       <li className="flex gap-3">
@@ -734,6 +741,8 @@ export default function EventDetailPage() {
                   <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4 text-sm leading-6 text-zinc-400">
                     {event.event_kind === "MURDER_MYSTERY"
                       ? "🎭 머더미스터리 특성상 늦참 불가 · 5~10분 지각 시 GM·운영진에게 필히 연락해 주세요."
+                      : event.event_kind === "CLOCKTOWER"
+                        ? "🕰️ 시계탑에 흐른 피 · 늦참 불가 · 초보자는 시작 30분 전까지 와 주세요."
                       : "🎲 진행 방식 · 💳 참가비와 입금 · ⏰ 늦참 · 🙋 팟 만들기 안내를 확인해 주세요."}
                   </div>
                 )}
