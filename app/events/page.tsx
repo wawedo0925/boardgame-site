@@ -41,6 +41,20 @@ function getMysteryTitle(value: EventRow["murder_mysteries"]) {
   return Array.isArray(value) ? value[0]?.title ?? null : value?.title ?? null;
 }
 
+function renderEventTitle(event: Pick<EventRow, "title" | "event_kind">) {
+  const matched = event.title.match(/^(\[[^\]]+\])\s*(.*)$/);
+  if (!matched) return event.title;
+  const [, prefix, rest] = matched;
+  const presentation = event.event_kind === "MURDER_MYSTERY"
+    ? { icon: "🎭", color: "text-red-400" }
+    : event.event_kind === "CLOCKTOWER"
+      ? { icon: "🕰️", color: "text-violet-400" }
+      : event.event_kind === "BOARDGAME"
+        ? { icon: "🎲", color: "text-amber-400" }
+        : { icon: "", color: "text-sky-400" };
+  return <><span aria-hidden="true" className="mr-2">{presentation.icon}</span><span className={presentation.color}>{prefix}</span>{rest && <span> {rest}</span>}</>;
+}
+
 function getStatus(event: EventRow): "예정" | "진행 중" | "종료" | "취소됨" {
   if (event.event_status === "CANCELLED") return "취소됨";
   const now = Date.now();
@@ -202,9 +216,9 @@ export default function EventsPage() {
         const mysteryTitle = getMysteryTitle(event.murder_mysteries);
         return <article key={event.id} className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] transition hover:border-amber-400/30">
           <div className="grid lg:grid-cols-[180px_1fr_190px]">
-            <div className="border-b border-white/10 p-6 lg:border-b-0 lg:border-r"><p className="text-sm font-semibold text-amber-400">{formatDate(event.started_at)}</p><p className="mt-2 text-2xl font-bold">{formatDay(event.started_at)}</p><p className="mt-2 text-sm text-zinc-400">{formatTimeRange(event.started_at, event.ended_at)}</p></div>
+            <div className="border-b border-white/10 p-6 lg:border-b-0 lg:border-r"><p className="text-base font-bold text-amber-400">{formatDate(event.started_at)}</p><p className="mt-2 text-3xl font-black tracking-tight">{formatDay(event.started_at)}</p><p className="mt-2 text-base font-semibold text-zinc-300">{formatTimeRange(event.started_at, event.ended_at)}</p></div>
             <div className="p-6"><div className="flex flex-wrap gap-2"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${kind.className}`}>{kind.label}</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyle(status)}`}>{status}</span>{joined && <span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">참가 중</span>}{waitlisted && <span className="rounded-full bg-sky-400/10 px-3 py-1 text-xs font-semibold text-sky-300">대기 중</span>}{created && <span className="rounded-full bg-violet-400/10 px-3 py-1 text-xs font-semibold text-violet-300">내가 만든 이벤트</span>}</div>
-              <h2 className="mt-4 text-2xl font-bold">{event.title}</h2>{event.event_kind === "MURDER_MYSTERY" && mysteryTitle && <p className="mt-2 text-sm font-semibold text-red-300">진행 작품 · {mysteryTitle}</p>}<p className="mt-3 line-clamp-2 leading-7 text-zinc-400">{getEventGuideSummary(event)}</p><div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-400"><p>장소 <span className="text-zinc-200">{formatEventLocation(event.location)}</span></p><p>참여 <span className="text-zinc-200">{event.event_participants?.length ?? 0}명 / {event.max_participants ?? "무제한"}</span></p></div>
+              <h2 className="mt-4 text-2xl font-bold">{renderEventTitle(event)}</h2>{event.event_kind === "MURDER_MYSTERY" && mysteryTitle && <p className="mt-2 text-sm font-semibold text-red-300">진행 작품 · {mysteryTitle}</p>}<p className="mt-3 line-clamp-2 leading-7 text-zinc-400">{getEventGuideSummary(event)}</p><div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-400"><p>장소 <span className="text-zinc-200">{formatEventLocation(event.location)}</span></p><p>참여 <span className="text-zinc-200">{event.event_participants?.length ?? 0}명 / {event.max_participants ?? "무제한"}</span></p></div>
             </div>
             <div className="flex items-center border-t border-white/10 p-6 lg:border-l lg:border-t-0"><Link href={`/events/${event.id}`} className="w-full rounded-2xl bg-amber-400 px-5 py-3 text-center font-semibold text-zinc-950 hover:bg-amber-300">상세 보기</Link></div>
           </div></article>;
