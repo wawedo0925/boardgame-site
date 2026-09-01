@@ -74,7 +74,7 @@ export default function AttendanceManager({
       });
 
       if (error) {
-        throw error;
+        throw new Error(error.message);
       }
 
       await onChanged();
@@ -111,7 +111,7 @@ export default function AttendanceManager({
       );
 
       if (error) {
-        throw error;
+        throw new Error(error.message);
       }
 
       await onChanged();
