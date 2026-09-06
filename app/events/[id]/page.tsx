@@ -18,7 +18,8 @@ import EventCapacityCard, {
 import EventCancellationCard from "@/components/events/EventCancellationCard";
 import EventJoinPaymentDialog from "@/components/events/EventJoinPaymentDialog";
 import EventCommentSection from "@/components/events/EventCommentSection";
-import type { AttendanceStatus } from "@/types/event";
+import BoardgamePreferenceCard from "@/components/events/BoardgamePreferenceCard";
+import type { AttendanceStatus, BoardgamePreference } from "@/types/event";
 import { createClient } from "@/lib/supabase/client";
 import { formatEventLocation } from "@/lib/events/location";
 import { CLOCKTOWER_EVENT_DESCRIPTION_PRESET } from "@/lib/events/guide";
@@ -48,6 +49,8 @@ type ParticipantRow = {
   attendance_checked_at: string | null;
   participation_role: "PLAYER" | "GM";
   repeat_override: boolean;
+  game_preference: BoardgamePreference | null;
+  game_preference_updated_at: string | null;
 };
 
 type ProfileRow = {
@@ -145,12 +148,13 @@ export default function EventDetailPage() {
   const [siteRole, setSiteRole] = useState("MEMBER");
   const [guideOpen, setGuideOpen] = useState(false);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+  const [preferencePromptOpen, setPreferencePromptOpen] = useState(false);
 
   async function loadParticipants() {
     const { data: participantData, error: participantError } = await supabase
       .from("event_participants")
       .select(
-        "id, user_id, joined_at, attendance_status, attendance_checked_at, participation_role, repeat_override",
+        "id, user_id, joined_at, attendance_status, attendance_checked_at, participation_role, repeat_override, game_preference, game_preference_updated_at",
       )
       .eq("event_id", eventId)
       .order("joined_at", { ascending: true });
@@ -389,6 +393,8 @@ export default function EventDetailPage() {
 
     if (data === "WAITLISTED") {
       alert("정원이 가득 차 대기 명단에 등록되었습니다.");
+    } else if (event?.event_kind === "BOARDGAME") {
+      setPreferencePromptOpen(true);
     }
 
     setJoinDialogOpen(false);
@@ -748,6 +754,21 @@ export default function EventDetailPage() {
                   </div>
                 )}
               </article>
+
+              {event.event_kind === "BOARDGAME" && isJoined && user && (
+                <BoardgamePreferenceCard
+                  eventId={eventId}
+                  startedAt={event.started_at}
+                  currentPreference={
+                    participants.find(
+                      (participant) => participant.user_id === user.id,
+                    )?.game_preference ?? null
+                  }
+                  onChanged={loadParticipants}
+                  promptOpen={preferencePromptOpen}
+                  onPromptClose={() => setPreferencePromptOpen(false)}
+                />
+              )}
 
               {isCancelled && (
                 <div className="rounded-3xl border border-red-400/30 bg-red-400/[0.07] px-6 py-5 text-sm font-semibold text-red-200">

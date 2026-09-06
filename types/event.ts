@@ -1,6 +1,7 @@
 
 export type ResultType = "SCORE" | "SIMPLE_SCORE" | "ROLE";
 export type AttendanceStatus = "REGISTERED" | "PRESENT" | "ABSENT";
+export type BoardgamePreference = "PARTY" | "NON_PARTY" | "ANY" | "PREMADE_PARTY";
 
 export type EventParticipant = {
   id: string;
@@ -9,6 +10,8 @@ export type EventParticipant = {
   attendance_checked_at?: string | null;
   participation_role?: "PLAYER" | "GM";
   repeat_override?: boolean;
+  game_preference?: BoardgamePreference | null;
+  game_preference_updated_at?: string | null;
   profile: {
     id: string;
     activity_name: string | null;
