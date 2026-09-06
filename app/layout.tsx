@@ -16,12 +16,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  applicationName: "보드라운지",
   title: {
-    default: "보드라운지 | WAWEDO",
+    default: "보드라운지",
     template: "%s | 보드라운지",
   },
   description:
     "와위두 보드라운지에서 보드게임 정보, 리뷰, 댓글과 이벤트 일정을 확인하세요.",
+  appleWebApp: {
+    capable: true,
+    title: "보드라운지",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export default function RootLayout({
