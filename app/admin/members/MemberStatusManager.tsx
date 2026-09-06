@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "../../../lib/supabase/client";
 
-type Member = { user_id: string; activity_name: string; site_role: string; total_attendance: number; last_attended_at: string | null; inactive_days: number | null };
+type Member = { user_id: string; activity_name: string; birth_year: string | null; region: string | null; gender: string | null; site_role: string; total_attendance: number; last_attended_at: string | null; inactive_days: number | null };
 type MonthRow = { month_start: string; attendance_count: number };
 type HistoryRow = { event_id: string; event_title: string; started_at: string };
 type OperationRow = { activity_type: "GM" | "RULE_MASTER"; event_id: string; event_title: string; started_at: string; detail: string };
@@ -14,6 +14,20 @@ type Filter = "ALL" | "NEW" | "ATTENDED" | "INACTIVE_30" | "INACTIVE_90";
 const roleName: Record<string, string> = { MAIN_ADMIN: "메인 관리자", ADMIN: "관리자", RULE_MASTER: "룰마", MEMBER: "일반 회원" };
 const dateText = (value: string | null) => value ? new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "short", day: "numeric" }).format(new Date(value)) : "아직 없음";
 const filterName: Record<Filter, string> = { ALL: "전체", ATTENDED: "참여 경험", NEW: "첫 출석 전", INACTIVE_30: "30일+ 미참여", INACTIVE_90: "90일+ 미참여" };
+const shortBirthYear = (value: string | null) => {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  const numeric = Number(trimmed.replace(/[^0-9]/g, ""));
+  if (!Number.isFinite(numeric)) return trimmed.replace(/년생/g, "").trim();
+  const shortYear = numeric >= 1900 ? numeric % 100 : numeric;
+  return String(shortYear).padStart(2, "0");
+};
+const memberDisplayName = (member: Member) => [
+  member.activity_name?.trim(),
+  shortBirthYear(member.birth_year),
+  member.region?.trim(),
+  member.gender?.trim(),
+].filter(Boolean).join("/") || "회원";
 
 export default function MemberStatusManager() {
   const supabase = useMemo(() => createClient(), []);
@@ -36,9 +50,30 @@ export default function MemberStatusManager() {
   const pageSize = 20;
 
   useEffect(() => {
-    supabase.rpc("admin_list_member_status").then(({ data, error }) => {
+    supabase.rpc("admin_list_member_status").then(async ({ data, error }) => {
       if (error) setError(error.message);
-      else setMembers((data ?? []) as Member[]);
+      else {
+        const rows = (data ?? []) as Omit<Member, "birth_year" | "region" | "gender">[];
+        const userIds = rows.map((member) => member.user_id);
+        const profileResult = userIds.length
+          ? await supabase.from("profiles").select("id, birth_year, region, gender").in("id", userIds)
+          : { data: [], error: null };
+
+        if (profileResult.error) {
+          setError(profileResult.error.message);
+        } else {
+          const profileMap = new Map((profileResult.data ?? []).map((profile) => [profile.id, profile]));
+          setMembers(rows.map((member) => {
+            const profile = profileMap.get(member.user_id);
+            return {
+              ...member,
+              birth_year: profile?.birth_year ?? null,
+              region: profile?.region ?? null,
+              gender: profile?.gender ?? null,
+            };
+          }));
+        }
+      }
       setLoading(false);
     });
   }, [supabase]);
@@ -116,7 +151,7 @@ export default function MemberStatusManager() {
         <div className="mt-5 overflow-hidden rounded-2xl border border-zinc-800">
           <div className="hidden bg-zinc-900 px-5 py-3 text-xs text-zinc-500 md:grid md:grid-cols-[minmax(0,1.15fr)_minmax(0,.72fr)_minmax(0,.58fr)_minmax(0,.9fr)_minmax(0,.62fr)_104px] md:gap-3"><span>멤버</span><span>직위</span><span>총 참여</span><span>마지막 참석</span><span>미참여 일수</span><span /></div>
           {visible.map(member => <div key={member.user_id} className="grid gap-3 border-t border-zinc-800 px-5 py-4 md:grid-cols-[minmax(0,1.15fr)_minmax(0,.72fr)_minmax(0,.58fr)_minmax(0,.9fr)_minmax(0,.62fr)_104px] md:items-center">
-            <div className="flex min-w-0 items-center gap-2" title={`활동명: ${member.activity_name}`}><span className="truncate font-bold">{member.activity_name}</span>{member.total_attendance === 0 && <span className="shrink-0 text-[10px] font-black tracking-wider text-red-400">NEW</span>}</div>
+            <div className="flex min-w-0 items-center gap-2" title={memberDisplayName(member)}><span className="truncate font-bold">{memberDisplayName(member)}</span>{member.total_attendance === 0 && <span className="shrink-0 text-[10px] font-black tracking-wider text-red-400">NEW</span>}</div>
             <span className="text-sm text-zinc-400">{roleName[member.site_role] ?? member.site_role}</span>
             <span className="font-black text-emerald-400">{member.total_attendance}회</span>
             <span className="text-sm text-zinc-300">{dateText(member.last_attended_at)}</span>
