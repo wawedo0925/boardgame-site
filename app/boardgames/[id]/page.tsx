@@ -34,6 +34,15 @@ type PlayRecordGameRow = {
   play_count: number | null;
 };
 
+type ScoreSummary = {
+  member_high_score: number | null;
+  member_average_score: number | null;
+  member_score_count: number;
+  my_high_score: number | null;
+  my_average_score: number | null;
+  my_score_count: number;
+};
+
 function formatGameType(type: string | null) {
   switch (type) {
     case "SCORE": return "점수형";
@@ -58,6 +67,11 @@ function difficultyLabel(value: number | null) {
   if (value === null) return "미입력";
   const description = value < 1.5 ? "매우 쉬움" : value < 2.5 ? "쉬움" : value < 3.5 ? "보통" : value < 4.5 ? "어려움" : "매우 어려움";
   return `${Number(value.toFixed(2))} / 5 · ${description}`;
+}
+
+function formatScore(value: number | null) {
+  if (value === null) return "이력 없음";
+  return `${new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 1 }).format(value)}점`;
 }
 
 function RatingStars({ rating, size = "normal" }: { rating: number; size?: "normal" | "large" }) {
@@ -88,6 +102,8 @@ export default function BoardGameDetailPage() {
   const [game, setGame] = useState<GameRow | null>(null);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [totalPlayCount, setTotalPlayCount] = useState(0);
+  const [scoreSummary, setScoreSummary] = useState<ScoreSummary | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -106,10 +122,12 @@ export default function BoardGameDetailPage() {
       setIsLoading(true);
       setErrorMessage("");
 
-      const [gameResponse, reviewResponse, playResponse] = await Promise.all([
+      const [gameResponse, reviewResponse, playResponse, scoreResponse, userResponse] = await Promise.all([
         supabase.from("games").select("id, name, type, min_players, max_players, play_time, difficulty, publisher").eq("id", gameId).single(),
         supabase.from("game_reviews").select("id, game_id, author_name, rating, content, created_at").eq("game_id", gameId).order("created_at", { ascending: false }),
         supabase.from("play_record_games").select("play_count").eq("game_id", gameId),
+        supabase.rpc("get_boardgame_score_summary", { p_game_id: gameId }),
+        supabase.auth.getUser(),
       ]);
 
       if (!isMounted) return;
@@ -135,6 +153,21 @@ export default function BoardGameDetailPage() {
       setGame(gameResponse.data as GameRow);
       setReviews((reviewResponse.data ?? []) as ReviewRow[]);
       setTotalPlayCount(((playResponse.data ?? []) as PlayRecordGameRow[]).reduce((sum, row) => sum + (row.play_count ?? 0), 0));
+      if (!scoreResponse.error) {
+        const scoreData = Array.isArray(scoreResponse.data) ? scoreResponse.data[0] : scoreResponse.data;
+        if (scoreData) {
+          const summary = scoreData as ScoreSummary;
+          setScoreSummary({
+            member_high_score: summary.member_high_score === null ? null : Number(summary.member_high_score),
+            member_average_score: summary.member_average_score === null ? null : Number(summary.member_average_score),
+            member_score_count: Number(summary.member_score_count ?? 0),
+            my_high_score: summary.my_high_score === null ? null : Number(summary.my_high_score),
+            my_average_score: summary.my_average_score === null ? null : Number(summary.my_average_score),
+            my_score_count: Number(summary.my_score_count ?? 0),
+          });
+        }
+      }
+      setIsLoggedIn(Boolean(userResponse.data.user));
       setIsLoading(false);
     }
 
@@ -223,6 +256,52 @@ export default function BoardGameDetailPage() {
           <InformationCard label="PUBLISHER" value={game.publisher?.trim() || "미입력"} />
           <InformationCard label="TOTAL PLAYS" value={`${totalPlayCount}판`} />
         </div>
+
+        <section className="mt-8 rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-400/[0.06] to-transparent p-6 sm:p-8">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.2em] text-amber-400">SCORE RECORD</p>
+              <h2 className="mt-2 text-2xl font-bold">플레이 점수</h2>
+            </div>
+            <p className="text-xs leading-5 text-zinc-600">점수가 입력된 플레이 기록만 반영됩니다.</p>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-zinc-950/50 p-5">
+              <p className="text-sm font-bold text-zinc-300">보드라운지 멤버 기록</p>
+              <p className="mt-1 text-xs text-zinc-600">개별 멤버 정보는 공개되지 않습니다.</p>
+              <dl className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-white/[0.035] p-4">
+                  <dt className="text-xs text-zinc-500">최고 점수</dt>
+                  <dd className="mt-2 text-xl font-bold text-amber-300">{formatScore(scoreSummary?.member_high_score ?? null)}</dd>
+                </div>
+                <div className="rounded-xl bg-white/[0.035] p-4">
+                  <dt className="text-xs text-zinc-500">전체 평균</dt>
+                  <dd className="mt-2 text-xl font-bold text-amber-300">{formatScore(scoreSummary?.member_average_score ?? null)}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="rounded-2xl border border-violet-400/15 bg-violet-400/[0.035] p-5">
+              <p className="text-sm font-bold text-zinc-300">나의 기록</p>
+              <p className="mt-1 text-xs text-zinc-600">본인에게만 표시되는 점수입니다.</p>
+              {isLoggedIn ? (
+                <dl className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-zinc-950/50 p-4">
+                    <dt className="text-xs text-zinc-500">나의 최고</dt>
+                    <dd className="mt-2 text-xl font-bold text-violet-300">{formatScore(scoreSummary?.my_high_score ?? null)}</dd>
+                  </div>
+                  <div className="rounded-xl bg-zinc-950/50 p-4">
+                    <dt className="text-xs text-zinc-500">나의 평균</dt>
+                    <dd className="mt-2 text-xl font-bold text-violet-300">{formatScore(scoreSummary?.my_average_score ?? null)}</dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="mt-5 rounded-xl bg-zinc-950/50 px-4 py-6 text-center text-sm text-zinc-500">로그인하면 나의 점수 기록을 확인할 수 있습니다.</p>
+              )}
+            </div>
+          </div>
+        </section>
 
         <GameGuideSection gameId={gameId} />
 
