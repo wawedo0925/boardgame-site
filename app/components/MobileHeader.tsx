@@ -7,10 +7,10 @@ import { useEffect, useState } from "react";
 const menuItems = [
   { href: "/", label: "홈" },
   { href: "/notice", label: "공지사항" },
+  { href: "/events", label: "모임 일정" },
   { href: "/boardgames", label: "보드게임" },
   { href: "/murder-mystery", label: "머더미스터리" },
   { href: "/reviews", label: "게임 평가" },
-  { href: "/events", label: "이벤트 일정" },
   { href: "/rankings", label: "게임 랭킹" },
   { href: "/mypage", label: "마이페이지" },
   { href: "/notifications", label: "알림" },
@@ -20,10 +20,6 @@ const menuItems = [
 export default function MobileHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
 
   useEffect(() => {
     if (!open) return;
@@ -77,6 +73,7 @@ export default function MobileHeader() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => setOpen(false)}
                   className={`flex min-h-14 items-center justify-center rounded-2xl border px-3 text-center text-sm font-bold transition ${
                     active
                       ? "border-amber-400 bg-amber-400 text-black"
@@ -91,6 +88,7 @@ export default function MobileHeader() {
 
           <Link
             href="/login"
+            onClick={() => setOpen(false)}
             className="mt-4 flex min-h-14 w-full items-center justify-center rounded-2xl border border-amber-400/60 text-sm font-bold text-amber-300"
           >
             로그인 / 계정 확인

@@ -9,10 +9,10 @@ import NotificationBell from "@/components/notifications/NotificationBell";
 
 const menuItems = [
   { name: "공지사항", href: "/notice" },
+  { name: "모임 일정", href: "/events" },
   { name: "보드게임", href: "/boardgames" },
   { name: "머더미스터리", href: "/murder-mystery" },
   { name: "게임 평가", href: "/reviews" },
-  { name: "이벤트 일정", href: "/events" },
   { name: "게임 랭킹", href: "/rankings" },
   { name: "마이페이지", href: "/mypage" },
 ];
