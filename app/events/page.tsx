@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import { formatEventLocation } from "@/lib/events/location";
@@ -25,10 +25,55 @@ type EventRow = {
 };
 
 type DateFilter = "all" | "week" | "month" | "next-month";
-type StatusFilter = "all" | "upcoming" | "ongoing" | "ended" | "cancelled";
-type SortOption = "soon" | "late" | "participants";
+type StatusFilter = "all" | "upcoming" | "ongoing" | "cancelled";
 type EventKindFilter = "all" | "GENERAL" | "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER";
 type MyEventFilter = "all" | "joined" | "waitlisted" | "created";
+
+function EventDialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    const dialog = ref.current;
+    const previousOverflow = document.body.style.overflow;
+    dialog?.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog?.close();
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  return <dialog ref={ref} aria-labelledby={titleId} onCancel={(event) => { event.preventDefault(); onClose(); }}
+    onClick={(event) => {
+      if (event.target !== event.currentTarget) return;
+      const bounds = event.currentTarget.getBoundingClientRect();
+      if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();
+    }}
+    className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto overscroll-contain rounded-3xl border border-white/15 bg-zinc-950 p-0 text-white shadow-2xl backdrop:bg-black/75">
+    <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-white/10 bg-zinc-950 px-5 py-4 sm:px-7">
+      <h2 id={titleId} className="text-xl font-bold">{title}</h2>
+      <button type="button" autoFocus onClick={onClose} className="rounded-xl border border-white/15 px-4 py-2 text-sm text-zinc-300 hover:bg-white/10">닫기</button>
+    </div>
+    <div className="p-5 sm:p-7">{children}</div>
+  </dialog>;
+}
+
+function KindFilterDialog({ value, onSelect, onClose }: { value: EventKindFilter; onSelect: (value: EventKindFilter) => void; onClose: () => void }) {
+  return <EventDialog title="이벤트 종류 필터" onClose={onClose}>
+    <div className="grid gap-3 sm:grid-cols-2">
+      {(["all", "MURDER_MYSTERY", "BOARDGAME", "GENERAL", "CLOCKTOWER"] as const).map((kind) =>
+        <button type="button" key={kind} aria-pressed={value === kind} onClick={() => { onSelect(kind); onClose(); }}
+          className={`rounded-2xl border px-5 py-4 text-left font-semibold ${value === kind ? "border-amber-400 bg-amber-400 text-zinc-950" : "border-white/15 bg-white/5 hover:border-amber-400/50"}`}>
+          {kind === "all" ? "전체 종류" : getKindMeta(kind).label}
+        </button>)}
+    </div>
+  </EventDialog>;
+}
+
+function newestFirst(a: EventRow, b: EventRow) {
+  return new Date(b.started_at).getTime() - new Date(a.started_at).getTime() || a.id.localeCompare(b.id);
+}
 
 function getKindMeta(kind: EventRow["event_kind"]) {
   if (kind === "GENERAL") return { label: "일반 이벤트", className: "bg-sky-400/10 text-sky-300" };
@@ -115,8 +160,10 @@ export default function EventsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [kindFilter, setKindFilter] = useState<EventKindFilter>("all");
   const [myFilter, setMyFilter] = useState<MyEventFilter>("all");
-  const [sortOption, setSortOption] = useState<SortOption>("soon");
   const [showEnded, setShowEnded] = useState(false);
+  const [showKindFilter, setShowKindFilter] = useState(false);
+  const [showEndedKindFilter, setShowEndedKindFilter] = useState(false);
+  const [endedKindFilter, setEndedKindFilter] = useState<EventKindFilter>("all");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -158,10 +205,9 @@ export default function EventsPage() {
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
       const status = getStatus(event);
-      if (!showEnded && statusFilter === "all" && status === "종료") return false;
+      if (status === "종료") return false;
       if (statusFilter === "upcoming" && status !== "예정") return false;
       if (statusFilter === "ongoing" && status !== "진행 중") return false;
-      if (statusFilter === "ended" && status !== "종료") return false;
       if (statusFilter === "cancelled" && status !== "취소됨") return false;
       if (!inDateRange(event, dateFilter)) return false;
       if (kindFilter !== "all" && event.event_kind !== kindFilter) return false;
@@ -170,12 +216,11 @@ export default function EventsPage() {
       if (myFilter === "waitlisted" && !waitlistedIds.has(event.id)) return false;
       if (myFilter === "created" && event.created_by !== userId) return false;
       return true;
-    }).sort((a, b) => {
-      if (sortOption === "participants") return (b.event_participants?.length ?? 0) - (a.event_participants?.length ?? 0);
-      const difference = new Date(a.started_at).getTime() - new Date(b.started_at).getTime();
-      return sortOption === "late" ? -difference : difference;
-    });
-  }, [dateFilter, events, kindFilter, myFilter, showEnded, sortOption, statusFilter, userId, waitlistedIds]);
+    }).sort(newestFirst);
+  }, [dateFilter, events, kindFilter, myFilter, statusFilter, userId, waitlistedIds]);
+
+  const endedEvents = useMemo(() => events.filter((event) => getStatus(event) === "종료"
+    && (endedKindFilter === "all" || event.event_kind === endedKindFilter)).sort(newestFirst), [events, endedKindFilter]);
 
   const selectClass = "min-w-0 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-zinc-300 outline-none focus:border-amber-400/60";
 
@@ -195,14 +240,14 @@ export default function EventsPage() {
       </div>}
 
       <div className="mb-5 grid grid-cols-2 gap-3 rounded-3xl border border-white/10 bg-white/[0.03] p-4 lg:grid-cols-5">
-        <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value as EventKindFilter)} className={selectClass}><option value="all">전체 종류</option><option value="GENERAL">일반 이벤트</option><option value="BOARDGAME">보드게임</option><option value="MURDER_MYSTERY">머더미스터리</option><option value="CLOCKTOWER">시계탑에 흐른 피</option></select>
+        <button type="button" aria-haspopup="dialog" onClick={() => setShowKindFilter(true)} className={selectClass}>필터 · {kindFilter === "all" ? "전체 종류" : getKindMeta(kindFilter).label}</button>
         <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value as DateFilter)} className={selectClass}><option value="all">전체 일정</option><option value="week">이번 주</option><option value="month">이번 달</option><option value="next-month">다음 달</option></select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className={selectClass}><option value="all">예정·진행</option><option value="upcoming">예정</option><option value="ongoing">진행 중</option><option value="ended">종료</option><option value="cancelled">취소됨</option></select>
-        <select value={sortOption} onChange={(e) => setSortOption(e.target.value as SortOption)} className={selectClass}><option value="soon">날짜 빠른 순</option><option value="late">날짜 늦은 순</option><option value="participants">참가자 많은 순</option></select>
-        <label className="col-span-2 flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-zinc-300 lg:col-span-1"><input type="checkbox" checked={showEnded} onChange={(e) => setShowEnded(e.target.checked)} disabled={statusFilter === "ended"} className="accent-amber-400" /> 종료 이벤트 표시</label>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className={selectClass}><option value="all">예정·진행</option><option value="upcoming">예정</option><option value="ongoing">진행 중</option><option value="cancelled">취소됨</option></select>
+        <p className="flex items-center justify-center px-4 py-3 text-sm text-zinc-400">개최일 최신순 ↓</p>
+        <button type="button" aria-haspopup="dialog" onClick={() => setShowEnded(true)} className="col-span-2 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-zinc-300 hover:border-amber-400/60 lg:col-span-1">종료 이벤트 표시</button>
       </div>
 
-      <div className="mb-5 flex items-center justify-between"><p className="text-sm text-zinc-400">표시된 이벤트 <span className="font-semibold text-amber-400">{filteredEvents.length}</span>개</p><button onClick={() => { setDateFilter("all"); setStatusFilter("all"); setKindFilter("all"); setMyFilter("all"); setSortOption("soon"); setShowEnded(false); }} className="text-xs text-zinc-500 hover:text-zinc-200">필터 초기화</button></div>
+      <div className="mb-5 flex items-center justify-between"><p className="text-sm text-zinc-400">표시된 이벤트 <span className="font-semibold text-amber-400">{filteredEvents.length}</span>개</p><button onClick={() => { setDateFilter("all"); setStatusFilter("all"); setKindFilter("all"); setMyFilter("all"); }} className="text-xs text-zinc-500 hover:text-zinc-200">필터 초기화</button></div>
 
       {loading ? <div className="space-y-5">{[1,2,3].map((n) => <div key={n} className="h-48 animate-pulse rounded-3xl border border-white/10 bg-white/[0.03]" />)}</div>
       : errorMessage ? <div className="rounded-3xl border border-red-400/20 bg-red-400/5 px-6 py-14 text-center text-red-300">{errorMessage}</div>
@@ -224,5 +269,25 @@ export default function EventsPage() {
           </div></article>;
       })}</div>}
     </section>
+    {showKindFilter && <KindFilterDialog value={kindFilter} onSelect={setKindFilter} onClose={() => setShowKindFilter(false)} />}
+    {showEnded && <EventDialog title="종료 이벤트" onClose={() => setShowEnded(false)}>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-zinc-400">총 <span className="font-semibold text-amber-400">{endedEvents.length}</span>개 · 개최일 최신순</p>
+        <button type="button" aria-haspopup="dialog" onClick={() => setShowEndedKindFilter(true)} className={selectClass}>필터 · {endedKindFilter === "all" ? "전체 종류" : getKindMeta(endedKindFilter).label}</button>
+      </div>
+      {loading ? <p role="status" className="py-12 text-center text-zinc-400">이벤트를 불러오는 중입니다.</p>
+        : errorMessage ? <p role="alert" className="py-12 text-center text-red-300">{errorMessage}</p>
+        : endedEvents.length === 0 ? <p className="py-12 text-center text-zinc-400">조건에 맞는 종료 이벤트가 없습니다.</p>
+        : <ul className="space-y-3">{endedEvents.map((event) => {
+          const kind = getKindMeta(event.event_kind);
+          return <li key={event.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex flex-wrap items-center gap-2 text-xs"><span className={`rounded-full px-3 py-1 font-semibold ${kind.className}`}>{kind.label}</span><span className="text-zinc-500">종료</span></div>
+            <h3 className="mt-3 break-words text-lg font-bold"><Link href={`/events/${event.id}`} className="hover:text-amber-300">{renderEventTitle(event)}</Link></h3>
+            <p className="mt-2 text-sm text-zinc-400">{formatDate(event.started_at)} · {formatDay(event.started_at)} · {formatTimeRange(event.started_at, event.ended_at)}</p>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-zinc-400">{formatEventLocation(event.location)}</p><Link href={`/events/${event.id}`} className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-300">상세 보기</Link></div>
+          </li>;
+        })}</ul>}
+      {showEndedKindFilter && <KindFilterDialog value={endedKindFilter} onSelect={setEndedKindFilter} onClose={() => setShowEndedKindFilter(false)} />}
+    </EventDialog>}
   </main>;
 }
