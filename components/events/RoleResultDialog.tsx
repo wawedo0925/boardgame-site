@@ -9,10 +9,10 @@ type Props={round:EventGameRound;gameId:string;onClose:()=>void;onSaved:()=>Prom
 const playerName=(player:EventGameRound["players"][number])=>player.profile?.activity_name?.trim()||"회원";
 
 function teamButtonStyle(team: string, selected: boolean) {
- if (team === "선의 세력" || team === "리버럴") return selected
+ if (team === "선의 세력" || team === "리버럴" || team === "쥐 팀") return selected
   ? "border-blue-300 bg-blue-600 text-white ring-2 ring-blue-300 ring-offset-2 ring-offset-zinc-950"
   : "border-blue-400/40 bg-blue-950 text-blue-100 hover:bg-blue-900";
- if (team === "악의 세력" || team === "파시스트") return selected
+ if (team === "악의 세력" || team === "파시스트" || team === "치즈 도둑 팀") return selected
   ? "border-red-300 bg-red-600 text-white ring-2 ring-red-300 ring-offset-2 ring-offset-zinc-950"
   : "border-red-400/40 bg-red-950 text-red-100 hover:bg-red-900";
  return selected ? "border-amber-300 bg-amber-400 text-zinc-950 ring-2 ring-amber-200" : "border-white/10 bg-white/10";
