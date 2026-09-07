@@ -12,7 +12,7 @@ function teamButtonStyle(team: string, selected: boolean) {
  if (["선의 세력", "리버럴", "쥐 팀", "수사 팀", "시민 팀"].includes(team)) return selected
   ? "border-blue-300 bg-blue-600 text-white ring-2 ring-blue-300 ring-offset-2 ring-offset-zinc-950"
   : "border-blue-400/40 bg-blue-950 text-blue-100 hover:bg-blue-900";
- if (["악의 세력", "파시스트", "치즈 도둑 팀", "살인범 팀", "늑대인간 팀"].includes(team)) return selected
+ if (["악의 세력", "파시스트", "치즈 도둑 팀", "살인범 팀", "늑대인간 팀", "마녀 팀"].includes(team)) return selected
   ? "border-red-300 bg-red-600 text-white ring-2 ring-red-300 ring-offset-2 ring-offset-zinc-950"
   : "border-red-400/40 bg-red-950 text-red-100 hover:bg-red-900";
  if (team === "팀 선택") return selected
