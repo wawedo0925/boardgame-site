@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import PhonePushSettings from "@/components/notifications/PhonePushSettings";
 
 type NotificationRow = {
   id: string;
@@ -146,6 +147,7 @@ export default function NotificationsPage() {
           )}
         </div>
 
+        {user && <PhonePushSettings key={user.id} userId={user.id} />}
         {loading ? (
           <div className="mt-8 space-y-3">
             {Array.from({ length: 4 }).map((_, index) => (

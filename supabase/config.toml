@@ -1,0 +1,4 @@
+[functions.participant-push]
+# Requests are authenticated using the private database-generated worker secret.
+verify_jwt = false
+entrypoint = "./functions/participant-push/index.js"
