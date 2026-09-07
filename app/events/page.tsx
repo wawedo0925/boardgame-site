@@ -245,7 +245,7 @@ export default function EventsPage() {
       if (myFilter === "waitlisted" && !waitlistedIds.has(event.id)) return false;
       if (myFilter === "created" && event.created_by !== userId) return false;
       return true;
-    }).sort(newestFirst);
+    }).sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime() || a.id.localeCompare(b.id));
   }, [dateFilter, events, kindFilter, myFilter, selectedDate, statusFilter, userId, waitlistedIds]);
 
   const endedEvents = useMemo(() => events.filter((event) => getStatus(event) === "종료"
@@ -273,7 +273,7 @@ export default function EventsPage() {
         <button type="button" aria-haspopup="dialog" onClick={() => setShowKindFilter(true)} className={selectClass}>필터 · {kindFilter === "all" ? "전체 종류" : getKindMeta(kindFilter).label}</button>
         <select aria-label="일정 기간" value={selectedDate ? "selected" : dateFilter} onChange={(e) => { setSelectedDate(""); setDateFilter(e.target.value as DateFilter); }} className={selectClass}>{selectedDate && <option value="selected" disabled>{selectedDate}</option>}<option value="all">전체 일정</option><option value="week">이번 주</option><option value="month">이번 달</option><option value="next-month">다음 달</option></select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className={selectClass}><option value="all">예정·진행</option><option value="upcoming">예정</option><option value="ongoing">진행 중</option><option value="cancelled">취소됨</option></select>
-        <p className="flex items-center justify-center px-4 py-3 text-sm text-zinc-400">개최일 최신순 ↓</p>
+        <p className="flex items-center justify-center px-4 py-3 text-sm text-zinc-400">다가오는 일정순 ↑</p>
         <button type="button" aria-haspopup="dialog" onClick={() => setShowEnded(true)} className="col-span-2 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-zinc-300 hover:border-amber-400/60 lg:col-span-1">종료 이벤트 표시</button>
       </div>
 
