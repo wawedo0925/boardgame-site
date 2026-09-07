@@ -46,6 +46,10 @@ export default async function AdminPage() {
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <Link href="/admin/home" className="rounded-2xl border border-amber-900 bg-amber-950/30 p-6 transition hover:border-amber-500">
+            <h2 className="text-xl font-black">메인 소개 문구 수정</h2>
+            <p className="mt-2 text-sm text-zinc-400">메인 화면의 소제목, 큰 제목과 소개글을 수정합니다.</p>
+          </Link>
           <Link href="/admin/members" className="rounded-2xl border border-emerald-900 bg-emerald-950/30 p-6 transition hover:border-emerald-500">
             <p className="text-xs font-bold tracking-widest text-emerald-400">MEMBER STATUS</p>
             <h2 className="mt-2 text-xl font-black">멤버들 현황</h2>

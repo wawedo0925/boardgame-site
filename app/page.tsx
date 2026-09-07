@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatEventLocation } from "@/lib/events/location";
 import { getEventGuideSummary } from "@/lib/events/guide";
+import { defaultHomeContent } from "@/lib/home-content";
 
 type HomeNotice = { id: string; title: string; important: boolean };
 type HomeEvent = {
@@ -51,7 +52,7 @@ function remainingSeats(event: HomeEvent) {
 export default async function Home() {
   const supabase = await createClient();
   const now = new Date().toISOString();
-  const [{ data: noticeData }, { data: eventData }] = await Promise.all([
+  const [{ data: noticeData }, { data: eventData }, { data: homeContent }, { data: role }] = await Promise.all([
     supabase
       .from("notices")
       .select("id,title,important")
@@ -65,7 +66,10 @@ export default async function Home() {
       .eq("event_status", "OPEN")
       .order("started_at", { ascending: true })
       .limit(20),
+    supabase.from("home_content").select("eyebrow,title,description").eq("id", true).maybeSingle(),
+    supabase.rpc("current_site_role"),
   ]);
+  const content = homeContent ?? defaultHomeContent;
   const notices = (noticeData ?? []) as HomeNotice[];
   const events = (eventData ?? []) as HomeEvent[];
   const urgentEvents = events
@@ -99,22 +103,18 @@ export default async function Home() {
 
         <div className="relative mx-auto grid min-h-[650px] max-w-7xl items-end gap-12 px-6 py-20 lg:grid-cols-2">
           <div>
-            <p className="mb-5 text-sm font-semibold tracking-[0.3em] text-amber-400">
-              BOARD GAME COMMUNITY
+            <p className="mb-5 whitespace-pre-wrap break-words text-sm font-semibold tracking-[0.3em] text-amber-400">
+              {content.eyebrow}
             </p>
 
-            <h1 className="text-5xl font-bold leading-tight sm:text-6xl">
-              함께 플레이하고
-              <br />
-              우리의 게임을
-              <br />
-              기록합니다.
+            <h1 className="whitespace-pre-wrap break-words text-5xl font-bold leading-tight sm:text-6xl">
+              {content.title}
             </h1>
 
-            <p className="mt-7 max-w-xl text-lg leading-8 text-zinc-200">
-              보드라운지는 와위두에서 만나는 보드게임 커뮤니티입니다.
-              이벤트에 참여하고, 플레이 기록과 평가를 남겨보세요.
+            <p className="mt-7 max-w-xl whitespace-pre-wrap break-words text-lg leading-8 text-zinc-200">
+              {content.description}
             </p>
+            {role === "MAIN_ADMIN" && <Link href="/admin/home" className="mt-5 inline-block rounded-xl border border-amber-400/40 bg-black/40 px-4 py-2 text-sm text-amber-300 hover:bg-black/60">소개 문구 수정</Link>}
 
             <div className="mt-9 flex flex-wrap gap-4">
               <Link
