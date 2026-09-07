@@ -1,5 +1,7 @@
 "use client";
 
+import UnownedBadge from "@/components/UnownedBadge";
+
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -12,6 +14,7 @@ import CommentSection from "./CommentSection";
 
 type GameRow = {
   id: string;
+  is_unowned: boolean;
   name: string;
   type: string | null;
   min_players: number | null;
@@ -123,7 +126,7 @@ export default function BoardGameDetailPage() {
       setErrorMessage("");
 
       const [gameResponse, reviewResponse, playResponse, scoreResponse, userResponse] = await Promise.all([
-        supabase.from("games").select("id, name, type, min_players, max_players, play_time, difficulty, publisher").eq("id", gameId).single(),
+        supabase.from("games").select("id, name, is_unowned, type, min_players, max_players, play_time, difficulty, publisher").eq("id", gameId).single(),
         supabase.from("game_reviews").select("id, game_id, author_name, rating, content, created_at").eq("game_id", gameId).order("created_at", { ascending: false }),
         supabase.from("play_record_games").select("play_count").eq("game_id", gameId),
         supabase.rpc("get_boardgame_score_summary", { p_game_id: gameId }),
@@ -220,7 +223,7 @@ export default function BoardGameDetailPage() {
                 <span className="rounded-full bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-300">{formatGameType(game.type)}</span>
                 <span className="text-sm text-zinc-600">GAME DETAIL</span>
               </div>
-              <h1 className="mt-5 text-4xl font-bold sm:text-5xl">{game.name}</h1>
+              <h1 className="mt-5 text-4xl font-bold sm:text-5xl">{game.name}<UnownedBadge isUnowned={game.is_unowned} /></h1>
               <p className="mt-5 max-w-3xl text-lg leading-8 text-zinc-400">게임 정보와 보드라운지 회원들의 실제 플레이 평가를 확인하세요.</p>
             </div>
 

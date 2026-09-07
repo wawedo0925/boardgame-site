@@ -1,11 +1,14 @@
 "use client";
 
+import UnownedBadge from "@/components/UnownedBadge";
+
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Mystery = {
   id: string;
+  is_unowned: boolean;
   title: string;
   cover_url: string | null;
   min_players: number | null;
@@ -60,7 +63,7 @@ export default function MurderMysteryDetailPage() {
     setError("");
     try {
       const [{ data: mysteryData, error: mysteryError }, { data: historyData, error: historyError }, { data: reviewData, error: reviewError }, { data: interestData, error: interestError }, { data: personalData, error: personalError }, auth] = await Promise.all([
-        supabase.from("murder_mysteries").select("id,title,cover_url,min_players,max_players,play_time,difficulty,host_requirement,replayable,theme,synopsis").eq("id", id).single(),
+        supabase.from("murder_mysteries").select("id,title,is_unowned,cover_url,min_players,max_players,play_time,difficulty,host_requirement,replayable,theme,synopsis").eq("id", id).single(),
         supabase.from("murder_mystery_history").select("user_id,participation_role,completed_at").eq("murder_mystery_id", id).order("completed_at", { ascending: false }),
         supabase.from("murder_mystery_reviews").select("id,user_id,review_text,created_at,updated_at").eq("murder_mystery_id", id).order("created_at", { ascending: false }),
         supabase.from("murder_mystery_interests").select("user_id,created_at").eq("murder_mystery_id", id).order("created_at"),
@@ -148,7 +151,7 @@ export default function MurderMysteryDetailPage() {
         </div>
         <div>
           <p className="text-xs font-bold tracking-[0.2em] text-red-400">MURDER MYSTERY</p>
-          <h1 className="mt-2 text-3xl font-black">{mystery.title}</h1>
+          <h1 className="mt-2 text-3xl font-black">{mystery.title}<UnownedBadge isUnowned={mystery.is_unowned} /></h1>
           <div className="mt-5 flex flex-wrap gap-2 text-sm text-slate-300">
             <span className="rounded-full bg-zinc-800 px-3 py-2">{mystery.min_players ?? "?"}~{mystery.max_players ?? "?"}명</span>
             <span className="rounded-full bg-zinc-800 px-3 py-2">{mystery.play_time ?? "?"}분</span>

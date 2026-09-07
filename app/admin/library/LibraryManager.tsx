@@ -49,6 +49,7 @@ export default function LibraryManager() {
         const uploaded = cover?.size ? await upload(cover, "boardgame-covers", crypto.randomUUID()) : null;
         const { error } = await supabase.from("games").insert({
           name,
+          is_unowned: data.get("unowned") === "on",
           library_section: "BOARDGAME",
           type: value(data, "result_type") || "SCORE",
           min_players: numberValue(data, "min_players"),
@@ -74,6 +75,7 @@ export default function LibraryManager() {
         const uploaded = cover?.size ? await upload(cover, "murder-mystery-covers", crypto.randomUUID()) : null;
         const { error } = await supabase.from("murder_mysteries").insert({
           title: name,
+          is_unowned: data.get("unowned") === "on",
           min_players: numberValue(data, "min_players"),
           max_players: numberValue(data, "max_players"),
           play_time: numberValue(data, "play_time"),
@@ -107,6 +109,7 @@ export default function LibraryManager() {
 
       <form key={tab} onSubmit={submit} className="mt-7 grid gap-4 md:grid-cols-2">
         <label className="md:col-span-2"><span className="mb-2 block text-sm font-bold">{tab === "BOARDGAME" ? "게임 이름" : "작품명"} *</span><input name="name" required className={field} /></label>
+        <label className="md:col-span-2 flex items-center gap-3 rounded-xl border border-white/10 px-4 py-3 text-sm"><input type="checkbox" name="unowned" className="accent-red-400" /><span>미보유 <span className="text-zinc-500">· 선택하면 제목 옆에 빨간색으로 표시됩니다.</span></span></label>
         <label><span className="mb-2 block text-sm">최소 인원</span><input name="min_players" type="number" min="1" className={field} /></label>
         <label><span className="mb-2 block text-sm">최대 인원</span><input name="max_players" type="number" min="1" className={field} /></label>
         <label><span className="mb-2 block text-sm">플레이 시간(분)</span><input name="play_time" type="number" min="1" className={field} /></label>

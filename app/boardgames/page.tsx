@@ -62,6 +62,7 @@ export default async function BoardgamesPage({
       `
         id,
         name,
+        is_unowned,
         genre,
         min_players,
         max_players,
@@ -104,6 +105,8 @@ export default async function BoardgamesPage({
   ]);
 
   let boardgameCanManage = false;
+  let boardgameCanRegister = false;
+  let boardgameCanDelete = false;
 
   if (user) {
     const [
@@ -122,8 +125,10 @@ export default async function BoardgamesPage({
       console.error("보드게임 직위 조회 오류:", roleError);
     }
 
-    boardgameCanManage =
+    boardgameCanRegister =
       Boolean(siteAdmin) || hasManagementRole(currentRole);
+    boardgameCanManage = currentRole === "MAIN_ADMIN";
+    boardgameCanDelete = currentRole === "MAIN_ADMIN";
   }
 
   const genres = Array.from(
@@ -142,12 +147,12 @@ export default async function BoardgamesPage({
           <h1>보드게임</h1>
 
           <p className="description">
-            보드라운지가 보유한 게임을 확인하고, 인원과 장르에 맞는 게임을
+            보드라운지의 게임과 보유 여부를 확인하고, 인원과 장르에 맞는 게임을
             찾아보세요.
           </p>
         </div>
 
-        {boardgameCanManage && (
+        {boardgameCanRegister && (
           <Link
             href="/admin/library?kind=boardgame"
             className="libraryButton"
@@ -173,6 +178,7 @@ export default async function BoardgamesPage({
           genre={genre}
           genres={genres}
           canManage={boardgameCanManage}
+          canDelete={boardgameCanDelete}
         />
       )}
 

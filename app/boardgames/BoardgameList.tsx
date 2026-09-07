@@ -11,12 +11,14 @@ import {
 import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
+import UnownedBadge from "@/components/UnownedBadge";
 
 const BOARDGAME_COVER_BUCKET = "boardgame-covers";
 
 type Game = {
   id: string;
   name: string | null;
+  is_unowned: boolean;
   genre: string | null;
   min_players: number | null;
   max_players: number | null;
@@ -27,6 +29,7 @@ type Game = {
 };
 
 type GameEditDraft = {
+  is_unowned: string;
   name: string;
   type: string;
   min_players: string;
@@ -46,6 +49,7 @@ type GameEditDraft = {
 };
 
 const emptyEditDraft: GameEditDraft = {
+  is_unowned: "false",
   name: "",
   type: "SCORE",
   min_players: "",
@@ -86,6 +90,7 @@ type Props = {
   genre: string;
   genres: string[];
   canManage: boolean;
+  canDelete: boolean;
 };
 
 function playerText(game: Game) {
@@ -110,6 +115,7 @@ export default function BoardgameList({
   genre,
   genres,
   canManage,
+  canDelete,
 }: Props) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -250,7 +256,7 @@ export default function BoardgameList({
   }
 
   async function removeGame(game: Game) {
-    if (!resolvedCanManage) return;
+    if (!canDelete) return;
 
     const confirmed = window.confirm(
       `"${game.name ?? "이 게임"}"을 정말 삭제할까요?\n관련 기록이 있으면 삭제되지 않을 수 있습니다.`,
@@ -289,7 +295,7 @@ export default function BoardgameList({
     const { data, error } = await supabase
       .from("games")
       .select(
-        "id,name,type,min_players,max_players,best_players,play_time,difficulty,genre,weight,publisher,icon,min_age,year_published,bgg_url,description,thumbnail",
+        "id,name,is_unowned,type,min_players,max_players,best_players,play_time,difficulty,genre,weight,publisher,icon,min_age,year_published,bgg_url,description,thumbnail",
       )
       .eq("id", game.id)
       .single();
@@ -303,6 +309,7 @@ export default function BoardgameList({
 
     setEditDraft({
       name: draftText(data.name),
+      is_unowned: String(data.is_unowned === true),
       type: draftText(data.type) || "SCORE",
       min_players: draftText(data.min_players),
       max_players: draftText(data.max_players),
@@ -338,6 +345,7 @@ export default function BoardgameList({
 
     const payload = {
       name: editDraft.name.trim(),
+      is_unowned: editDraft.is_unowned === "true",
       type: editDraft.type || "SCORE",
       min_players: nullableNumber(editDraft.min_players),
       max_players: nullableNumber(editDraft.max_players),
@@ -373,6 +381,7 @@ export default function BoardgameList({
           ? {
               ...item,
               name: payload.name,
+              is_unowned: payload.is_unowned,
               genre: payload.genre,
               min_players: payload.min_players,
               max_players: payload.max_players,
@@ -507,6 +516,7 @@ export default function BoardgameList({
                   className="gameTitle"
                 >
                   {game.name ?? "이름 미정"}
+                  <UnownedBadge isUnowned={game.is_unowned} />
                 </Link>
 
                 <p className="gameMeta">
@@ -544,14 +554,14 @@ export default function BoardgameList({
                       정보 수정
                     </button>
 
-                    <button
+                    {canDelete && <button
                       type="button"
                       className="deleteButton"
                       disabled={busyId === game.id}
                       onClick={() => void removeGame(game)}
                     >
                       삭제
-                    </button>
+                    </button>}
                   </div>
                 )}
               </div>
@@ -656,6 +666,7 @@ export default function BoardgameList({
               <>
                 <div className="editFormGrid">
                   <EditField label="게임 이름" name="name" />
+                  <label><input type="checkbox" checked={editDraft.is_unowned === "true"} onChange={(e) => updateEditDraft("is_unowned", String(e.target.checked))} /> 미보유</label>
                   <label className="editField">
                     <span>결과 방식</span>
                     <select

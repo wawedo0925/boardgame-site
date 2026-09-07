@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import UnownedBadge from "@/components/UnownedBadge";
 import type { MurderMystery } from "./page";
 
 const BUCKET = "murder-mystery-covers";
@@ -126,6 +127,7 @@ export default function MurderMysteryList({ mysteries, isAdmin, interestCounts }
         .from("murder_mysteries")
         .update({
           title,
+          is_unowned: form.get("unowned") === "on",
           min_players: minPlayers,
           max_players: maxPlayers,
           play_time: numberOrNull("play_time"),
@@ -206,7 +208,7 @@ export default function MurderMysteryList({ mysteries, isAdmin, interestCounts }
             </div>
             <div>
               <p className="text-xs text-red-400">{item.theme ?? "머더미스터리"}</p>
-              <h2 className="mt-1 text-lg font-bold">{item.title}</h2>
+              <h2 className="mt-1 text-lg font-bold">{item.title}<UnownedBadge isUnowned={item.is_unowned} /></h2>
               <p className="mt-2 text-xs text-zinc-500">리플레이 {item.replayable ? "가능" : "불가"}</p>
               {item.synopsis && <p className="mt-2 line-clamp-2 text-xs leading-5 text-zinc-400">{item.synopsis}</p>}
               {isAdmin && <button type="button" onClick={() => setEditing(item)} className="mt-3 rounded-lg border border-amber-400/40 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-400/10">정보 수정</button>}
@@ -231,6 +233,7 @@ export default function MurderMysteryList({ mysteries, isAdmin, interestCounts }
             </div>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <label className="sm:col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" name="unowned" defaultChecked={editing.is_unowned === true} className="accent-red-400" />미보유</label>
               <label className="sm:col-span-2"><span className="mb-2 block text-xs text-zinc-400">작품 제목</span><input name="title" defaultValue={editing.title} required className="w-full rounded-xl border border-white/10 bg-zinc-900 px-4 py-3 outline-none focus:border-amber-400" /></label>
               <label><span className="mb-2 block text-xs text-zinc-400">최소 인원</span><input name="min_players" type="number" min="1" defaultValue={editing.min_players ?? ""} placeholder="미정" className="w-full rounded-xl border border-white/10 bg-zinc-900 px-4 py-3 outline-none" /></label>
               <label><span className="mb-2 block text-xs text-zinc-400">최대 인원</span><input name="max_players" type="number" min="1" defaultValue={editing.max_players ?? ""} placeholder="미정" className="w-full rounded-xl border border-white/10 bg-zinc-900 px-4 py-3 outline-none" /></label>

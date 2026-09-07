@@ -26,8 +26,8 @@ export default function ExistingLibraryEditor() {
   async function load(nextSection = section) {
     setLoading(true); setMessage(""); setSelected(null);
     const request = nextSection === "BOARDGAME"
-      ? supabase.from("games").select("id,name,type,min_players,max_players,best_players,play_time,difficulty,genre,weight,publisher,icon,min_age,year_published,bgg_url,description,thumbnail").eq("library_section", "BOARDGAME").order("name")
-      : supabase.from("murder_mysteries").select("id,title,min_players,max_players,play_time,difficulty,host_requirement,replayable,theme,synopsis,cover_url").order("title");
+      ? supabase.from("games").select("id,name,is_unowned,type,min_players,max_players,best_players,play_time,difficulty,genre,weight,publisher,icon,min_age,year_published,bgg_url,description,thumbnail").eq("library_section", "BOARDGAME").order("name")
+      : supabase.from("murder_mysteries").select("id,title,is_unowned,min_players,max_players,play_time,difficulty,host_requirement,replayable,theme,synopsis,cover_url").order("title");
     const { data, error } = await request;
     if (error) setMessage(error.message); else setItems((data ?? []) as Item[]);
     setLoading(false);
@@ -53,7 +53,7 @@ export default function ExistingLibraryEditor() {
     if (!selected) return;
     setSaving(true); setMessage("");
     const payload = section === "BOARDGAME" ? {
-      name: draft.name.trim(), type: draft.type || "SCORE",
+      is_unowned: draft.is_unowned === "true", name: draft.name.trim(), type: draft.type || "SCORE",
       min_players: numberOrNull(draft.min_players), max_players: numberOrNull(draft.max_players),
       best_players: nullable(draft.best_players), play_time: numberOrNull(draft.play_time),
       difficulty: numberOrNull(draft.difficulty), genre: nullable(draft.genre), weight: numberOrNull(draft.weight),
@@ -61,7 +61,7 @@ export default function ExistingLibraryEditor() {
       year_published: numberOrNull(draft.year_published), bgg_url: nullable(draft.bgg_url),
       description: nullable(draft.description), thumbnail: nullable(draft.thumbnail),
     } : {
-      title: draft.title.trim(), min_players: numberOrNull(draft.min_players), max_players: numberOrNull(draft.max_players),
+      is_unowned: draft.is_unowned === "true", title: draft.title.trim(), min_players: numberOrNull(draft.min_players), max_players: numberOrNull(draft.max_players),
       play_time: numberOrNull(draft.play_time), difficulty: numberOrNull(draft.difficulty),
       host_requirement: draft.host_requirement || "RECOMMENDED", host_required: draft.host_requirement === "REQUIRED",
       replayable: draft.replayable === "true", theme: nullable(draft.theme), synopsis: nullable(draft.synopsis),
@@ -96,6 +96,7 @@ export default function ExistingLibraryEditor() {
     </div>
     {selected && <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-6">
       <h3 className="text-lg font-bold">선택한 작품 수정</h3>
+      <label className="mt-4 flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.is_unowned === "true"} onChange={(e) => set("is_unowned", String(e.target.checked))} className="accent-red-400" />미보유</label>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {section === "BOARDGAME" ? <>
           <Field label="게임 이름" name="name" /><label className="block"><span className="mb-1.5 block text-xs font-semibold text-zinc-400">결과 방식</span><select value={draft.type ?? "SCORE"} onChange={(e) => set("type", e.target.value)} className={inputClass}><option value="SCORE">점수형</option><option value="SIMPLE_SCORE">등수형</option><option value="ROLE">역할형</option><option value="COOP">협력형</option></select></label>
