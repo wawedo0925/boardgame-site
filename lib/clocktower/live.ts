@@ -1,6 +1,6 @@
-export type LiveMember = { user_id: string; name: string; seat: number; alive: boolean; actual_role?: string; shown_role?: string; notes?: string };
+export type LiveMember = { user_id: string; name: string; birth_year?: string | null; seat: number; alive: boolean; actual_role?: string; shown_role?: string; notes?: string };
 export type LiveRequest = { id: string; user_id: string; night: number; prompt: string; target_count: number; allow_self: boolean; status: 'OPEN' | 'SUBMITTED' | 'RESOLVED' | 'CANCELLED'; targets: string[]; result: string; acknowledged: boolean };
-export type LiveState = { room: { id: string; phase: 'SETUP' | 'NIGHT' | 'DAY' | 'ENDED'; night: number } | null; can_create?: boolean; waiting?: boolean; is_host?: boolean; my_id?: string; members?: LiveMember[]; candidates?: { user_id: string; name: string }[]; requests?: LiveRequest[] };
+export type LiveState = { room: { id: string; phase: 'SETUP' | 'NIGHT' | 'DAY' | 'ENDED'; night: number } | null; can_create?: boolean; waiting?: boolean; is_host?: boolean; my_id?: string; members?: LiveMember[]; candidates?: { user_id: string; name: string; birth_year?: string | null }[]; requests?: LiveRequest[] };
 
 // Selection helpers only: the storyteller determines timing and adjudication.
 // References: https://wiki.bloodontheclocktower.com/Trouble_Brewing

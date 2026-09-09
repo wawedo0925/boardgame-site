@@ -496,6 +496,8 @@ export default function EventDetailPage() {
                 ← 이벤트 목록
               </Link>
 
+              {event.event_kind === "CLOCKTOWER" && !isCancelled && <Link href={`/events/${eventId}/clocktower`} className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-violet-400/40 bg-violet-400/15 p-5 text-violet-100 hover:bg-violet-400/25"><span><strong className="block text-lg">시계탑 프로그램 입장</strong><span className="mt-1 block text-sm text-violet-200/80">일정 참가자 · 내 자리 확인과 밤 진행</span></span><span aria-hidden="true">→</span></Link>}
+
               <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -845,7 +847,7 @@ export default function EventDetailPage() {
                 </>
               )}
 
-              {event.event_kind === "CLOCKTOWER" && <Link href={`/events/${eventId}/clocktower`} className="block rounded-2xl border border-violet-400/30 bg-violet-400/10 p-5 font-bold text-violet-200">점철되는 혼란 · 밤 진행 도우미 열기 →</Link>}
+
 
               {event.event_kind === "MURDER_MYSTERY" &&
               event.murder_mystery_id ? (

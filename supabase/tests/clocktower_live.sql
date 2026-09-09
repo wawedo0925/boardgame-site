@@ -10,6 +10,9 @@ begin
  for i in 1..5 loop insert into public.event_participants(event_id,user_id) values(e,ids[i]); end loop;
  perform public.clocktower_live_command(e,'create','{}');
  select id into room from public.clocktower_live_rooms where event_id=e;
+ set constraints clocktower_live_members_room_id_seat_key deferred;
+ update public.clocktower_live_members set seat=array_position(ids,user_id) where room_id=room;
+ set constraints clocktower_live_members_room_id_seat_key immediate;
  for i in 1..5 loop
   perform public.clocktower_live_command(e,'member',jsonb_build_object('room_id',room,'user_id',ids[i],'seat',i,'actual_role',(array['주정뱅이','임프','수도사','점쟁이','집사'])[i],'shown_role',(array['요리사','임프','수도사','점쟁이','집사'])[i],'notes','SECRET_TEST'));
  end loop;

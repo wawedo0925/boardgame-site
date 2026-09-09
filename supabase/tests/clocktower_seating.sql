@@ -1,0 +1,50 @@
+-- Runs against existing fixture profiles; every write is rolled back.
+begin;
+do $$
+declare host uuid; ids uuid[]; e uuid; room uuid; payload jsonb; denied boolean; i integer; s1 integer; s2 integer;
+begin
+ select user_id into host from public.site_roles where role='MAIN_ADMIN' limit 1;
+ select array_agg(id) into ids from (select id from public.profiles where id<>host order by id limit 6) x;
+ if cardinality(ids)<6 then raise exception 'Need fixture profiles'; end if;
+ perform set_config('request.jwt.claim.sub',host::text,true);
+ insert into public.events(title,event_kind,created_by,started_at,event_status,max_participants) values('Clocktower seating rollback test','CLOCKTOWER',host,now()+interval '2 days','OPEN',16) returning id into e;
+ for i in 1..5 loop insert into public.event_participants(event_id,user_id) values(e,ids[i]); end loop;
+ perform public.clocktower_live_command(e,'create','{}');
+ select id into room from public.clocktower_live_rooms where event_id=e;
+ if (select count(*) from public.clocktower_live_members where room_id=room)<>5 then raise exception 'Participants not imported'; end if;
+ select seat into s1 from public.clocktower_live_members where room_id=room and user_id=ids[1];
+ select seat into s2 from public.clocktower_live_members where room_id=room and user_id=ids[2];
+ perform public.clocktower_live_command(e,'swap_seats',jsonb_build_object('room_id',room,'first_user_id',ids[1],'second_user_id',ids[2],'first_seat',s1,'second_seat',s2));
+ if not exists(select 1 from public.clocktower_live_members where room_id=room and user_id=ids[1] and seat=s2) or not exists(select 1 from public.clocktower_live_members where room_id=room and user_id=ids[2] and seat=s1) then raise exception 'Atomic swap failed'; end if;
+ denied:=false;
+ begin perform public.clocktower_live_command(e,'swap_seats',jsonb_build_object('room_id',room,'first_user_id',ids[1],'second_user_id',ids[2],'first_seat',s1,'second_seat',s2)); exception when others then denied:=true; end;
+ if not denied then raise exception 'Stale swap accepted'; end if;
+ perform public.clocktower_live_command(e,'sync_participants',jsonb_build_object('room_id',room));
+ if (select count(*) from public.clocktower_live_members where room_id=room)<>5 then raise exception 'Sync duplicated members'; end if;
+ denied:=false;
+ begin perform public.clocktower_live_command(e,'phase',jsonb_build_object('room_id',room,'phase','NIGHT')); exception when others then denied:=true; end;
+ if not denied then raise exception 'Unassigned roles started game'; end if;
+ for i in 1..5 loop
+  select seat into s1 from public.clocktower_live_members where room_id=room and user_id=ids[i];
+  perform public.clocktower_live_command(e,'member',jsonb_build_object('room_id',room,'user_id',ids[i],'seat',s1,'actual_role',(array['요리사','임프','수도사','점쟁이','집사'])[i],'shown_role',(array['요리사','임프','수도사','점쟁이','집사'])[i],'notes','SEATING_SECRET'));
+ end loop;
+ perform set_config('request.jwt.claim.sub',ids[1]::text,true);
+ payload:=public.clocktower_live_snapshot(e);
+ if jsonb_array_length(payload->'members')<>5 or not ((payload->'members'->0) ? 'birth_year') then raise exception 'Roster/year missing'; end if;
+ if payload::text like '%SEATING_SECRET%' or payload::text like '%actual_role%' or payload::text like '%shown_role%' then raise exception 'Setup secret leaked'; end if;
+ denied:=false;
+ begin perform public.clocktower_live_command(e,'sync_participants',jsonb_build_object('room_id',room)); exception when others then denied:=true; end;
+ if not denied then raise exception 'Player synced roster'; end if;
+ denied:=false;
+ begin perform public.clocktower_live_command(e,'swap_seats',jsonb_build_object('room_id',room,'first_user_id',ids[1],'second_user_id',ids[2],'first_seat',1,'second_seat',2)); exception when others then denied:=true; end;
+ if not denied then raise exception 'Player moved seats'; end if;
+ perform set_config('request.jwt.claim.sub',ids[6]::text,true);
+ if public.clocktower_live_snapshot(e) ? 'members' then raise exception 'Nonparticipant accessed roster'; end if;
+ perform set_config('request.jwt.claim.sub',host::text,true);
+ perform public.clocktower_live_command(e,'phase',jsonb_build_object('room_id',room,'phase','NIGHT'));
+ denied:=false;
+ begin perform public.clocktower_live_command(e,'swap_seats',jsonb_build_object('room_id',room,'first_user_id',ids[1],'second_user_id',ids[2],'first_seat',1,'second_seat',2)); exception when others then denied:=true; end;
+ if not denied then raise exception 'Night seats moved'; end if;
+ if has_function_privilege('authenticated','public.clocktower_live_command_v1(uuid,text,jsonb)','EXECUTE') or has_function_privilege('anon','public.clocktower_live_command(uuid,text,jsonb)','EXECUTE') then raise exception 'Command ACL incorrect'; end if;
+end $$;
+rollback;
