@@ -55,6 +55,7 @@ begin
  perform pg_temp.clocktower_test_action('ack',jsonb_build_object('request_id',qid));
  perform set_config('request.jwt.claim.sub',users[1]::text,true);
  perform pg_temp.clocktower_test_action('engine_next',jsonb_build_object('state',engine));
+ update public.clocktower_live_missions set completed=true where room_id=rid;
  perform pg_temp.clocktower_test_action('phase','{"phase":"DAY"}');
  perform pg_temp.clocktower_test_action('phase','{"phase":"NIGHT"}');
  engine:=engine-'active'||jsonb_build_object('night',2,'cursor',0,'finished',false,'tasks',jsonb_build_array(jsonb_build_object('user_id',users[6],'role','임프','key','imp')));
@@ -76,6 +77,7 @@ begin
  perform set_config('request.jwt.claim.sub',users[1]::text,true);
  select night_engine||'{"cursor":1,"finished":true}' into engine from public.clocktower_live_rooms where id=rid;
  perform pg_temp.clocktower_test_action('engine_next',jsonb_build_object('state',engine));
+ update public.clocktower_live_missions set completed=true where room_id=rid;
  perform pg_temp.clocktower_test_action('phase','{"phase":"DAY"}');
  assert (select not public_alive from public.clocktower_live_members where room_id=rid and user_id=users[3]),'dawn publishes death';
  assert not has_table_privilege('authenticated','public.clocktower_live_rooms','SELECT'),'private tables remain inaccessible';

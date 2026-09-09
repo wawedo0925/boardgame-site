@@ -1,0 +1,33 @@
+begin;
+do $$
+declare users uuid[]; eid uuid; r public.clocktower_live_rooms; mid uuid; snap jsonb; denied boolean; v integer;
+begin
+ select array_agg(id) into users from (select id from auth.users order by id limit 3) x;
+ select id into eid from public.events e where not exists(select 1 from public.clocktower_live_rooms existing where existing.event_id=e.id and existing.phase<>'ENDED') limit 1;
+ assert eid is not null and cardinality(users)=3;
+ insert into public.clocktower_live_rooms(event_id,storyteller_id,phase,night,night_engine) values(eid,users[1],'NIGHT',1,'{"night":1,"finished":true}') returning * into r;
+ insert into public.clocktower_live_members(room_id,user_id,seat,actual_role,shown_role,alive) values(r.id,users[2],1,'임프','임프',true),(r.id,users[3],2,'군인','군인',false);
+ perform public.clocktower_make_missions(r,1);perform public.clocktower_make_missions(r,2);perform public.clocktower_make_missions(r,2);
+ assert (select count(*)=4 from public.clocktower_live_missions where room_id=r.id),'two rounds for living and dead, no duplicates';
+ perform set_config('request.jwt.claim.sub',users[2]::text,true);
+ snap:=public.clocktower_live_snapshot(eid);
+ assert jsonb_array_length(snap->'missions')=2 and not(snap?'engine') and not(snap?'mission_progress'),'private snapshot';
+ select id into mid from public.clocktower_live_missions where room_id=r.id and user_id=users[3] limit 1;
+ denied:=false;begin perform public.clocktower_live_command(eid,'mission_complete',jsonb_build_object('room_id',r.id,'mission_id',mid,'answer','1,2,3,4,5,6,7,8,9,10'));exception when others then denied:=true;end;assert denied,'cannot answer for another member';
+ select id into mid from public.clocktower_live_missions where room_id=r.id and user_id=users[2] and round=1;
+ denied:=false;begin perform public.clocktower_live_command(eid,'mission_complete',jsonb_build_object('room_id',r.id,'mission_id',mid,'answer','bad'));exception when others then denied:=true;end;assert denied,'wrong answer rejected';
+ perform public.clocktower_live_command(eid,'mission_complete',jsonb_build_object('room_id',r.id,'mission_id',mid,'answer','1,2,3,4,5,6,7,8,9,10'));
+ assert (select engine_version=0 from public.clocktower_live_rooms where id=r.id),'missions do not invalidate approval drafts';
+ perform set_config('request.jwt.claim.sub',users[1]::text,true);
+ denied:=false;begin perform public.clocktower_live_command(eid,'phase',jsonb_build_object('room_id',r.id,'phase','DAY'));exception when others then denied:=true;end;assert denied,'pending missions block day';
+ perform public.clocktower_live_command(eid,'mission_offline',jsonb_build_object('room_id',r.id,'user_id',users[2]));perform public.clocktower_live_command(eid,'mission_offline',jsonb_build_object('room_id',r.id,'user_id',users[3]));
+ perform public.clocktower_live_command(eid,'phase',jsonb_build_object('room_id',r.id,'phase','DAY'));
+ perform public.clocktower_live_command(eid,'day_activity',jsonb_build_object('room_id',r.id,'activity','VOTING'));
+ perform public.clocktower_live_command(eid,'day_activity',jsonb_build_object('room_id',r.id,'activity','VOTING'));
+ select activity_revision into v from public.clocktower_live_rooms where id=r.id;assert v=1,'duplicate phase notice suppressed';
+ perform set_config('request.jwt.claim.sub',users[2]::text,true);
+ denied:=false;begin perform public.clocktower_live_command(eid,'day_activity',jsonb_build_object('room_id',r.id,'activity','DISCUSSION'));exception when others then denied:=true;end;assert denied,'host only';
+ snap:=public.clocktower_live_snapshot(eid);assert snap->'room'->>'day_activity'='VOTING' and not(snap?'missions'),'public notice, no stale missions';
+ assert not has_table_privilege('authenticated','public.clocktower_live_missions','SELECT'),'no direct access';
+end $$;
+rollback;
