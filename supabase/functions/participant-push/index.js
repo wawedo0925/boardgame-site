@@ -37,7 +37,9 @@ Deno.serve(async (request) => {
           title: job.title, body: job.message, url: link, tag: job.id,
         }), {
           vapidDetails: { subject: Deno.env.get("SUPABASE_URL"), publicKey: config.public_key, privateKey: config.private_key },
-          TTL: 3600, urgency: "normal", timeout: 10000,
+          // Visible participant alerts should wake idle devices instead of waiting
+          // for the browser to return to the foreground.
+          TTL: 3600, urgency: "high", timeout: 10000,
         });
         const { error: ackError } = await db.from("push_deliveries").update({ sent_at: new Date().toISOString(), last_error: null }).eq("id", job.id);
         if (ackError) throw new Error("Delivery acknowledgement failed");
