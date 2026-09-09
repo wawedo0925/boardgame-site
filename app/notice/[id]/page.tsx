@@ -46,6 +46,8 @@ export default async function NoticeDetailPage({
   }
 
   const notice = data as NoticeRow;
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: canManage } = user ? await supabase.rpc("can_manage_notices") : { data: false };
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -73,6 +75,7 @@ export default async function NoticeDetailPage({
           <h1 className="mt-5 text-3xl font-bold leading-tight sm:text-5xl">
             {notice.title}
           </h1>
+          {canManage && <Link href={`/notice/${id}/edit`} className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-amber-400 px-5 py-3 font-bold text-zinc-950 hover:bg-amber-300">공지 수정</Link>}
         </div>
       </section>
 
