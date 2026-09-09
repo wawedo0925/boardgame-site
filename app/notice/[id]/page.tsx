@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import NoticeActions from "./NoticeActions";
 
 type PageProps = {
   params: Promise<{
@@ -75,7 +76,7 @@ export default async function NoticeDetailPage({
           <h1 className="mt-5 text-3xl font-bold leading-tight sm:text-5xl">
             {notice.title}
           </h1>
-          {canManage && <Link href={`/notice/${id}/edit`} className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-amber-400 px-5 py-3 font-bold text-zinc-950 hover:bg-amber-300">공지 수정</Link>}
+          {canManage && <NoticeActions id={id} title={notice.title} />}
         </div>
       </section>
 
