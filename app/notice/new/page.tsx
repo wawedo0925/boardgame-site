@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
+import NewNoticeForm from "./NewNoticeForm";
+
 import { createClient } from "@/lib/supabase/server";
 
-async function createNotice(formData: FormData) {
+async function createNotice(_state: { error: string }, formData: FormData) {
   "use server";
 
   const supabase = await createClient();
@@ -29,7 +31,11 @@ async function createNotice(formData: FormData) {
   const important = formData.get("important") === "on";
 
   if (!title || !content) {
-    throw new Error("제목과 내용을 모두 입력해야 합니다.");
+    return { error: "제목과 내용을 모두 입력해야 합니다." };
+  }
+
+  if (title.length > 150 || content.length > 10000) {
+    return { error: "제목은 150자, 내용은 10,000자까지 입력할 수 있습니다." };
   }
 
   const { data, error } = await supabase
@@ -45,7 +51,7 @@ async function createNotice(formData: FormData) {
 
   if (error) {
     console.error("공지사항 작성 오류:", error);
-    throw new Error(`공지사항을 저장하지 못했습니다: ${error.message}`);
+    return { error: "공지사항을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요." };
   }
 
   revalidatePath("/");
@@ -94,68 +100,7 @@ export default async function NewNoticePage() {
       </section>
 
       <section className="mx-auto max-w-4xl px-6 py-14">
-        <form
-          action={createNotice}
-          className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8"
-        >
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-zinc-300">
-              제목
-            </span>
-
-            <input
-              type="text"
-              name="title"
-              required
-              maxLength={150}
-              placeholder="공지사항 제목을 입력하세요."
-              className="h-14 w-full rounded-2xl border border-white/10 bg-zinc-900 px-4 text-white outline-none placeholder:text-zinc-600 focus:border-amber-400/60"
-            />
-          </label>
-
-          <label className="mt-6 block">
-            <span className="mb-2 block text-sm font-semibold text-zinc-300">
-              내용
-            </span>
-
-            <textarea
-              name="content"
-              required
-              rows={14}
-              maxLength={10000}
-              placeholder="공지사항 내용을 입력하세요."
-              className="w-full resize-y rounded-2xl border border-white/10 bg-zinc-900 px-4 py-4 leading-7 text-white outline-none placeholder:text-zinc-600 focus:border-amber-400/60"
-            />
-          </label>
-
-          <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-4">
-            <input
-              type="checkbox"
-              name="important"
-              className="h-5 w-5 accent-amber-400"
-            />
-
-            <span className="font-semibold text-zinc-300">
-              중요 공지로 표시
-            </span>
-          </label>
-
-          <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <Link
-              href="/notice"
-              className="inline-flex justify-center rounded-xl border border-white/15 px-6 py-3 font-semibold text-zinc-300"
-            >
-              취소
-            </Link>
-
-            <button
-              type="submit"
-              className="rounded-xl bg-amber-400 px-7 py-3 font-bold text-zinc-950 transition hover:bg-amber-300"
-            >
-              공지 등록
-            </button>
-          </div>
-        </form>
+        <NewNoticeForm action={createNotice} />
       </section>
     </main>
   );
