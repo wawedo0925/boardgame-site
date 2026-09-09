@@ -47,8 +47,12 @@ export default async function NoticeDetailPage({
   }
 
   const notice = data as NoticeRow;
+  const { data: authors } = await supabase.rpc("get_notice_authors", { notice_ids: [id] });
+  const authorName = authors?.[0]?.author_name || "작성자 정보 없음";
   const { data: { user } } = await supabase.auth.getUser();
   const { data: canManage } = user ? await supabase.rpc("can_manage_notices") : { data: false };
+
+  const { data: siteRole } = user ? await supabase.rpc("current_site_role") : { data: null };
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -69,14 +73,14 @@ export default async function NoticeDetailPage({
             )}
 
             <span className="text-sm text-zinc-500">
-              {formatDate(notice.created_at)}
+              {formatDate(notice.created_at)} · 작성자 {authorName}
             </span>
           </div>
 
           <h1 className="mt-5 text-3xl font-bold leading-tight sm:text-5xl">
             {notice.title}
           </h1>
-          {canManage && <NoticeActions id={id} title={notice.title} />}
+          {canManage && <NoticeActions id={id} title={notice.title} canDelete={siteRole === "MAIN_ADMIN"} />}
         </div>
       </section>
 

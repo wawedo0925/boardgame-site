@@ -37,6 +37,8 @@ export default async function NoticePage() {
   ]);
 
   const rows = (notices ?? []) as Notice[];
+  const { data: authors } = rows.length ? await supabase.rpc("get_notice_authors", { notice_ids: rows.map(row => row.id) }) : { data: [] };
+  const authorNames = new Map<string, string>((authors ?? []).map((row: { notice_id: string; author_name: string }) => [row.notice_id, row.author_name]));
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -121,7 +123,7 @@ export default async function NoticePage() {
                   </div>
 
                   <p className="text-sm text-zinc-500 sm:text-right">
-                    {formatDate(notice.created_at)}
+                    <span className="block">{formatDate(notice.created_at)}</span><span className="mt-1 block break-words">작성자 {authorNames.get(notice.id) || "작성자 정보 없음"}</span>
                   </p>
                 </Link>
               ))}
