@@ -1,9 +1,10 @@
 import type { NightEngine } from './night';
+export type LiveVote={id:string;day:number;nominator:string;nominee:string;status:'WAITING'|'RUNNING'|'DONE'|'CANCELLED';voter_order:string[];started_at:string|null;threshold:number;ballots:Record<string,boolean>};
 export type SeatLayout = Record<string, { x: number; y: number }>;
 export type LiveMember = { user_id: string; name: string; birth_year?: string | null; seat: number; alive: boolean; actual_role?: string; shown_role?: string; notes?: string };
 export type LiveRequest = { id: string; user_id: string; night: number; prompt: string; target_count: number; allow_self: boolean; status: 'OPEN' | 'SUBMITTED' | 'RESOLVED' | 'CANCELLED'; targets: string[]; result: string; acknowledged: boolean };
 export type LiveMission={id:string;round:number;kind:'NUMBERS'|'TEXT';challenge:{tiles?:number[];text?:string};completed:boolean};
-export type LiveState = { missions?:LiveMission[]; mission_progress?:{user_id:string;completed:number;total:number}[];engine?: NightEngine; engine_version?: number; room: { id: string; phase: 'SETUP' | 'NIGHT' | 'DAY' | 'ENDED'; night: number; day_activity?:'DISCUSSION'|'VOTING';activity_revision?:number;seating_layout?: SeatLayout; seating_revision?: number } | null; can_create?: boolean; waiting?: boolean; is_host?: boolean; my_id?: string; members?: LiveMember[]; candidates?: { user_id: string; name: string; birth_year?: string | null }[]; requests?: LiveRequest[] };
+export type LiveState = { votes?:LiveVote[];server_now?:string;clock_offset?:number;ghost_vote_used?:boolean; missions?:LiveMission[]; mission_progress?:{user_id:string;completed:number;total:number}[];engine?: NightEngine; engine_version?: number; room: { id: string; phase: 'SETUP' | 'NIGHT' | 'DAY' | 'ENDED'; night: number; day_activity?:'DISCUSSION'|'VOTING';activity_revision?:number;seating_layout?: SeatLayout; seating_revision?: number } | null; can_create?: boolean; waiting?: boolean; is_host?: boolean; my_id?: string; members?: LiveMember[]; candidates?: { user_id: string; name: string; birth_year?: string | null }[]; requests?: LiveRequest[] };
 
 // Selection helpers only: the storyteller determines timing and adjudication.
 // References: https://wiki.bloodontheclocktower.com/Trouble_Brewing

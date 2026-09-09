@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ClocktowerVoting from './ClocktowerVoting';
 import ClocktowerPopup from './ClocktowerPopup';
 import ClocktowerPlayerActivity from './ClocktowerPlayerActivity';
 import { phaseAnnouncement } from '@/lib/clocktower/popups';
@@ -32,9 +33,10 @@ export default function ClocktowerLive({ eventId }: { eventId: string }) {
   const refresh = useCallback(async () => {
     const sequence = ++fetchSequence.current;
     try {
+      const started=Date.now();
       const { data, error } = await supabase.rpc('clocktower_live_snapshot', { p_event_id: eventId });
       if (error) throw error;
-      if (sequence === fetchSequence.current) { setState(data as LiveState); setConnectionError(''); }
+      if (sequence === fetchSequence.current) { const snapshot=data as LiveState;setState({...snapshot,clock_offset:snapshot.server_now?Date.parse(snapshot.server_now)-(started+Date.now())/2:0}); setConnectionError(''); }
     } catch { if (sequence === fetchSequence.current) setConnectionError('연결이 끊겼습니다. 인터넷 연결을 확인한 뒤 새로고침해 주세요.'); }
   }, [eventId, supabase]);
   useEffect(() => {
@@ -61,7 +63,7 @@ export default function ClocktowerLive({ eventId }: { eventId: string }) {
   const announcement=state?phaseAnnouncement(state):null;
   const allowPopup=!announcement||seenPhase===announcement.key;
   return <div className="mt-6">
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-zinc-400">화면을 켜 두면 약 2초마다 갱신됩니다.</span><div className="flex gap-2"><button className={subtle} onClick={() => setHidden(!hidden)}>{hidden ? '화면 다시 보기' : '화면 가리기'}</button><button className={subtle} onClick={() => void refresh()}>새로고침</button></div></div>
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-zinc-400">화면을 켜 두세요. 투표 차례는 서버 시간에 맞춰 자동으로 표시됩니다.</span><div className="flex gap-2"><button className={subtle} onClick={() => setHidden(!hidden)}>{hidden ? '화면 다시 보기' : '화면 가리기'}</button><button className={subtle} onClick={() => void refresh()}>새로고침</button></div></div>
     {connectionError && <p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-4 text-red-300">{connectionError}</p>}
     {error && <p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-4 text-red-300">{error}</p>}
     {hidden ? <div className="rounded-3xl border border-white/10 p-16 text-center text-zinc-500">화면을 가렸습니다.</div> : !state ? <p>진행방을 불러오는 중…</p> : !room ? <div className="rounded-3xl border border-white/10 p-6">
@@ -69,9 +71,10 @@ export default function ClocktowerLive({ eventId }: { eventId: string }) {
       {state.can_create && <><p className="my-4 text-sm leading-7 text-zinc-400">진행방을 만든 계정이 이야기꾼이 됩니다. 이야기꾼만 실제 역할과 전체 선택을 볼 수 있습니다. 일정 참가자를 자동으로 불러옵니다. 자리와 역할을 배정한 뒤 첫날 밤을 시작하면 각자의 역할이 공개됩니다.</p><button disabled={busy} className={button} onClick={() => void run('create')}>내가 이야기꾼으로 진행방 만들기</button></>}
     </div> : <>
       <div className="mb-6 rounded-2xl border border-violet-400/30 bg-violet-400/5 p-5"><h2 className="text-xl font-bold text-violet-200">{room.phase === 'SETUP' ? '역할·자리 배정' : room.phase === 'ENDED' ? '게임 종료' : `${room.night}일차 ${room.phase === 'NIGHT' ? '밤' : '낮'}`}</h2><p className="mt-2 text-sm text-zinc-400">{state.is_host ? '이야기꾼 화면 · 역할과 메모는 본인만 볼 수 있습니다.' : '참가자 화면 · 요청이 오면 선택하고 결과를 확인해 주세요.'}</p></div>
+      {room.phase==='DAY'&&<ClocktowerVoting state={state} run={run} busy={busy} error={error}/> }
       {state.is_host ? <Host key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} /> : <Player key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} />}
     </>}
-    {!hidden&&announcement&&!allowPopup&&<ClocktowerPopup title={announcement.title} onClose={()=>setSeenPhase(announcement.key)}><div className="space-y-6 text-center"><p aria-hidden="true" className="text-6xl">{announcement.icon}</p><p className="text-lg leading-8">{announcement.description}</p><button className={`${button} w-full`} onClick={()=>setSeenPhase(announcement.key)}>확인</button></div></ClocktowerPopup>}
+    {!hidden&&announcement&&!allowPopup&&!(room?.phase==='DAY'&&room.day_activity==='VOTING')&&<ClocktowerPopup title={announcement.title} onClose={()=>setSeenPhase(announcement.key)}><div className="space-y-6 text-center"><p aria-hidden="true" className="text-6xl">{announcement.icon}</p><p className="text-lg leading-8">{announcement.description}</p><button className={`${button} w-full`} onClick={()=>setSeenPhase(announcement.key)}>확인</button></div></ClocktowerPopup>}
   </div>;
 }
 
@@ -103,7 +106,7 @@ function Host({ state, run, busy, allowPopup, error }: { state: LiveState; run: 
       <button disabled={busy} className={subtle} onClick={() => void phase('ENDED')}>게임 종료</button>
     </>}</div>
     {room.phase === 'SETUP' && <p className="text-sm text-amber-200">역할 미배정 {unassigned}명 · 역할 구성과 비밀 정보를 저장한 뒤 첫날 밤을 시작하세요.</p>}
-    {room.phase==='DAY'&&<div className="rounded-2xl border border-white/15 p-5"><p className="mb-3 text-sm text-zinc-400">투표는 현장에서 집계합니다. 아래 버튼으로 전원에게 진행 안내를 보냅니다.</p><button disabled={busy} className={button} onClick={()=>void run('day_activity',{activity:room.day_activity==='VOTING'?'DISCUSSION':'VOTING'})}>{room.day_activity==='VOTING'?'토론 재개':'투표 시작'}</button></div>}
+
     {room.phase==='NIGHT'&&!!state.mission_progress?.length&&<section className="rounded-2xl border border-white/15 p-5"><h3 className="font-bold">공통 미션 진행</h3><p className="my-3 text-sm text-zinc-400">모든 참가자가 두 차례 완료하면 낮으로 넘어갈 수 있습니다.</p><div className="space-y-2">{state.mission_progress.map(m=><div key={m.user_id} className="flex flex-wrap items-center justify-between gap-2"><span>{members.find(p=>p.user_id===m.user_id)?.name} · {m.completed}/{m.total}</span>{m.completed<m.total&&<button disabled={busy} className={subtle} onClick={()=>{if(confirm('휴대폰 사용이 어려운 참가자의 현재 미션을 현장에서 완료 처리할까요?'))void run('mission_offline',{user_id:m.user_id});}}>현장 완료 처리</button>}</div>)}</div></section>}
     <ClocktowerNightFlow state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} />
     {room.phase === 'SETUP' && <ClocktowerRoleSetup key={members.map(m=>m.user_id).sort().join(',')} members={members} busy={busy || layoutEditing} onEditingChange={setRolesEditing} save={(rows,expected)=>run('save_roles',{rows,expected})} />}

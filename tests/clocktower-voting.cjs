@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict');const ts=require('typescript');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(require('fs').readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,f);
+const {voteSlot,voteOutcome}=require('../lib/clocktower/voting.ts');
+const start=Date.parse('2026-09-10T00:00:00Z');const v={id:'a',status:'RUNNING',voter_order:['b','c','a'],started_at:new Date(start).toISOString(),threshold:2,ballots:{}};
+assert.equal(voteSlot(v,start-1).preparing,true);
+assert.equal(voteSlot(v,start).userId,'b');
+assert.equal(voteSlot(v,start+2999).userId,'b');
+assert.equal(voteSlot(v,start+3000).userId,'c');
+assert.equal(voteSlot(v,start+6000).userId,'a');
+assert.equal(voteSlot(v,start+9000).finished,true);
+assert.equal(voteSlot(v,start+9000).userId,null);
+assert.equal(voteOutcome([{...v,status:'DONE',ballots:{a:true,b:false}}]),null);
+const win={...v,status:'DONE',ballots:{a:true,b:true,c:false}};
+assert.equal(voteOutcome([win]).count,2);
+assert.equal(voteOutcome([win,{...win,id:'b'}]),null);
+assert.equal(voteOutcome([win,{...win,status:'CANCELLED',id:'b'}]).vote.id,'a');
+console.log('Passed exact 3-second boundaries, nominee last, timeout, threshold, ties and cancelled-vote exclusion.');
