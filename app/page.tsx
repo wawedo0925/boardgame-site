@@ -13,7 +13,7 @@ type HomeEvent = {
   ended_at: string | null;
   location: string | null;
   description: string | null;
-  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "GENERAL";
+  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "HOLDEM" | "GENERAL";
   participation_fee: number | null;
   max_participants: number | null;
   event_participants: { id: string; participation_role: string; gm_pending: boolean }[] | null;
@@ -22,6 +22,7 @@ type HomeEvent = {
 function eventKindLabel(kind: HomeEvent["event_kind"]) {
   if (kind === "MURDER_MYSTERY") return "머더미스터리";
   if (kind === "CLOCKTOWER") return "시계탑에 흐른 피";
+  if (kind === "HOLDEM") return "홀덤";
   if (kind === "GENERAL") return "SPECIAL EVENT";
   return "보드게임 이벤트";
 }
@@ -225,7 +226,7 @@ export default async function Home() {
             <div className="grid gap-4 sm:grid-cols-2">
               {events.slice(0, 2).map((event) => (
                 <Link key={event.id} href={`/events/${event.id}`} className="rounded-3xl border border-white/10 bg-zinc-900 p-6 transition hover:border-amber-400/40">
-                  <p className="text-sm text-amber-400">{eventKindLabel(event.event_kind)}</p>
+                  <p className={`text-sm ${event.event_kind === "HOLDEM" ? "text-emerald-400" : "text-amber-400"}`}>{eventKindLabel(event.event_kind)}</p>
                   <h3 className="mt-3 text-xl font-bold">{event.title}</h3>
                   <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-400">{getEventGuideSummary(event)}</p>
                   <p className="mt-7 text-sm text-zinc-300">{eventDate(event.started_at)}</p>

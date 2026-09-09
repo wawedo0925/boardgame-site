@@ -18,7 +18,7 @@ type EventRow = {
   created_by: string;
   max_participants: number | null;
   participation_fee: number | null;
-  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "GENERAL";
+  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "HOLDEM" | "GENERAL";
   event_status: "OPEN" | "CLOSED" | "CANCELLED";
   murder_mysteries: { title: string } | { title: string }[] | null;
   event_participants: EventParticipant[] | null;
@@ -26,7 +26,7 @@ type EventRow = {
 
 type DateFilter = "all" | "week" | "month" | "next-month";
 type StatusFilter = "all" | "upcoming" | "ongoing" | "cancelled";
-type EventKindFilter = "all" | "GENERAL" | "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER";
+type EventKindFilter = "all" | "GENERAL" | "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "HOLDEM";
 type MyEventFilter = "all" | "joined" | "waitlisted" | "created";
 
 function EventDialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -67,7 +67,7 @@ function KindFilterDialog({ value, date, onApply, onClose }: { value: EventKindF
   return <EventDialog title="이벤트 필터" onClose={onClose}>
     <p className="mb-3 text-sm font-semibold text-zinc-300">이벤트 종류</p>
     <div className="grid gap-3 sm:grid-cols-2">
-      {(["all", "MURDER_MYSTERY", "BOARDGAME", "GENERAL", "CLOCKTOWER"] as const).map((kind) =>
+      {(["all", "MURDER_MYSTERY", "BOARDGAME", "GENERAL", "CLOCKTOWER", "HOLDEM"] as const).map((kind) =>
         <button type="button" key={kind} aria-pressed={selectedKind === kind} onClick={() => setSelectedKind(kind)}
           className={`rounded-2xl border px-5 py-4 text-left font-semibold ${selectedKind === kind ? "border-amber-400 bg-amber-400 text-zinc-950" : "border-white/15 bg-white/5 hover:border-amber-400/50"}`}>
           {kind === "all" ? "전체 종류" : getKindMeta(kind).label}
@@ -103,6 +103,7 @@ function onSelectedDate(event: Pick<EventRow, "started_at" | "ended_at">, date: 
 }
 
 function getKindMeta(kind: EventRow["event_kind"]) {
+  if (kind === "HOLDEM") return { label: "홀덤", className: "bg-emerald-400/10 text-emerald-300" };
   if (kind === "GENERAL") return { label: "일반 이벤트", className: "bg-sky-400/10 text-sky-300" };
   if (kind === "MURDER_MYSTERY") return { label: "머더미스터리", className: "bg-red-400/10 text-red-300" };
   if (kind === "CLOCKTOWER") return { label: "시계탑에 흐른 피", className: "bg-violet-400/10 text-violet-300" };
@@ -114,6 +115,7 @@ function getMysteryTitle(value: EventRow["murder_mysteries"]) {
 }
 
 function renderEventTitle(event: Pick<EventRow, "title" | "event_kind">) {
+  if (event.event_kind === "HOLDEM") return <span className="text-emerald-300">{event.title}</span>;
   const matched = event.title.match(/^(\[[^\]]+\])\s*(.*)$/);
   if (!matched) return event.title;
   const [, prefix, rest] = matched;

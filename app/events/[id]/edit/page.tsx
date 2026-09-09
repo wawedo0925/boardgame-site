@@ -15,7 +15,7 @@ type EventRow = {
   location: string | null;
   description: string | null;
   created_by: string;
-  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "GENERAL";
+  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "HOLDEM" | "GENERAL";
   participation_fee: number;
 };
 
@@ -27,6 +27,7 @@ function toLocalInput(value: string | null) {
 }
 
 function kindLabel(kind: EventRow["event_kind"]) {
+  if (kind === "HOLDEM") return "홀덤";
   if (kind === "GENERAL") return "일반 이벤트";
   if (kind === "MURDER_MYSTERY") return "머더미스터리";
   if (kind === "CLOCKTOWER") return "시계탑에 흐른 피";

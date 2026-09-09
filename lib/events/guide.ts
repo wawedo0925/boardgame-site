@@ -1,5 +1,5 @@
 type GuideEvent = {
-  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "GENERAL";
+  event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "HOLDEM" | "GENERAL";
   participation_fee: number | null;
 };
 
@@ -39,10 +39,27 @@ export const CLOCKTOWER_EVENT_DESCRIPTION_PRESET = `🕰️ 시계탑에 흐른 
 
 ⚠️ 입금이 확인되지 않거나 사전 연락 없이 시작 시간에 늦으면 참석이 어렵습니다.`;
 
+export const HOLDEM_EVENT_TITLE = "🃏 [홀덤] 텍사스 홀덤";
+
+export const HOLDEM_EVENT_DESCRIPTION_PRESET = `🃏 텍사스 홀덤을 함께 즐기는 모임입니다. 이번 모임은 홀덤만 플레이합니다.
+처음 오신 분도 기본 규칙과 진행 방식 안내를 받고 함께 참여할 수 있어요.
+
+💳 이벤트에 표시된 참가비를 먼저 입금한 뒤 웹사이트의 참가 버튼을 눌러 주세요.
+국민은행 94849203451 · 예금주 이우영
+또는 카카오페이
+
+⏰ 원활한 시작을 위해 시작 시간에 맞춰 도착해 주세요.
+늦게 도착할 예정이라면 댓글에 “늦참”과 도착 예정 시간을 남겨 주세요.
+
+🤝 서로의 플레이를 존중하며 즐겁게 참여해 주세요. 세부 진행 방식은 시작 전에 안내합니다.
+
+⚠️ 입금이 확인되지 않으면 참석이 어려울 수 있습니다.`;
+
 export function getEventGuideSummary(event: GuideEvent) {
-  const defaultFee = event.event_kind === "MURDER_MYSTERY" ? 13000 : event.event_kind === "BOARDGAME" || event.event_kind === "CLOCKTOWER" ? 10000 : 0;
+  const defaultFee = event.event_kind === "MURDER_MYSTERY" ? 13000 : ["BOARDGAME", "CLOCKTOWER", "HOLDEM"].includes(event.event_kind) ? 10000 : 0;
   const fee = event.participation_fee ?? defaultFee;
   const feeLabel = fee === 0 ? "무료" : `${fee.toLocaleString("ko-KR")}원 선입금`;
+  if (event.event_kind === "HOLDEM") return `🃏 텍사스 홀덤만 플레이 · 💳 ${feeLabel} 후 웹 참가 · ⏰ 늦참은 댓글 · 처음 참가해도 기본 규칙 안내`;
 
   if (event.event_kind === "BOARDGAME") {
     return `🎲 파티·전략·마피아 중심 · 💳 ${feeLabel} 후 웹 참가 · ⏰ 늦참은 댓글 · 🙋 원하는 게임은 팟 만들기`;
