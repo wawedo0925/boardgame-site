@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type ResultRow = { round_id: string; score: number | null; rank: number | null; role_name: string | null; team_name: string | null; is_winner: boolean | null };
+type ResultRow = { is_gm: boolean; round_id: string; score: number | null; rank: number | null; role_name: string | null; team_name: string | null; is_winner: boolean | null };
 type RoundRow = { id: string; session_id: string; round_number: number; created_at: string };
 type SessionRow = { id: string; event_id: string; game_id: string; games: { name: string } | { name: string }[] | null };
 type EventRow = { id: string; title: string; started_at: string; event_kind: string };
@@ -13,6 +13,7 @@ type Play = ResultRow & { roundId: string; gameId: string; gameName: string; eve
 function one<T>(value: T | T[] | null) { return Array.isArray(value) ? value[0] ?? null : value; }
 function dateText(value: string) { return new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(value)); }
 function resultText(play: Play) {
+  if (play.is_gm) return "GM 진행";
   const details = [play.score !== null ? `${play.score}점` : null, play.rank !== null ? `${play.rank}등` : null, play.is_winner !== null ? (play.is_winner ? "승리" : "패배") : null, play.role_name, play.team_name].filter(Boolean);
   return details.length ? details.join(" · ") : "결과 입력 없음";
 }
@@ -35,7 +36,7 @@ export default function NewReviewPage() {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError) throw authError;
         if (!user) { setError("로그인 후 평가를 작성할 수 있습니다."); return; }
-        const { data: resultData, error: resultError } = await supabase.from("event_round_players").select("round_id, score, rank, role_name, team_name, is_winner").eq("user_id", user.id);
+        const { data: resultData, error: resultError } = await supabase.from("event_round_players").select("round_id, score, rank, role_name, team_name, is_winner, is_gm").eq("user_id", user.id);
         if (resultError) throw resultError;
         const results = (resultData ?? []) as ResultRow[];
         if (!results.length) { if (active) setPlays([]); return; }

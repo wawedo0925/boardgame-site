@@ -22,6 +22,7 @@ export type EventParticipant = {
 };
 
 export type RoundPlayer = {
+  is_gm?: boolean;
   id: string;
   round_id: string;
   user_id: string;

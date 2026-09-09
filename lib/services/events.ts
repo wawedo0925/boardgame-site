@@ -47,7 +47,7 @@ export async function getEventGames(supabase: SupabaseClient, eventId: string): 
   if (roundIds.length) {
     const { data, error: playersError } = await supabase
       .from("event_round_players")
-      .select("id, round_id, user_id, score, rank, role_name, team_name, is_winner")
+      .select("id, round_id, user_id, score, rank, role_name, team_name, is_winner, is_gm")
       .in("round_id", roundIds);
     if (playersError) throw playersError;
     players = (data ?? []) as RawPlayer[];
@@ -78,5 +78,4 @@ export async function getEventGames(supabase: SupabaseClient, eventId: string): 
     rounds: roundViews.filter((round) => round.session_id === game.id),
   })) as EventGame[];
 }
-
 

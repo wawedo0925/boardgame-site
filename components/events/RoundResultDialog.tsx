@@ -15,9 +15,11 @@ export default function RoundResultDialog({ round, resultType, onClose, onSaved 
   const supabase = useMemo(() => createClient(), []);
   const [scores, setScores] = useState<Record<string, string>>({});
   const [ranks, setRanks] = useState<Record<string, number | null>>({});
+  const [gmByUser, setGmByUser] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    setGmByUser(Object.fromEntries(round.players.map(player => [player.user_id, player.is_gm === true])));
     setScores(Object.fromEntries(round.players.map((player) => [player.user_id, player.score?.toString() ?? ""])));
     setRanks(Object.fromEntries(round.players.map((player) => [player.user_id, player.rank])));
   }, [round]);
@@ -27,7 +29,8 @@ export default function RoundResultDialog({ round, resultType, onClose, onSaved 
       setBusy(true);
       await saveRoundResults(supabase, round.id, resultType, round.players.map((player) => ({
         userId: player.user_id,
-        score: scores[player.user_id]?.trim() === "" ? null : Number(scores[player.user_id]),
+        isGm: gmByUser[player.user_id] === true,
+        score: (scores[player.user_id] ?? "").trim() === "" ? null : Number(scores[player.user_id]),
         rank: ranks[player.user_id] ?? null,
       })));
       await onSaved();
@@ -50,7 +53,15 @@ export default function RoundResultDialog({ round, resultType, onClose, onSaved 
     finally { setBusy(false); }
   }
 
-  const hasResult = round.players.some((player) => player.score !== null || player.rank !== null);
+  const activePlayers = round.players.filter(player => !gmByUser[player.user_id]);
+  function toggleGm(userId: string) {
+    const next = !gmByUser[userId];
+    setGmByUser(current => ({ ...current, [userId]: next }));
+    setScores(current => ({ ...current, [userId]: "" }));
+    const count = round.players.filter(player => player.user_id === userId ? !next : !gmByUser[player.user_id]).length;
+    setRanks(current => Object.fromEntries(Object.entries(current).map(([id, rank]) => [id, id === userId || (rank !== null && rank > count) ? null : rank])));
+  }
+  const hasResult = round.players.some((player) => player.is_gm || player.score !== null || player.rank !== null);
 
   return <div className="fixed inset-0 z-[100] flex items-end bg-black/70 sm:items-center sm:justify-center" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-zinc-950 p-5 text-white shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-7">
@@ -58,8 +69,8 @@ export default function RoundResultDialog({ round, resultType, onClose, onSaved 
       <div className="flex items-start justify-between gap-4"><div><p className="text-sm text-amber-300">{round.round_number}판</p><h2 className="mt-1 text-xl font-bold">{resultType === "SCORE" ? "점수 입력" : "등수 입력"}</h2></div><button onClick={onClose} className="min-h-11 min-w-11 rounded-full bg-white/5 text-xl" aria-label="닫기">×</button></div>
       <div className="mt-6 space-y-3">
         {round.players.map((player) => <div key={player.user_id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="mb-3 font-semibold">{playerName(player)}</p>
-          {resultType === "SCORE" ? <input type="number" inputMode="numeric" step="1" value={scores[player.user_id] ?? ""} onChange={(event) => setScores((current) => ({ ...current, [player.user_id]: event.target.value }))} placeholder="점수 입력" className="h-14 w-full rounded-xl border border-white/10 bg-zinc-900 px-4 text-right text-2xl font-bold outline-none focus:border-amber-400" /> : <div className="grid grid-cols-4 gap-2">{round.players.map((_, index) => { const rank=index+1; const selected=ranks[player.user_id]===rank; const used=Object.entries(ranks).some(([id,value])=>id!==player.user_id&&value===rank); return <button key={rank} type="button" disabled={used} onClick={()=>setRanks((current)=>({...current,[player.user_id]:rank}))} className={`min-h-12 rounded-xl font-bold ${selected ? "bg-amber-400 text-zinc-950" : used ? "bg-white/[0.02] text-zinc-700" : "bg-white/10 text-white"}`}>{rank}등</button>; })}</div>}
+          <div className="mb-3 flex items-center justify-between gap-3"><p className="font-semibold">{playerName(player)}</p><button type="button" aria-pressed={gmByUser[player.user_id] === true} onClick={() => toggleGm(player.user_id)} className={`min-h-11 rounded-xl border px-4 font-bold ${gmByUser[player.user_id] ? "border-violet-300 bg-violet-500/20 text-violet-200" : "border-white/15 text-zinc-400"}`}>{gmByUser[player.user_id] ? "✓ GM" : "GM 지정"}</button></div>
+          {gmByUser[player.user_id] ? <p className="rounded-xl bg-violet-400/10 p-4 text-sm text-violet-200">GM 진행으로 기록합니다. 점수·등수는 저장하지 않습니다.</p> : resultType === "SCORE" ? <input type="number" inputMode="numeric" step="1" value={scores[player.user_id] ?? ""} onChange={(event) => setScores((current) => ({ ...current, [player.user_id]: event.target.value }))} placeholder="점수 입력" className="h-14 w-full rounded-xl border border-white/10 bg-zinc-900 px-4 text-right text-2xl font-bold outline-none focus:border-amber-400" /> : <div className="grid grid-cols-4 gap-2">{activePlayers.map((_, index) => { const rank=index+1; const selected=ranks[player.user_id]===rank; const used=Object.entries(ranks).some(([id,value])=>id!==player.user_id&&!gmByUser[id]&&value===rank); return <button key={rank} type="button" disabled={used} onClick={()=>setRanks((current)=>({...current,[player.user_id]:rank}))} className={`min-h-12 rounded-xl font-bold ${selected ? "bg-amber-400 text-zinc-950" : used ? "bg-white/[0.02] text-zinc-700" : "bg-white/10 text-white"}`}>{rank}등</button>; })}</div>}
         </div>)}
       </div>
       <div className="sticky bottom-0 mt-6 grid grid-cols-2 gap-3 bg-zinc-950 pb-[max(0px,env(safe-area-inset-bottom))] pt-3">
