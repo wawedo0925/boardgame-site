@@ -5,6 +5,7 @@ import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import UnownedBadge from "@/components/UnownedBadge";
+import InterestOverview from "./InterestOverview";
 import type { MurderMystery } from "./page";
 
 const BUCKET = "murder-mystery-covers";
@@ -36,6 +37,7 @@ export default function MurderMysteryList({ mysteries, isAdmin, interestCounts }
   const [hostFilter, setHostFilter] = useState("ALL");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<MurderMystery | null>(null);
+  const [updatedCounts, setUpdatedCounts] = useState<Record<string, number> | null>(null);
 
   const visible = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase("ko");
@@ -167,7 +169,7 @@ export default function MurderMysteryList({ mysteries, isAdmin, interestCounts }
         </select>
       </div>
 
-      <p className="mb-5 text-sm text-zinc-400">총 <span className="font-semibold text-red-400">{visible.length}</span>개의 작품</p>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-zinc-400">총 <span className="font-semibold text-red-400">{visible.length}</span>개의 작품</p><InterestOverview mysteries={mysteries} onCountsChanged={setUpdatedCounts} /></div>
       <div className="overflow-hidden rounded-3xl border border-white/10">
         {visible.map((item) => (
           <article
@@ -216,7 +218,7 @@ export default function MurderMysteryList({ mysteries, isAdmin, interestCounts }
             <p className="text-sm text-zinc-300">{playerText(item)}</p>
             <p className="text-sm text-zinc-300">{item.play_time ? `${item.play_time}분` : "시간 미정"}</p>
             <p className="text-sm text-zinc-300">{hostText(item)}</p>
-            <p className="text-sm font-bold text-amber-300">플레이 희망 {interestCounts[item.id] ?? 0}명</p>
+            <p className="text-sm font-bold text-amber-300">플레이 희망 {(updatedCounts ?? interestCounts)[item.id] ?? 0}명</p>
           </article>
         ))}
         {!visible.length && <div className="px-6 py-16 text-center text-sm text-zinc-500">조건에 맞는 작품이 없습니다.</div>}
