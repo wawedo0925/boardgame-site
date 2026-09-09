@@ -34,7 +34,6 @@ type EventForm = {
   eventKind: EventKind;
   murderMysteryId: string;
   clocktowerDifficulty: ClocktowerDifficulty | "";
-  creatorRole: "PLAYER" | "GM";
   recurrence: "NONE" | "WEEKLY" | "BIWEEKLY";
   participationFee: string;
 };
@@ -52,7 +51,6 @@ const initialForm: EventForm = {
   eventKind: "BOARDGAME",
   murderMysteryId: "",
   clocktowerDifficulty: "",
-  creatorRole: "PLAYER",
   recurrence: "NONE",
   participationFee: "",
 };
@@ -238,11 +236,6 @@ export default function NewEventPage() {
       setErrorMessage("진행할 머더미스터리 작품을 선택해 주세요.");
       return;
     }
-    if (form.creatorRole === "GM" && !["MAIN_ADMIN", "ADMIN", "RULE_MASTER"].includes(siteRole)) {
-      setErrorMessage("GM은 관리자 또는 룰마만 선택할 수 있습니다.");
-      return;
-    }
-
     if (maxParticipants !== null && (!Number.isInteger(maxParticipants) || maxParticipants < 1)) {
       setErrorMessage("참가 정원은 1명 이상의 정수로 입력해 주세요.");
       return;
@@ -293,15 +286,17 @@ export default function NewEventPage() {
     setIsSaving(true);
     setErrorMessage("");
 
-    if (form.eventKind === "MURDER_MYSTERY" && form.creatorRole === "PLAYER") {
-      const { data: previous } = await supabase.from("murder_mystery_history").select("id").eq("murder_mystery_id", form.murderMysteryId).eq("user_id", user.id).eq("participation_role", "PLAYER").limit(1);
-      if ((previous ?? []).length > 0) {
-        setErrorMessage("이미 플레이한 작품입니다. 다른 담당자가 이벤트를 만든 뒤 재참가를 허용해 주세요.");
+    if (form.eventKind === "MURDER_MYSTERY" && !["MAIN_ADMIN", "ADMIN", "RULE_MASTER", "MURDER_GM"].includes(siteRole)) {
+      const [history, personal] = await Promise.all([
+        supabase.from("murder_mystery_history").select("id").eq("murder_mystery_id", form.murderMysteryId).eq("user_id", user.id).limit(1),
+        supabase.from("murder_mystery_personal_records").select("id").eq("murder_mystery_id", form.murderMysteryId).eq("user_id", user.id).limit(1),
+      ]);
+      if (history.error || personal.error || history.data?.length || personal.data?.length) {
+        setErrorMessage("이미 경험한 작품이거나 이력을 확인하지 못했습니다. 담당자에게 참가를 문의해 주세요.");
         setIsSaving(false);
         return;
       }
     }
-
     if (form.recurrence !== "NONE") {
       const { data: recurringEventId, error: recurringError } = await supabase.rpc(
         "create_recurring_event_series",
@@ -315,7 +310,7 @@ export default function NewEventPage() {
           p_event_kind: form.eventKind,
           p_murder_mystery_id: form.eventKind === "MURDER_MYSTERY" ? form.murderMysteryId : null,
           p_interval_weeks: form.recurrence === "WEEKLY" ? 1 : 2,
-          p_creator_role: form.eventKind === "MURDER_MYSTERY" ? form.creatorRole : "PLAYER",
+          p_creator_role: "PLAYER",
           p_participation_fee: participationFee,
         },
       );
@@ -360,16 +355,13 @@ export default function NewEventPage() {
       .insert({
         event_id: data.id,
         user_id: user.id,
-        participation_role: form.eventKind === "MURDER_MYSTERY" ? form.creatorRole : "PLAYER",
+        participation_role: "PLAYER",
       });
 
     if (participantError) {
       console.error("이벤트 생성자 참가 등록 오류:", participantError);
     }
 
-    if (form.eventKind === "MURDER_MYSTERY" && form.creatorRole === "GM") {
-      await supabase.from("event_staff").insert({ event_id: data.id, user_id: user.id, duty: "GM", assigned_by: user.id });
-    }
 
     router.push(`/events/${data.id}`);
     router.refresh();
@@ -433,7 +425,7 @@ export default function NewEventPage() {
               {form.eventKind === "MURDER_MYSTERY" && <div className="grid gap-4 rounded-2xl border border-red-400/20 bg-red-400/[0.04] p-4">
                 <label className="grid gap-2"><span className="text-sm font-semibold text-red-200">진행 작품 *</span><select value={form.murderMysteryId} onChange={e => selectMurderMystery(e.target.value)} className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-3"><option value="">작품을 선택하세요</option>{murderMysteries.map(work => <option key={work.id} value={work.id}>{work.title} ({work.min_players ?? "?"}~{work.max_players ?? "?"}명)</option>)}</select></label>
                 {form.title && <div className="rounded-xl border border-red-400/20 bg-black/10 px-4 py-3"><p className="text-xs text-zinc-500">자동 생성 제목</p><p className="mt-1 font-bold text-red-200">{form.title}</p></div>}
-                <label className="grid gap-2"><span className="text-sm font-semibold text-red-200">내 참여 역할</span><select value={form.creatorRole} onChange={e => updateForm("creatorRole", e.target.value as "PLAYER" | "GM")} className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-3"><option value="PLAYER">플레이어</option>{["MAIN_ADMIN","ADMIN","RULE_MASTER"].includes(siteRole) && <option value="GM">GM</option>}</select></label>
+                <p className="text-sm text-zinc-400">참가 역할은 생성 후 룰마 이상이 지정할 수 있습니다. 플레이한 작품은 GM 지정 대기로 등록됩니다.</p>
                 <p className="text-xs leading-5 text-zinc-500">같은 작품을 이미 플레이한 멤버는 일반 참가가 제한됩니다. 담당자는 상세 화면에서 재참가를 별도로 허용할 수 있습니다.</p>
               </div>}
 

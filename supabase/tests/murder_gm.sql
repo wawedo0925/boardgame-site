@@ -1,0 +1,54 @@
+-- All fixture data, role changes and queued notifications roll back.
+begin;
+do $$
+declare a uuid; u uuid[]; w uuid; e uuid; result text; rejected boolean;
+begin
+ select user_id into a from public.site_roles where role='MAIN_ADMIN' limit 1;
+ select array_agg(id) into u from (select p.id from public.profiles p left join public.site_roles r on r.user_id=p.id where coalesce(r.role,'MEMBER')='MEMBER' and p.id<>a order by p.id limit 5) x;
+ if a is null or array_length(u,1)<5 then raise exception 'Missing test members'; end if;
+ perform set_config('request.jwt.claim.sub',a::text,true);
+ perform public.admin_set_member_role(u[1],'MURDER_GM');
+ perform public.admin_set_member_role(u[2],'MURDER_GM');
+ perform public.admin_set_member_role(u[3],'RULE_MASTER');
+ insert into public.murder_mysteries(title) values('GM rollback test') returning id into w;
+ insert into public.events(title,event_kind,murder_mystery_id,created_by,started_at,max_participants,event_status)
+ values('GM rollback test','MURDER_MYSTERY',w,a,now()+interval '2 days',1,'OPEN') returning id into e;
+ insert into public.murder_mystery_personal_records(user_id,murder_mystery_id,participation_role,source) values(u[1],w,'PLAYER','MANUAL');
+ perform set_config('request.jwt.claim.sub',u[4]::text,true);
+ result:=public.join_event_with_capacity(e);
+ if result<>'JOINED' then raise exception 'New player join failed'; end if;
+ perform set_config('request.jwt.claim.sub',u[1]::text,true);
+ result:=public.join_event_with_capacity(e);
+ if result<>'GM_PENDING' or not exists(select 1 from public.event_participants where event_id=e and user_id=u[1] and gm_pending) then raise exception 'Experienced GM pending failed'; end if;
+ if public.event_player_count(e)<>1 then raise exception 'Pending counted as player'; end if;
+ rejected:=false;
+ begin perform public.assign_murder_mystery_member(e,u[1],'GM',false); exception when others then rejected:=true; end;
+ if not rejected then raise exception 'GM self assignment allowed'; end if;
+ perform set_config('request.jwt.claim.sub',u[2]::text,true);
+ if public.can_operate_event(e) then raise exception 'GM has operation rights'; end if;
+ result:=public.join_event_with_capacity(e);
+ if result<>'WAITLISTED' then raise exception 'First-time GM must respect player capacity'; end if;
+ perform set_config('request.jwt.claim.sub',u[3]::text,true);
+ perform public.assign_murder_mystery_member(e,u[2],'GM',false);
+ if exists(select 1 from public.event_waitlist where event_id=e and user_id=u[2]) then raise exception 'Assigned GM remained waitlisted'; end if;
+ perform public.assign_murder_mystery_member(e,u[1],'GM',false);
+ perform public.assign_murder_mystery_member(e,u[1],'PLAYER',false);
+ if not exists(select 1 from public.event_participants where event_id=e and user_id=u[1] and gm_pending) then raise exception 'Repeat player must return to pending'; end if;
+ perform set_config('request.jwt.claim.sub',u[5]::text,true);
+ result:=public.join_event_with_capacity(e);
+ if result<>'WAITLISTED' then raise exception 'Player capacity bypassed'; end if;
+ perform set_config('request.jwt.claim.sub',a::text,true);
+ perform public.admin_set_member_role(u[4],'MURDER_GM');
+ perform set_config('request.jwt.claim.sub',u[3]::text,true);
+ perform public.assign_murder_mystery_member(e,u[4],'GM',false);
+ if public.event_player_count(e)<>1 or not exists(select 1 from public.event_participants where event_id=e and user_id=u[5]) then raise exception 'Player slot was not promoted'; end if;
+ perform set_config('request.jwt.claim.sub',u[2]::text,true);
+ if public.can_operate_event(e) then raise exception 'Assigned GM gained operation rights'; end if;
+ perform set_config('request.jwt.claim.sub',a::text,true);
+ update public.event_participants set attendance_status='PRESENT' where event_id=e;
+ update public.events set event_status='CLOSED',closed_at=now() where id=e;
+ if exists(select 1 from public.murder_mystery_history where event_id=e and user_id=u[1]) or exists(select 1 from public.murder_mystery_personal_records where event_id=e and user_id=u[1]) then raise exception 'Pending GM received play history'; end if;
+ if not exists(select 1 from public.murder_mystery_history where event_id=e and user_id=u[2] and participation_role='GM') or not exists(select 1 from public.murder_mystery_personal_records where event_id=e and user_id=u[2] and participation_role='GM') then raise exception 'GM history missing'; end if;
+end $$;
+rollback;
+select 'PASS: pending, capacity, GM assignment, no operation rights, promotion, separate GM history; all fixtures rolled back' as result;

@@ -47,6 +47,7 @@ type ParticipantRow = {
   joined_at: string;
   attendance_status: AttendanceStatus;
   attendance_checked_at: string | null;
+  gm_pending: boolean;
   participation_role: "PLAYER" | "GM";
   repeat_override: boolean;
   game_preference: BoardgamePreference | null;
@@ -154,7 +155,7 @@ export default function EventDetailPage() {
     const { data: participantData, error: participantError } = await supabase
       .from("event_participants")
       .select(
-        "id, user_id, joined_at, attendance_status, attendance_checked_at, participation_role, repeat_override, game_preference, game_preference_updated_at",
+        "id, user_id, joined_at, attendance_status, attendance_checked_at, participation_role, gm_pending, repeat_override, game_preference, game_preference_updated_at",
       )
       .eq("event_id", eventId)
       .order("joined_at", { ascending: true });
@@ -353,7 +354,8 @@ export default function EventDetailPage() {
   const isUpcoming = event ? new Date(event.started_at).getTime() > Date.now() : false;
   const isLocked = isClosed || isCancelled;
   const participationFee = event?.participation_fee ?? (event?.event_kind === "MURDER_MYSTERY" ? 13000 : event?.event_kind === "BOARDGAME" || event?.event_kind === "CLOCKTOWER" ? 10000 : 0);
-  const isAtCapacity = Boolean(event?.max_participants !== null && participants.length >= (event?.max_participants ?? 0));
+  const playerCount = participants.filter(p => event?.event_kind !== "MURDER_MYSTERY" || (p.participation_role === "PLAYER" && !p.gm_pending)).length;
+  const isAtCapacity = Boolean(event?.max_participants !== null && playerCount >= (event?.max_participants ?? 0));
 
 
   async function copyAccountNumber() {
@@ -391,7 +393,9 @@ export default function EventDetailPage() {
 
     await reloadParticipation();
 
-    if (data === "WAITLISTED") {
+    if (data === "GM_PENDING") {
+      alert("GM 지정 대기로 참가했습니다. 룰마 이상이 GM으로 지정할 수 있으며 플레이어 정원에서는 제외됩니다.");
+    } else if (data === "WAITLISTED") {
       alert("정원이 가득 차 대기 명단에 등록되었습니다.");
     } else if (event?.event_kind === "BOARDGAME") {
       setPreferencePromptOpen(true);
@@ -810,7 +814,7 @@ export default function EventDetailPage() {
                   <EventCapacityCard
                     eventId={eventId}
                     maxParticipants={event.max_participants}
-                    participantCount={participants.length}
+                    participantCount={playerCount}
                     waitlist={waitlist}
                     canManage
                     isClosed={isLocked}
@@ -844,7 +848,7 @@ export default function EventDetailPage() {
                 <MurderMysteryEventPanel
                   eventId={eventId}
                   mysteryId={event.murder_mystery_id}
-                  canManage={canManage}
+                  canManage={["MAIN_ADMIN", "ADMIN", "RULE_MASTER"].includes(siteRole)}
                   isClosed={isLocked}
                 />
               ) : event.event_kind === "BOARDGAME" ? (
@@ -954,7 +958,7 @@ export default function EventDetailPage() {
                               {participant.participation_role ===
                               "GM"
                                 ? "GM"
-                                : "플레이어"}
+                                : participant.gm_pending ? "GM 지정 대기 · 정원 제외" : "플레이어"}
                               {participant.repeat_override
                                 ? " · 재참가 허용"
                                 : ""}

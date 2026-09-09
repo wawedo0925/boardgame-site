@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type SiteRole = "MAIN_ADMIN" | "ADMIN" | "RULE_MASTER" | "MEMBER";
+type SiteRole = "MAIN_ADMIN" | "ADMIN" | "RULE_MASTER" | "MURDER_GM" | "MEMBER";
 type Member = { user_id: string; activity_name: string; site_role: SiteRole };
 type History = {
   id: number;
@@ -19,6 +19,7 @@ const ROLE_LABEL: Record<SiteRole, string> = {
   MAIN_ADMIN: "메인 관리자",
   ADMIN: "관리자",
   RULE_MASTER: "룰마",
+  MURDER_GM: "머미 GM",
   MEMBER: "일반 회원",
 };
 
@@ -26,6 +27,7 @@ const ROLE_DESCRIPTION: Record<SiteRole, string[]> = {
   MAIN_ADMIN: ["모든 운영 기능", "직위 변경", "영구 삭제", "게임 원본 정보·표지 관리"],
   ADMIN: ["모든 이벤트 운영", "참가자·출석·공지 관리", "영구 삭제와 원본 정보 변경 제외"],
   RULE_MASTER: ["이벤트 생성", "본인이 만든 이벤트 운영", "조 편성·게임 진행·결과 입력"],
+  MURDER_GM: ["머더미스터리 GM 배정 가능", "플레이한 작품에 GM 지정 대기로 참가", "별도 운영 권한 없음"],
   MEMBER: ["이벤트 참가", "댓글·평가 작성", "본인 기록과 랭킹 확인"],
 };
 
@@ -33,6 +35,7 @@ const ROLE_STYLE: Record<SiteRole, string> = {
   MAIN_ADMIN: "border-amber-400/40 bg-amber-400/[.07] text-amber-200",
   ADMIN: "border-sky-400/30 bg-sky-400/[.06] text-sky-200",
   RULE_MASTER: "border-emerald-400/30 bg-emerald-400/[.06] text-emerald-200",
+  MURDER_GM: "border-red-400/30 bg-red-400/[.06] text-red-200",
   MEMBER: "border-white/10 bg-white/[.03] text-zinc-200",
 };
 
@@ -110,7 +113,7 @@ export default function RoleManager({ currentUserId }: { currentUserId: string }
           result[member.site_role] += 1;
           return result;
         },
-        { MAIN_ADMIN: 0, ADMIN: 0, RULE_MASTER: 0, MEMBER: 0 },
+        { MAIN_ADMIN: 0, ADMIN: 0, RULE_MASTER: 0, MURDER_GM: 0, MEMBER: 0 },
       ),
     [members],
   );
@@ -168,6 +171,7 @@ export default function RoleManager({ currentUserId }: { currentUserId: string }
                   aria-label={`${member.activity_name} 직위`}
                 >
                   <option value="MEMBER">일반 회원</option>
+                  <option value="MURDER_GM">머미 GM</option>
                   <option value="RULE_MASTER">룰마</option>
                   <option value="ADMIN">관리자</option>
                   <option value="MAIN_ADMIN">메인 관리자</option>

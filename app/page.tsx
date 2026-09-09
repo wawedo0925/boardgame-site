@@ -16,7 +16,7 @@ type HomeEvent = {
   event_kind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "GENERAL";
   participation_fee: number | null;
   max_participants: number | null;
-  event_participants: { id: string }[] | null;
+  event_participants: { id: string; participation_role: string; gm_pending: boolean }[] | null;
 };
 
 function eventKindLabel(kind: HomeEvent["event_kind"]) {
@@ -46,7 +46,7 @@ function eventTime(value: string) {
 
 function remainingSeats(event: HomeEvent) {
   if (event.max_participants === null) return null;
-  return Math.max(0, event.max_participants - (event.event_participants?.length ?? 0));
+  return Math.max(0, event.max_participants - (event.event_participants?.filter(p => event.event_kind !== "MURDER_MYSTERY" || (p.participation_role === "PLAYER" && !p.gm_pending)).length ?? 0));
 }
 
 export default async function Home() {
@@ -61,7 +61,7 @@ export default async function Home() {
       .limit(3),
     supabase
       .from("events")
-      .select("id,title,started_at,ended_at,location,description,event_kind,participation_fee,max_participants,event_participants(id)")
+      .select("id,title,started_at,ended_at,location,description,event_kind,participation_fee,max_participants,event_participants(id,participation_role,gm_pending)")
       .gte("started_at", now)
       .eq("event_status", "OPEN")
       .order("started_at", { ascending: true })

@@ -11,7 +11,7 @@ type OperationRow = { activity_type: "GM" | "RULE_MASTER"; event_id: string; eve
 type Detail = { user_id: string; activity_name: string; birth_year: string | null; region: string | null; gender: string | null; site_role: string; attendance_count: number; gm_count: number; rule_master_count: number; admin_note: string; note_updated_at: string | null };
 type Filter = "ALL" | "NEW" | "ATTENDED" | "INACTIVE_30" | "INACTIVE_90";
 
-const roleName: Record<string, string> = { MAIN_ADMIN: "메인 관리자", ADMIN: "관리자", RULE_MASTER: "룰마", MEMBER: "일반 회원" };
+const roleName: Record<string, string> = { MAIN_ADMIN: "메인 관리자", ADMIN: "관리자", RULE_MASTER: "룰마", MURDER_GM: "머미 GM", MEMBER: "일반 회원" };
 const dateText = (value: string | null) => value ? new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "short", day: "numeric" }).format(new Date(value)) : "아직 없음";
 const filterName: Record<Filter, string> = { ALL: "전체", ATTENDED: "참여 경험", NEW: "첫 출석 전", INACTIVE_30: "30일+ 미참여", INACTIVE_90: "90일+ 미참여" };
 const shortBirthYear = (value: string | null) => {

@@ -24,7 +24,7 @@ type Profile = {
   gender: string | null;
 };
 
-type SiteRole = "MAIN_ADMIN" | "ADMIN" | "RULE_MASTER" | "MEMBER";
+type SiteRole = "MAIN_ADMIN" | "ADMIN" | "RULE_MASTER" | "MURDER_GM" | "MEMBER";
 
 type PlayRecordRow = {
   play_record_games:

@@ -8,6 +8,7 @@ export type EventParticipant = {
   user_id: string;
   attendance_status?: AttendanceStatus;
   attendance_checked_at?: string | null;
+  gm_pending?: boolean;
   participation_role?: "PLAYER" | "GM";
   repeat_override?: boolean;
   game_preference?: BoardgamePreference | null;
