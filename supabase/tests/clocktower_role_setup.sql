@@ -1,0 +1,37 @@
+begin;
+do $$
+declare host uuid; ids uuid[]; e uuid; room uuid; initial jsonb; rows jsonb; bad jsonb; denied boolean; i integer; snapshot jsonb;
+begin
+ select user_id into host from public.site_roles where role='MAIN_ADMIN' limit 1;
+ select array_agg(id) into ids from (select id from public.profiles where id<>host order by id limit 7) x;
+ if cardinality(ids)<7 then raise exception 'Need fixture profiles';end if;
+ perform set_config('request.jwt.claim.sub',host::text,true);
+ insert into public.events(title,event_kind,created_by,started_at,event_status,max_participants) values('Role setup rollback test','CLOCKTOWER',host,now()+interval '2 days','OPEN',16) returning id into e;
+ for i in 1..7 loop insert into public.event_participants(event_id,user_id) values(e,ids[i]);end loop;
+ perform public.clocktower_live_command(e,'create','{}');
+ select id into room from public.clocktower_live_rooms where event_id=e;
+ select jsonb_agg(jsonb_build_object('user_id',user_id,'actual_role',actual_role,'shown_role',shown_role)) into initial from public.clocktower_live_members where room_id=room;
+ select jsonb_agg(jsonb_build_object('user_id',ids[g],'actual_role',(array['남작','임프','주정뱅이','성자','세탁부','사서','요리사'])[g],'shown_role',(array['남작','임프','점쟁이','성자','세탁부','사서','요리사'])[g])) into rows from generate_series(1,7) g;
+ perform public.clocktower_live_command(e,'save_roles',jsonb_build_object('room_id',room,'rows',rows,'expected',initial));
+ if (select count(*) from public.clocktower_live_members where room_id=room and actual_role<>'')<>7 then raise exception 'Save failed';end if;
+ denied:=false;begin perform public.clocktower_live_command(e,'save_roles',jsonb_build_object('room_id',room,'rows',rows,'expected',initial));exception when others then denied:=true;end;if not denied then raise exception 'Stale overwrite';end if;
+ bad:=jsonb_set(rows,'{3,actual_role}','"군인"');bad:=jsonb_set(bad,'{3,shown_role}','"군인"');
+ denied:=false;begin perform public.clocktower_live_command(e,'save_roles',jsonb_build_object('room_id',room,'rows',bad,'expected',rows));exception when others then denied:=true;end;if not denied then raise exception 'Invalid Baron accepted';end if;
+ bad:=jsonb_set(rows,'{2,shown_role}','"사서"');
+ denied:=false;begin perform public.clocktower_validate_setup(bad);exception when others then denied:=true;end;if not denied then raise exception 'Drunk duplicate accepted';end if;
+ perform set_config('request.jwt.claim.sub',ids[3]::text,true);
+ snapshot:=public.clocktower_live_snapshot(e);
+ if exists(select 1 from jsonb_array_elements(snapshot->'members') x where x ? 'actual_role' or x ? 'shown_role') then raise exception 'Setup roles leaked';end if;
+ denied:=false;begin perform public.clocktower_live_command(e,'save_roles',jsonb_build_object('room_id',room,'rows',rows,'expected',rows));exception when others then denied:=true;end;if not denied then raise exception 'Player saved roles';end if;
+ perform set_config('request.jwt.claim.sub',host::text,true);
+ update public.clocktower_live_members set actual_role='군인',shown_role='군인' where room_id=room and user_id=ids[4];
+ denied:=false;begin perform public.clocktower_live_command(e,'phase',jsonb_build_object('room_id',room,'phase','NIGHT'));exception when others then denied:=true;end;if not denied then raise exception 'Invalid start';end if;
+ update public.clocktower_live_members set actual_role='성자',shown_role='성자' where room_id=room and user_id=ids[4];
+ perform public.clocktower_live_command(e,'phase',jsonb_build_object('room_id',room,'phase','NIGHT'));
+ denied:=false;begin perform public.clocktower_live_command(e,'save_roles',jsonb_build_object('room_id',room,'rows',rows,'expected',rows));exception when others then denied:=true;end;if not denied then raise exception 'Night saved setup';end if;
+ perform set_config('request.jwt.claim.sub',ids[3]::text,true);
+ snapshot:=public.clocktower_live_snapshot(e);
+ if not exists(select 1 from jsonb_array_elements(snapshot->'members') x where x->>'user_id'=ids[3]::text and x->>'shown_role'='점쟁이' and not x ? 'actual_role') then raise exception 'Drunk role leaked';end if;
+ if has_function_privilege('authenticated','public.clocktower_live_command_v2(uuid,text,jsonb)','EXECUTE') then raise exception 'Validation bypass';end if;
+end $$;
+rollback;

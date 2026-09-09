@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ClocktowerRoleSetup from './ClocktowerRoleSetup';
+import { validateAssignments } from '@/lib/clocktower/setup';
 import ClocktowerSeating, { ClocktowerName, birthYearLabel } from './ClocktowerSeating';
 import { createClient } from '@/lib/supabase/client';
 import { CLOCKTOWER_CHARACTERS } from '@/lib/clocktower/characters';
@@ -68,6 +70,8 @@ function Host({ state, run, busy }: { state: LiveState; run: Run; busy: boolean 
   const requests = state.requests ?? [];
   const unassigned = members.filter(m => !m.actual_role || !m.shown_role).length;
   const [layoutEditing, setLayoutEditing] = useState(false);
+  const [rolesEditing, setRolesEditing] = useState(false);
+  const invalidSetup = validateAssignments(members.map(m=>({user_id:m.user_id,actual_role:m.actual_role??'',shown_role:m.shown_role??''}))).length > 0;
   const [edit, setEdit] = useState<LiveMember | null>(null);
   const [recipient, setRecipient] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -82,16 +86,17 @@ function Host({ state, run, busy }: { state: LiveState; run: Run; busy: boolean 
   const phase = async (next: string) => { if (window.confirm(next === 'ENDED' ? '게임을 종료할까요? 진행 중 요청은 취소되며 이 게임을 다시 진행할 수 없습니다.' : next === 'NIGHT' ? '밤을 시작할까요? 첫날 밤에는 참가자에게 자신의 역할이 표시됩니다.' : '밤을 마치고 사망 상태를 모두에게 공개할까요?')) await run('phase', { phase: next }); };
   return <div className="space-y-6">
     <div className="flex flex-wrap gap-3">{room.phase === 'ENDED' ? <button disabled={busy} className={button} onClick={() => { if (confirm('새 게임을 준비할까요? 이전 게임은 보관되고 화면은 새 게임으로 전환됩니다.')) void run('create'); }}>새 게임 준비</button> : <>
-      {room.phase !== 'NIGHT' ? <button disabled={busy || layoutEditing || (room.phase === 'SETUP' && (unassigned > 0 || members.length < 5 || members.length > 15))} className={button} onClick={() => void phase('NIGHT')}>{room.phase === 'SETUP' ? '첫날 밤 시작' : '다음 밤 시작'}</button> : <button disabled={busy || pending.length > 0} className={button} onClick={() => void phase('DAY')}>낮 시작 · 사망 공개</button>}
+      {room.phase !== 'NIGHT' ? <button disabled={busy || layoutEditing || rolesEditing || (room.phase === 'SETUP' && invalidSetup)} className={button} onClick={() => void phase('NIGHT')}>{room.phase === 'SETUP' ? '첫날 밤 시작' : '다음 밤 시작'}</button> : <button disabled={busy || pending.length > 0} className={button} onClick={() => void phase('DAY')}>낮 시작 · 사망 공개</button>}
       <button disabled={busy} className={subtle} onClick={() => void phase('ENDED')}>게임 종료</button>
     </>}</div>
     {room.phase === 'SETUP' && <p className="text-sm text-amber-200">역할 미배정 {unassigned}명 · 5~15명의 역할을 모두 배정하면 첫날 밤을 시작할 수 있습니다.</p>}
-    <ClocktowerSeating key={members.map(m => m.user_id + ':' + m.seat).join(',')} members={members} onEditingChange={setLayoutEditing} layout={room.seating_layout} revision={room.seating_revision} save={(layout, revision) => run('save_layout', { layout, revision })} editable={room.phase === 'SETUP'} busy={busy} myId={state.my_id} sync={() => void run('sync_participants')} swap={(a, b) => run('swap_seats', { first_user_id: a.user_id, second_user_id: b.user_id, first_seat: a.seat, second_seat: b.seat })} />
-    <p className="text-sm leading-7 text-zinc-400">능력 순서와 판정은 이야기꾼이 결정합니다. 첫날 악의 팀 정보·악마 블러프, 점쟁이의 오인 대상, 남작의 구성 변경을 준비하세요. 중독·보호·역할 변경은 메모와 배정 수정으로 기록합니다. 밤의 사망 상태는 낮 시작 때 공개됩니다.</p>
+    {room.phase === 'SETUP' && <ClocktowerRoleSetup key={members.map(m=>m.user_id).sort().join(',')} members={members} busy={busy || layoutEditing} onEditingChange={setRolesEditing} save={(rows,expected)=>run('save_roles',{rows,expected})} />}
+    <ClocktowerSeating key={members.map(m => m.user_id + ':' + m.seat).join(',')} members={members} onEditingChange={setLayoutEditing} layout={room.seating_layout} revision={room.seating_revision} save={(layout, revision) => run('save_layout', { layout, revision })} editable={room.phase === 'SETUP'} busy={busy || rolesEditing} myId={state.my_id} sync={() => void run('sync_participants')} swap={(a, b) => run('swap_seats', { first_user_id: a.user_id, second_user_id: b.user_id, first_seat: a.seat, second_seat: b.seat })} />
+    <p className="text-sm leading-7 text-zinc-400">능력 순서와 판정은 이야기꾼이 결정합니다. 첫날 악의 팀 정보·악마 블러프와 점쟁이의 오인 대상을 준비하세요. 남작의 초기 인원 구성은 역할 배정에서 검증합니다. 중독·보호·역할 변경은 메모와 배정 수정으로 기록합니다. 밤의 사망 상태는 낮 시작 때 공개됩니다.</p>
     <section className="rounded-3xl border border-white/10 p-5"><div className="flex items-center justify-between"><h2 className="text-xl font-bold">마도서 · {members.length}명</h2>{room.phase === 'SETUP' && <button disabled={busy} className={subtle} onClick={() => setEdit({ user_id: '', name: '', seat: Array.from({length:20}, (_,i)=>i+1).find(seat=>!members.some(m=>m.seat===seat)) ?? 20, alive: true, actual_role: '', shown_role: '', notes: '' })}>참가자 배정</button>}</div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">{members.map(m => <div key={m.user_id} className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"><div className="flex flex-wrap justify-between gap-2"><h3 className="font-bold">{m.seat}. <ClocktowerName member={m} /> · {m.alive ? '생존' : '사망'}</h3><span className="text-violet-300">{m.actual_role || '역할 미배정'}{m.actual_role !== m.shown_role ? ` (본인 표시: ${m.shown_role})` : ''}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-zinc-400">{m.notes || '메모 없음'}</p><div className="mt-3 flex flex-wrap gap-2">{room.phase !== 'ENDED' && <button className={subtle} onClick={() => setEdit(m)}>역할·상태 수정</button>}{room.phase === 'NIGHT' && <button className={subtle} onClick={() => prepare(m)}>능력·정보 요청 준비</button>}</div></div>)}</div>
     </section>
-    {edit && <div ref={editorArea} className="scroll-mt-6"><MemberEditor key={edit.user_id || 'new'} member={edit} candidates={state.candidates ?? []} members={members} setup={room.phase === 'SETUP'} busy={busy || layoutEditing} run={run} close={() => setEdit(null)} /></div>}
+    {edit && <div ref={editorArea} className="scroll-mt-6"><MemberEditor key={edit.user_id || 'new'} member={edit} candidates={state.candidates ?? []} members={members} setup={room.phase === 'SETUP'} busy={busy || layoutEditing || rolesEditing} run={run} close={() => setEdit(null)} /></div>}
     {room.phase === 'NIGHT' && <form ref={requestForm} className="scroll-mt-6 rounded-3xl border border-violet-400/30 p-5" onSubmit={async e => { e.preventDefault(); if (await run('request', { user_id: recipient, night: room.night, prompt, target_count: count, allow_self: self })) { setPrompt(''); setRecipient(''); } }}>
       <h2 className="mb-4 text-xl font-bold">비공개 요청 보내기</h2>
       <fieldset disabled={busy} className="space-y-4"><label className="block">받는 사람<select required value={recipient} onChange={e => { const m = members.find(m=>m.user_id===e.target.value); if(m) prepare(m); else setRecipient(''); }} className={`${field} mt-2`}><option value="">참가자 선택</option>{members.map(m=><option key={m.user_id} value={m.user_id}>{m.seat}. {m.name}{birthYearLabel(m.birth_year) ? ` · ${birthYearLabel(m.birth_year)}` : ''} · {m.shown_role || '역할 미배정'}</option>)}</select></label>
