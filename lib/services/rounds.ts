@@ -1,12 +1,14 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ResultType } from "@/types/event";
+import { tichuResult } from "@/lib/tichu";
 
 const ROUNDS = "event_game_rounds";
 const ROUND_PLAYERS = "event_round_players";
 
 export type RoundResultInput = {
   isGm?: boolean;
+  teamName?: string | null;
   userId: string;
   score: number | null;
   rank: number | null;
@@ -17,16 +19,18 @@ export async function saveRoundResults(
   roundId: string,
   resultType: ResultType,
   values: RoundResultInput[],
+  teamScore = false,
 ) {
   if (values.length === 0) throw new Error("저장할 참가자가 없습니다.");
 
   const players = values.filter(value => !value.isGm);
+  const teamResult = teamScore ? tichuResult(values) : null;
   if (resultType === "SCORE" && players.some((value) => value.score === null || !Number.isFinite(value.score))) {
     throw new Error("모든 참가자의 점수를 입력해 주세요.");
   }
 
   const ranks = players.map((value) => value.rank).filter((rank): rank is number => rank !== null);
-  if (resultType === "SIMPLE_SCORE" && (ranks.length !== players.length || new Set(ranks).size !== ranks.length || ranks.some(rank => !Number.isInteger(rank) || rank < 1 || rank > players.length))) {
+  if (!teamScore && resultType === "SIMPLE_SCORE" && (ranks.length !== players.length || new Set(ranks).size !== ranks.length || ranks.some(rank => !Number.isInteger(rank) || rank < 1 || rank > players.length))) {
     throw new Error("모든 참가자에게 서로 다른 등수를 선택해 주세요.");
   }
 
@@ -35,11 +39,11 @@ export async function saveRoundResults(
       round_id: roundId,
       user_id: value.userId,
       is_gm: value.isGm === true,
-      score: !value.isGm && resultType === "SCORE" ? value.score : null,
-      rank: !value.isGm && resultType === "SIMPLE_SCORE" ? value.rank : null,
+      score: !value.isGm && (teamScore || resultType === "SCORE") ? value.score : null,
+      rank: !value.isGm && !teamScore && resultType === "SIMPLE_SCORE" ? value.rank : null,
       role_name: null,
-      team_name: null,
-      is_winner: null,
+      team_name: !value.isGm && teamResult ? value.teamName : null,
+      is_winner: !value.isGm && teamResult?.winner ? value.teamName === teamResult.winner : null,
       updated_at: new Date().toISOString(),
     })),
     { onConflict: "round_id,user_id" },
@@ -50,7 +54,7 @@ export async function saveRoundResults(
 export async function clearRoundResults(supabase: SupabaseClient, roundId: string) {
   const { error } = await supabase
     .from(ROUND_PLAYERS)
-    .update({ score: null, rank: null, is_gm: false, updated_at: new Date().toISOString() })
+    .update({ score: null, rank: null, role_name: null, team_name: null, is_winner: null, is_gm: false, updated_at: new Date().toISOString() })
     .eq("round_id", roundId);
   if (error) throw error;
 }
@@ -96,4 +100,3 @@ export async function createRound(
     throw playersError;
   }
 }
-

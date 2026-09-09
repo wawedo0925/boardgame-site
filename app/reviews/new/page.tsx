@@ -1,4 +1,5 @@
 "use client";
+import { teamScoreLabel } from "@/lib/tichu";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -14,6 +15,8 @@ function one<T>(value: T | T[] | null) { return Array.isArray(value) ? value[0] 
 function dateText(value: string) { return new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(value)); }
 function resultText(play: Play) {
   if (play.is_gm) return "GM 진행";
+  const teamResult = teamScoreLabel(play);
+  if (teamResult) return teamResult;
   const details = [play.score !== null ? `${play.score}점` : null, play.rank !== null ? `${play.rank}등` : null, play.is_winner !== null ? (play.is_winner ? "승리" : "패배") : null, play.role_name, play.team_name].filter(Boolean);
   return details.length ? details.join(" · ") : "결과 입력 없음";
 }

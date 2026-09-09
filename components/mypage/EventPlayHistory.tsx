@@ -1,4 +1,5 @@
 "use client";
+import { teamScoreLabel } from "@/lib/tichu";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -17,6 +18,8 @@ function singleGame(value: SessionRow["games"]) {
 
 function resultLabel(item: PlayItem) {
   if (item.is_gm) return "GM 진행";
+  const teamResult = teamScoreLabel(item);
+  if (teamResult) return teamResult;
   if (item.resultType === "ROLE") {
     if (item.is_winner === null) return "결과 미입력";
     return `${item.role_name || "역할 미정"} · ${item.is_winner ? "승리" : "패배"}`;
@@ -107,7 +110,7 @@ export default function EventPlayHistory({ userId }: { userId?: string } = {}) {
   const gmCount = plays.length - playerPlays.length;
   const uniqueGames = new Set(playerPlays.map(play => play.gameId)).size;
   const firstPlaces = playerPlays.filter(play => play.rank === 1).length;
-  const roleResults = playerPlays.filter(play => play.resultType === "ROLE" && play.is_winner !== null);
+  const roleResults = playerPlays.filter(play => play.is_winner !== null);
   const roleWins = roleResults.filter(play => play.is_winner).length;
   const gameCounts = new Map<string, { id: string; name: string; count: number }>();
   playerPlays.forEach(play => { const current = gameCounts.get(play.gameId); gameCounts.set(play.gameId, { id: play.gameId, name: play.gameName, count: (current?.count ?? 0) + 1 }); });
@@ -117,7 +120,7 @@ export default function EventPlayHistory({ userId }: { userId?: string } = {}) {
   return <section className="mt-8 rounded-3xl border border-emerald-400/20 bg-emerald-400/[0.035] p-5 sm:p-8">
     <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-sm font-semibold tracking-[0.2em] text-emerald-300">EVENT PLAY HISTORY</p><h2 className="mt-2 text-2xl font-bold">이벤트 플레이 기록</h2><p className="mt-2 text-sm text-zinc-500">이벤트에서 입력된 게임 판과 결과를 자동으로 모았습니다.</p></div><Link href="/events" className="rounded-xl border border-white/10 px-4 py-2 text-sm text-zinc-300 hover:bg-white/5">이벤트 보기</Link></div>
     {loading ? <div className="mt-6 h-40 animate-pulse rounded-2xl bg-white/[0.04]"/> : error ? <p className="mt-6 rounded-2xl border border-red-400/20 bg-red-400/[0.06] p-4 text-sm text-red-300">{error}</p> : <>
-      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5"><Stat label="참여 이벤트" value={`${events.length}개`}/><Stat label="전체 플레이" value={`${playerPlays.length}판`}/><Stat label="플레이 게임" value={`${uniqueGames}종`}/><Stat label="점수형 1등" value={`${firstPlaces}회`}/><Stat label="역할형 승률" value={roleResults.length ? `${Math.round(roleWins / roleResults.length * 100)}%` : "-"}/></div>
+      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5"><Stat label="참여 이벤트" value={`${events.length}개`}/><Stat label="전체 플레이" value={`${playerPlays.length}판`}/><Stat label="플레이 게임" value={`${uniqueGames}종`}/><Stat label="점수형 1등" value={`${firstPlaces}회`}/><Stat label="팀·역할 승률" value={roleResults.length ? `${Math.round(roleWins / roleResults.length * 100)}%` : "-"}/></div>
       {gmCount > 0 && <p className="mt-3 text-sm text-violet-300">GM 진행 {gmCount}회 · 플레이 통계에서 제외</p>}
       <div className="mt-6 grid gap-5 lg:grid-cols-[0.85fr_1.5fr]">
         <article className="rounded-2xl border border-white/10 bg-zinc-950/40 p-4"><h3 className="font-bold">자주 플레이한 게임</h3><div className="mt-3 space-y-2">{topGames.map((game, index) => <Link key={game.id} href={`/boardgames/${game.id}`} className="flex justify-between rounded-xl bg-white/[0.04] px-3 py-3 text-sm hover:bg-white/[0.08]"><span><b className="mr-2 text-emerald-300">{index + 1}</b>{game.name}</span><strong>{game.count}판</strong></Link>)}{!topGames.length && <p className="py-6 text-center text-sm text-zinc-600">아직 입력된 결과가 없습니다.</p>}</div></article>

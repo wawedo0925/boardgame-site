@@ -1,4 +1,6 @@
 "use client";
+import TeamScoreSummary from "./TeamScoreSummary";
+import { teamScoreLabel } from "@/lib/tichu";
 
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -30,9 +32,9 @@ export default function GameCard({ eventGame, canManage, onChanged, onAddRound }
       const hasResult=round.players.some((player)=>player.is_gm||player.score!==null||player.rank!==null||player.role_name!==null);
       const sorted=[...round.players].sort((a,b)=>eventGame.result_type==="SIMPLE_SCORE"?(a.rank??999)-(b.rank??999):(b.score??-Infinity)-(a.score??-Infinity));
       return <section key={round.id} className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4"><div className="flex items-center justify-between gap-3"><p className="font-bold text-white">{round.round_number}판</p>{canManage&&<div className="flex gap-2">{eventGame.result_type==="ROLE"?<button onClick={()=>setEditingRole(round)} className="min-h-10 rounded-lg bg-white/10 px-3 text-sm font-semibold">{hasResult?"역할 수정":"역할 입력"}</button>:<button onClick={()=>setEditing(round)} className="min-h-10 rounded-lg bg-white/10 px-3 text-sm font-semibold">{hasResult?"결과 수정":"결과 입력"}</button>}<button onClick={()=>removeRound(round)} className="min-h-10 rounded-lg border border-red-400/20 px-3 text-sm text-red-300">판 삭제</button></div>}</div>
-        <div className="mt-3 space-y-2">{sorted.map((player)=><div key={player.user_id} className="flex min-h-10 items-center justify-between gap-3 rounded-xl bg-white/[0.04] px-3"><span className="truncate text-sm text-zinc-300">{name(player)}</span><strong className="shrink-0 text-amber-300">{player.is_gm?"GM 진행":eventGame.result_type==="ROLE"?(player.role_name?`${player.role_name} · ${player.is_winner?"승리":"패배"}`:"역할 미입력"):eventGame.result_type==="SCORE"?(player.score===null?"미입력":`${player.score.toLocaleString()}점`):(player.rank===null?"미입력":`${player.rank}등`)}</strong></div>)}</div>
+        <TeamScoreSummary players={round.players}/><div className="mt-3 space-y-2">{sorted.map((player)=><div key={player.user_id} className="flex min-h-10 items-center justify-between gap-3 rounded-xl bg-white/[0.04] px-3"><span className="truncate text-sm text-zinc-300">{name(player)}</span><strong className="shrink-0 text-amber-300">{player.is_gm?"GM 진행":teamScoreLabel(player)??(eventGame.result_type==="ROLE"?(player.role_name?`${player.role_name} · ${player.is_winner?"승리":"패배"}`:"역할 미입력"):eventGame.result_type==="SCORE"?(player.score===null?"미입력":`${player.score.toLocaleString()}점`):(player.rank===null?"미입력":`${player.rank}등`))}</strong></div>)}</div>
       </section>})}</div>
-    {editing&&<RoundResultDialog round={editing} resultType={eventGame.result_type} onClose={()=>setEditing(null)} onSaved={onChanged}/>} 
+    {editing&&<RoundResultDialog gameName={eventGame.game?.name} round={editing} resultType={eventGame.result_type} onClose={()=>setEditing(null)} onSaved={onChanged}/>} 
     {editingRole&&eventGame.game&&<RoleResultDialog round={editingRole} gameId={eventGame.game.id} onClose={()=>setEditingRole(null)} onSaved={onChanged}/>} 
   </article>;
 }
