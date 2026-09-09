@@ -845,6 +845,8 @@ export default function EventDetailPage() {
                 </>
               )}
 
+              {event.event_kind === "CLOCKTOWER" && <Link href={`/events/${eventId}/clocktower`} className="block rounded-2xl border border-violet-400/30 bg-violet-400/10 p-5 font-bold text-violet-200">점철되는 혼란 · 밤 진행 도우미 열기 →</Link>}
+
               {event.event_kind === "MURDER_MYSTERY" &&
               event.murder_mystery_id ? (
                 <MurderMysteryEventPanel
