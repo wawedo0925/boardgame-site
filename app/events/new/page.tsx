@@ -421,12 +421,12 @@ export default function NewEventPage() {
             <div className="grid gap-7">
               <div className="grid gap-3">
                 <span className="text-sm font-semibold text-zinc-200">이벤트 종류</span>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                  <button type="button" onClick={() => selectEventKind("GENERAL")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "GENERAL" ? "border-sky-400 bg-sky-400/10 text-sky-300" : "border-white/10 text-zinc-500"}`}>일반 이벤트</button>
-                  <button type="button" onClick={() => selectEventKind("BOARDGAME")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "BOARDGAME" ? "border-amber-400 bg-amber-400/10 text-amber-300" : "border-white/10 text-zinc-500"}`}>보드게임</button>
+                <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                  <button type="button" onClick={() => selectEventKind("BOARDGAME")} className={`col-span-2 lg:col-span-4 rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "BOARDGAME" ? "border-amber-400 bg-amber-400/10 text-amber-300" : "border-white/10 text-zinc-500"}`}>보드게임</button>
                   <button type="button" onClick={() => selectEventKind("MURDER_MYSTERY")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "MURDER_MYSTERY" ? "border-red-400 bg-red-400/10 text-red-300" : "border-white/10 text-zinc-500"}`}>머더미스터리</button>
-                  <button type="button" onClick={() => selectEventKind("HOLDEM")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "HOLDEM" ? "border-emerald-400 bg-emerald-400/10 text-emerald-300" : "border-white/10 text-zinc-500"}`}>🃏 홀덤</button>
+                  <button type="button" onClick={() => selectEventKind("HOLDEM")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "HOLDEM" ? "border-emerald-400 bg-emerald-400/10 text-emerald-300" : "border-white/10 text-zinc-500"}`}>홀덤</button>
                   <button type="button" onClick={() => selectEventKind("CLOCKTOWER")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "CLOCKTOWER" ? "border-violet-400 bg-violet-400/10 text-violet-300" : "border-white/10 text-zinc-500"}`}>시계탑에 흐른 피</button>
+                  <button type="button" onClick={() => selectEventKind("GENERAL")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "GENERAL" ? "border-sky-400 bg-sky-400/10 text-sky-300" : "border-white/10 text-zinc-500"}`}>일반 이벤트</button>
                 </div>
               </div>
 
@@ -444,6 +444,7 @@ export default function NewEventPage() {
               </div>}
 
               {form.eventKind === "GENERAL" && <div className="rounded-2xl border border-sky-400/20 bg-sky-400/[0.04] p-4 text-sm leading-6 text-zinc-400"><strong className="text-sky-300">일반 이벤트</strong><br/>페스티벌, 엠티, 번개 모임처럼 게임 진행이 필요 없는 일정입니다. 참가 신청·정원·대기자·출석·공지 기능만 사용합니다.</div>}
+              {form.eventKind === "HOLDEM" && <p className="text-sm text-emerald-300">저장하면 제목 끝에 Vol.번호가 자동으로 붙습니다. 홀덤 이벤트는 직접 만들 때만 추가됩니다.</p>}
               {form.eventKind !== "MURDER_MYSTERY" && form.eventKind !== "CLOCKTOWER" && <label className="grid gap-3">
                 <span className="text-sm font-semibold text-zinc-200">
                   이벤트 제목 <span className="text-amber-400">*</span>
