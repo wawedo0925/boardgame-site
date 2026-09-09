@@ -57,9 +57,10 @@ export default async function Home() {
     supabase
       .from("notices")
       .select("id,title,important")
+      .eq("is_update", false)
       .order("important", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(3),
+      .limit(2),
     supabase
       .from("events")
       .select("id,title,started_at,ended_at,location,description,event_kind,participation_fee,max_participants,event_participants(id,participation_role,gm_pending)")
@@ -187,6 +188,7 @@ export default async function Home() {
             </div>
 
             <div className="space-y-3">
+              <Link href="/notice/updates" className="block rounded-2xl border border-amber-400/30 bg-amber-400/5 p-5 font-semibold text-amber-300 hover:bg-amber-400/10">최신업데이트 확인하기 →</Link>
               {notices.map((notice, index) => (
                 <Link
                   key={notice.id}

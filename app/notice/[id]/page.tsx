@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import NoticeActions from "./NoticeActions";
@@ -34,7 +34,7 @@ export default async function NoticeDetailPage({
 
   const { data, error } = await supabase
     .from("notices")
-    .select("id, title, content, important, created_at")
+    .select("id, title, content, important, created_at, is_update")
     .eq("id", id)
     .maybeSingle();
 
@@ -46,6 +46,7 @@ export default async function NoticeDetailPage({
     notFound();
   }
 
+  if (data.is_update) redirect(`/notice/updates?id=${id}`);
   const notice = data as NoticeRow;
   const { data: authors } = await supabase.rpc("get_notice_authors", { notice_ids: [id] });
   const authorName = authors?.[0]?.author_name || "작성자 정보 없음";

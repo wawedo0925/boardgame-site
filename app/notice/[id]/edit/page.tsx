@@ -16,7 +16,7 @@ async function updateNotice(id: string, _state: { error: string }, formData: For
   if (!title || !content) return { error: "제목과 내용을 모두 입력해 주세요." };
   if (title.length > 150 || content.length > 10000) return { error: "제목은 150자, 내용은 10,000자까지 입력할 수 있습니다." };
   const { data, error } = await supabase.from("notices")
-    .update({ title, content, important: formData.get("important") === "on" })
+    .update({ title, content, important: formData.get("important") === "on", is_update: formData.get("is_update") === "on" })
     .eq("id", id).select("id").maybeSingle();
   if (error || !data) {
     console.error("공지사항 수정 오류:", error);
@@ -24,9 +24,10 @@ async function updateNotice(id: string, _state: { error: string }, formData: For
   }
   revalidatePath("/");
   revalidatePath("/notice");
+  revalidatePath("/notice/updates");
   revalidatePath(`/notice/${id}`);
   revalidatePath(`/notice/${id}/edit`);
-  redirect(`/notice/${id}`);
+  redirect(formData.get("is_update") === "on" ? `/notice/updates?id=${id}` : `/notice/${id}`);
 }
 
 export default async function EditNoticePage({ params }: { params: Promise<{ id: string }> }) {
@@ -36,7 +37,7 @@ export default async function EditNoticePage({ params }: { params: Promise<{ id:
   if (!user) redirect("/login");
   const { data: allowed, error: permissionError } = await supabase.rpc("can_manage_notices");
   if (permissionError || !allowed) redirect("/notice");
-  const { data: notice, error } = await supabase.from("notices").select("id,title,content,important").eq("id", id).maybeSingle();
+  const { data: notice, error } = await supabase.from("notices").select("id,title,content,important,is_update").eq("id", id).maybeSingle();
   if (error) throw new Error("공지사항을 불러오지 못했습니다.");
   if (!notice) notFound();
   return <main className="min-h-screen bg-zinc-950 text-white">

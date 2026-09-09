@@ -17,6 +17,7 @@ export async function deleteNotice(id: string, _state: { error: string }, _form:
   }
   revalidatePath("/");
   revalidatePath("/notice");
+  revalidatePath("/notice/updates");
   revalidatePath(`/notice/${id}`);
   revalidatePath(`/notice/${id}/edit`);
   redirect("/notice");

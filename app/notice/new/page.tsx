@@ -44,6 +44,7 @@ async function createNotice(_state: { error: string }, formData: FormData) {
       title,
       content,
       important,
+      is_update: formData.get("is_update") === "on",
       author_id: user.id,
     })
     .select("id")
@@ -56,10 +57,12 @@ async function createNotice(_state: { error: string }, formData: FormData) {
 
   revalidatePath("/");
   revalidatePath("/notice");
-  redirect(`/notice/${data.id}`);
+  revalidatePath("/notice/updates");
+  redirect(formData.get("is_update") === "on" ? `/notice/updates?id=${data.id}` : `/notice/${data.id}`);
 }
 
-export default async function NewNoticePage() {
+export default async function NewNoticePage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
+  const isUpdate = (await searchParams).type === "update";
   const supabase = await createClient();
 
   const {
@@ -100,7 +103,7 @@ export default async function NewNoticePage() {
       </section>
 
       <section className="mx-auto max-w-4xl px-6 py-14">
-        <NewNoticeForm action={createNotice} />
+        <NewNoticeForm action={createNotice} initialIsUpdate={isUpdate} />
       </section>
     </main>
   );

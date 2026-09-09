@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 type Props = {
+  initialIsUpdate: boolean;
   action: (state: { error: string }, data: FormData) => Promise<{ error: string }>;
 };
 
-export default function NewNoticeForm({ action }: Props) {
+export default function NewNoticeForm({ action, initialIsUpdate }: Props) {
   const [state, save, pending] = useActionState(action, { error: "" });
+  const [isUpdate, setIsUpdate] = useState(initialIsUpdate);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [important, setImportant] = useState(false);
@@ -33,6 +35,7 @@ export default function NewNoticeForm({ action }: Props) {
 💬 의견을 들려주세요
 사용 중 불편한 점이나 원하는 기능이 있다면 운영진에게 알려 주세요.
 여러분의 의견을 반영해 더 편하게 이용할 수 있도록 개선하겠습니다.`);
+    setIsUpdate(true);
     setTemplateLoaded(true);
   }
 
@@ -47,6 +50,7 @@ export default function NewNoticeForm({ action }: Props) {
             <p className="mt-3 text-sm leading-6 text-zinc-400">새 기능과 변경 사항을 알리는 공지 양식입니다. 제목과 모든 내용은 자유롭게 고치거나 지울 수 있으며, 등록 후에도 수정할 수 있습니다.</p>
             {templateLoaded && <p role="status" className="mt-2 text-sm text-amber-300">양식을 불러왔습니다. 예시를 이번 업데이트 내용으로 바꿔 주세요.</p>}
           </div>
+          <label className="mb-6 flex items-center gap-3 rounded-2xl border border-white/10 p-4"><input type="checkbox" name="is_update" checked={isUpdate} onChange={event => setIsUpdate(event.target.checked)} className="h-5 w-5 accent-amber-400" /><span>업데이트 글로 등록 <span className="block text-sm text-zinc-400">최신업데이트 확인하기 안에 모아서 표시됩니다.</span></span></label>
           <label className="block">
             <span className="mb-2 block text-sm font-semibold text-zinc-300">
               제목

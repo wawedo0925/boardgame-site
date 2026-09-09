@@ -30,6 +30,7 @@ export default async function NoticePage() {
     supabase
       .from("notices")
       .select("id, title, important, created_at")
+      .eq("is_update", false)
       .order("important", { ascending: false })
       .order("created_at", { ascending: false }),
 
@@ -70,6 +71,7 @@ export default async function NoticePage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-6 py-16">
+        <Link href="/notice/updates" className="mb-6 flex items-center justify-between gap-4 rounded-3xl border border-amber-400/30 bg-amber-400/5 p-6 transition hover:bg-amber-400/10"><div><h2 className="text-xl font-bold text-amber-300">최신업데이트 확인하기</h2><p className="mt-2 text-sm text-zinc-400">새로운 기능과 이전 업데이트를 한곳에서 확인하세요.</p></div><span aria-hidden="true">→</span></Link>
         {error ? (
           <div className="rounded-3xl border border-red-400/20 bg-red-400/5 px-6 py-12 text-center text-red-300">
             공지사항을 불러오지 못했습니다.
