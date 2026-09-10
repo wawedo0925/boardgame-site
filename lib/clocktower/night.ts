@@ -51,7 +51,7 @@ export function taskRequest(task:NightTask) {
   const count=task.role==='점쟁이'?2:['독살범','수도사','임프','까마귀지기','집사'].includes(task.role)?1:0;
   return {user_id:task.user_id,target_count:count,allow_self:!['수도사','집사'].includes(task.role),prompt:count?`${task.role} · ${count===2?'확인할 참가자 두 명':'능력을 사용할 참가자 한 명'}을 선택해 주세요.`:'이야기꾼이 확인한 정보를 전달합니다.'};
 }
-export type NightProposal = {result:string;reason:string[];effect:string;victim?:string;successor?:string;requiresChoice?:boolean;choices?:LiveMember[]};
+export type NightProposal = {result:string;reason:string[];effect:string;victim?:string;successor?:string;requiresChoice?:boolean;canRedirect?:boolean;choices?:LiveMember[]};
 export function propose(task:NightTask,targets:string[],e:NightEngine,members:LiveMember[],override?:{victim?:string;successor?:string}):NightProposal {
   const m=members.find(x=>x.user_id===task.user_id)!;
   const name=(id:string)=>{const x=members.find(y=>y.user_id===id);return x?`${x.seat}번 ${x.name}`:'없음';};
@@ -73,12 +73,16 @@ export function propose(task:NightTask,targets:string[],e:NightEngine,members:Li
   if(task.role==='집사'){p.effect=disabled?'주인 지정 적용 안 함':`주인: ${t?name(t.user_id):''}`;return p;}
   if(task.role==='임프'){
     let victim=t;
-    if(override?.victim!==undefined)victim=members.find(x=>x.user_id===override.victim);
     if(disabled){p.effect='임프의 능력이 없어 사망하지 않습니다.';return p;}
     const protectedByMonk=(x:LiveMember)=>{const protection=e.protection;const monk=members.find(y=>y.user_id===protection?.source);return protection?.night===e.night&&protection.target===x.user_id&&monk?.alive&&monk.actual_role==='수도사'&&!impaired(monk,e,members);};
+    // Resolve the original attack before considering the Mayor's replacement.
+    if(!t?.alive){p.effect='생존한 사망 대상 없음';return p;}
+    if(protectedByMonk(t)||(t.actual_role==='군인'&&!impaired(t,e,members))){p.effect=`${name(t.user_id)} 보호로 사망하지 않습니다.`;return p;}
+    p.canRedirect=t.actual_role==='시장'&&!impaired(t,e,members);
+    if(p.canRedirect&&override?.victim!==undefined)victim=members.find(x=>x.user_id===override.victim);
     if(!victim?.alive){p.effect='생존한 사망 대상 없음';return p;}
     if(protectedByMonk(victim)||(victim.actual_role==='군인'&&!impaired(victim,e,members))){p.effect=`${name(victim.user_id)} 보호로 사망하지 않습니다.`;return p;}
-    if(t?.actual_role==='시장'&&!impaired(t,e,members)&&!protectedByMonk(t)&&override?.victim===undefined){p.requiresChoice=true;p.reason.push('시장: 그대로 사망시키거나 다른 사망 대상을 선택해 주세요.');}
+    if(p.canRedirect&&override?.victim===undefined){p.requiresChoice=true;p.reason.push('시장: 그대로 사망시키거나 다른 사망 대상을 선택해 주세요.');}
     p.victim=victim.user_id;p.effect=`${name(victim.user_id)} 사망 (새벽까지 비공개)`;
     if(victim.actual_role==='임프'){
       const scarlet=members.find(x=>x.actual_role==='탕녀'&&x.alive&&!impaired(x,e,members));
