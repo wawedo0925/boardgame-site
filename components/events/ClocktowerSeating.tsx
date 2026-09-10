@@ -35,13 +35,17 @@ export default function ClocktowerSeating({ members, layout = {}, revision = 0, 
   const [draft, setDraft] = useState<SeatLayout | null>(null);
   const [baseRevision, setBaseRevision] = useState(0);
   const [mode, setMode] = useState<'view' | 'move' | 'order'>('view');
+  const [orderDraft, setOrderDraft] = useState<Record<string,number> | null>(null);
+  const [swaps, setSwaps] = useState<[LiveMember,LiveMember][]>([]);
+  const [savingOrder, setSavingOrder] = useState(false);
+  busy = busy || savingOrder;
   const [showOrder, setShowOrder] = useState(false);
   const [zoom, setZoom] = useState<number | null>(null);
   const [fit, setFit] = useState(0.7);
   const viewport = useRef<HTMLDivElement>(null);
   const board = useRef<HTMLDivElement>(null);
   const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
-  const ordered = [...members].sort((a, b) => a.seat - b.seat);
+  const ordered = members.map(m=>({...m,seat:orderDraft?.[m.user_id]??m.seat})).sort((a, b) => a.seat - b.seat);
   const defaults = gridLayout(members);
   const positions = (editable ? draft : null) ?? Object.fromEntries(ordered.map(m => [m.user_id, layout[m.user_id] ?? defaults[m.user_id]]));
   const scale = zoom ?? fit;
@@ -64,13 +68,26 @@ export default function ClocktowerSeating({ members, layout = {}, revision = 0, 
   function move(id: string, x: number, y: number) {
     setDraft(current => ({ ...(current ?? positions), [id]: { x: clamp(x, 60, 940), y: clamp(y, 40, 660) } }));
   }
-  function cancel() { onEditingChange?.(false); setDraft(null); setMode('view'); setSelected(null); drag.current = null; }
+  function cancel() { onEditingChange?.(false); setDraft(null); setOrderDraft(null); setSwaps([]); setMode('view'); setSelected(null); drag.current = null; }
   async function chooseOrder(member: LiveMember) {
     if (!editable || busy || mode !== 'order') return;
-    const first = members.find(m => m.user_id === selected);
+    const first = ordered.find(m => m.user_id === selected);
     if (!first) { setSelected(member.user_id); return; }
     if (first.user_id === member.user_id) { setSelected(null); return; }
-    if (await swap?.(first, member)) setSelected(null);
+    setOrderDraft(current=>({...current,[first.user_id]:member.seat,[member.user_id]:first.seat}));
+    setSwaps(current=>[...current,[first,member]]);
+    setSelected(null);
+  }
+  async function saveOrder() {
+    if(busy||!swap)return;
+    setSavingOrder(true);
+    try {
+      for(const [first,second] of swaps) {
+        if(!await swap(first,second))return;
+        setSwaps(current=>current.slice(1));
+      }
+      cancel();
+    } finally {setSavingOrder(false);}
   }
 
   return <section className="rounded-3xl border border-violet-400/25 bg-violet-400/[0.025] p-4 sm:p-6">
@@ -78,13 +95,14 @@ export default function ClocktowerSeating({ members, layout = {}, revision = 0, 
     <p className="mt-3 text-sm leading-6 text-zinc-400">{editable ? '실제로 앉은 위치에 맞춰 카드를 자유롭게 배치하세요. 저장하면 참가자들에게도 같은 모양으로 보입니다.' : '실제 앉은 위치에 맞춰 이야기꾼이 배치한 자리입니다. 작게 보이면 확대해서 확인하세요.'}</p>
     <p className="mt-2 text-xs text-zinc-400">흰색: 생존 · 회색: 사망 · ●: 남은 투표권 · ○: 투표권 사용 완료{storyteller?' · 직업·상태·메모는 이야기꾼에게만 표시됩니다.':''}</p>
     {editable && <div className="mt-4 flex flex-wrap gap-2">
-      {mode === 'view' ? <><button disabled={busy || !members.length} className="rounded-xl bg-violet-400 px-4 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={() => { onEditingChange?.(true); setDraft(positions); setBaseRevision(revision); setMode('move'); setZoom(Math.max(fit, 0.7)); }}>배치 편집</button><button disabled={busy || members.length < 2} className={control} onClick={() => { setMode('order'); setShowOrder(true); setZoom(Math.max(fit, 0.7)); }}>이웃 순서 바꾸기</button></> : <>
+      {mode === 'view' ? <><button disabled={busy || !members.length} className="rounded-xl bg-violet-400 px-4 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={() => { onEditingChange?.(true); setDraft(positions); setBaseRevision(revision); setMode('move'); setZoom(Math.max(fit, 0.7)); }}>배치 편집</button><button disabled={busy || members.length < 2} className={control} onClick={() => { onEditingChange?.(true); setOrderDraft(Object.fromEntries(members.map(m=>[m.user_id,m.seat]))); setSwaps([]); setSelected(null); setMode('order'); setShowOrder(true); setZoom(Math.max(fit, 0.7)); }}>이웃 순서 바꾸기</button></> : <>
         {editing && <><button disabled={busy} className="rounded-xl bg-violet-400 px-4 py-2 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={async () => { if (draft && await save?.(draft, baseRevision)) cancel(); }}>배치 저장</button><button disabled={busy} className={control} onClick={() => { setDraft(gridLayout(members)); setSelected(null); }}>줄 맞추기</button></>}
-        <button disabled={busy} className={control} onClick={cancel}>{editing ? '취소' : '순서 변경 마치기'}</button>
+        {mode === 'order' && <button disabled={busy} className={control} onClick={() => void saveOrder()}>순서 저장</button>}
+        <button disabled={busy} className={control} onClick={cancel}>취소</button>
       </>}
     </div>}
     {editing && <p role="status" className="mt-3 text-sm text-violet-200">카드를 끌어 놓거나, 카드를 누른 뒤 빈 곳을 누르세요. 선택한 카드는 방향키로도 이동할 수 있습니다. 저장 전에는 본인 화면에만 보입니다.</p>}
-    {editable && mode === 'order' && <p role="status" className="mt-3 text-sm text-violet-200">두 사람을 차례로 누르면 자리 번호가 서로 바뀝니다. 번호와 연결선이 실제 이웃 순서와 맞는지 확인하세요.</p>}
+    {editable && mode === 'order' && <p role="status" className="mt-3 text-sm text-violet-200">두 사람씩 계속 선택해 순서를 바꾸세요. 저장을 누르면 변경 사항이 반영되고 편집이 종료됩니다.</p>}
     <div className="mt-4 flex flex-wrap items-center gap-2"><button className={control} onClick={() => setZoom(null)}>전체 보기</button><button className={control} onClick={() => setZoom(Math.max(0.25, scale - 0.15))} aria-label="배치 축소">−</button><span className="w-12 text-center text-xs text-zinc-400">{Math.round(scale * 100)}%</span><button className={control} onClick={() => setZoom(Math.min(1.5, scale + 0.15))} aria-label="배치 확대">＋</button><label className="ml-auto flex items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={showOrder} onChange={e => setShowOrder(e.target.checked)} />이웃 연결선</label></div>
     <div ref={viewport} className="mt-4 overflow-auto rounded-2xl border border-white/10 bg-zinc-950" style={{ maxHeight: 750 }}>
       {!ordered.length ? <p className="p-10 text-center text-zinc-400">아직 배정된 참가자가 없습니다.</p> : <div style={{ width: 1160 * scale, height: 860 * scale }} className="relative">
