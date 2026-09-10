@@ -24,10 +24,10 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
   const reopen=(key:string)=>{setDismissed(dismissed.filter(k=>k!==key));setHint('');};
   const name=(id:string)=>{const member=members.find(m=>m.user_id===id);return member?<ClocktowerName member={member}/>:<span>참가자</span>;};
   return <section className="space-y-4">
-    {activeNight&&<div className="rounded-2xl border border-violet-300/25 bg-violet-400/5 p-5"><h3 className="font-bold text-violet-200">밤 활동</h3><p className="mt-2 text-sm leading-6 text-zinc-400">화면을 계속 확인해 주세요. 공통 미션은 밤 동안 두 차례 도착합니다. 잠시 닫은 활동은 아래 버튼으로 다시 열 수 있습니다.</p>
+    {activeNight&&<div className="rounded-2xl border border-violet-300/25 bg-violet-400/5 p-5"><h3 className="font-bold text-violet-200">밤 활동</h3><p className="mt-2 text-sm leading-6 text-zinc-400">화면을 계속 확인해 주세요. 밤 시작 직후 첫 미션이 도착하고, 밤 동안 추가 미션이 무작위로 도착합니다. 잠시 닫은 활동은 아래 버튼으로 다시 열 수 있습니다.</p>
       <div className="mt-3 flex flex-wrap gap-2">{actionable.map(q=><button key={q.id} className={button} onClick={()=>reopen(`request:${q.id}:${q.status}`)}>{q.status==='RESOLVED'?'도착한 결과 확인':'능력 요청 열기'}</button>)}{missions.map(m=><button key={m.id} className={button} onClick={()=>reopen(`mission:${m.id}`)}>공통 미션 {m.round} 열기</button>)}</div>
       {!actionable.length&&!missions.length&&<p className="mt-3 text-sm">{requests.some(q=>q.status==='SUBMITTED')?'이야기꾼이 제출한 선택을 확인하고 있습니다.':'다음 활동을 기다리고 있습니다.'}</p>}
-      {!!state.missions?.length&&<p className="mt-3 text-xs text-zinc-500">공통 미션 {state.missions.filter(m=>m.completed).length}/2 완료</p>}
+      {!!state.missions?.length&&<p className="mt-3 text-xs text-zinc-500">공통 미션 {state.missions.filter(m=>m.completed).length}/{state.missions.length} 완료</p>}
     </div>}
     {allowPopup&&(q||mission)&&<ClocktowerPopup key={key} title="밤 활동" subtitle={`${state.room?.night}일차 · 나에게 온 안내`} onClose={close} busy={busy}>
       {error&&<p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-3 text-sm text-red-300">{error}</p>}

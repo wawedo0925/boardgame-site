@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {flowLabel,nextFlowLabel} from '@/lib/clocktower/flow';
 import ClocktowerVoting from './ClocktowerVoting';
+import ClocktowerSlayer from './ClocktowerSlayer';
 import ClocktowerPopup from './ClocktowerPopup';
 import ClocktowerPlayerActivity from './ClocktowerPlayerActivity';
 import { phaseAnnouncement } from '@/lib/clocktower/popups';
@@ -73,7 +74,7 @@ export default function ClocktowerLive({ eventId }: { eventId: string }) {
     </div> : <>
       <div className="mb-6 rounded-2xl border border-violet-400/30 bg-violet-400/5 p-5"><h2 className="text-xl font-bold text-violet-200">{flowLabel(state)}</h2><p className="mt-2 text-sm text-zinc-400">{state.is_host ? '이야기꾼 화면 · 역할과 메모는 본인만 볼 수 있습니다.' : '참가자 화면 · 요청이 오면 선택하고 결과를 확인해 주세요.'}</p></div>
       {room.phase==='ENDED'&&room.end_reason&&<p className="my-4 text-xl text-amber-200">{room.end_reason}</p>}
-      {room.phase==='DAY'&&<ClocktowerVoting state={state} run={run} busy={busy} error={error}/> }
+      {room.phase==='DAY'&&<><ClocktowerVoting state={state} run={run} busy={busy} error={error}/><ClocktowerSlayer state={state} run={run} busy={busy}/></>}
       {state.is_host ? <Host key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} /> : <Player key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} />}
     </>}
     {!hidden&&announcement&&!allowPopup&&<ClocktowerPopup title={announcement.title} onClose={()=>setSeenPhase(announcement.key)}><div className="space-y-6 text-center"><p aria-hidden="true" className="text-6xl">{announcement.icon}</p><p className="text-lg leading-8">{announcement.description}</p><button className={`${button} w-full`} onClick={()=>setSeenPhase(announcement.key)}>확인</button></div></ClocktowerPopup>}
@@ -110,7 +111,7 @@ function Host({ state, run, busy, allowPopup, error }: { state: LiveState; run: 
     {room.phase==='SETUP'&&room.roles_released&&<section className="rounded-2xl border border-violet-400/30 p-4"><h3>역할 확인 {members.filter(m=>m.role_confirmed).length}/{members.length}</h3>{members.map(m=><p key={m.user_id}>{m.name} · {m.role_confirmed?'확인 완료':'확인 대기'}</p>)}<button disabled={busy} className={subtle} onClick={()=>{if(confirm('준비로 돌아가면 역할 확인을 다시 받습니다.'))void run('roles_reset');}}>준비로 돌아가기</button></section>}
     {room.phase === 'SETUP' && !room.roles_released && <p className="text-sm text-amber-200">역할 미배정 {unassigned}명 · 역할 구성과 비밀 정보를 저장한 뒤 첫날 밤을 시작하세요.</p>}
 
-    {room.phase==='NIGHT'&&!!state.mission_progress?.length&&<section className="rounded-2xl border border-white/15 p-5"><h3 className="font-bold">공통 미션 진행</h3><p className="my-3 text-sm text-zinc-400">모든 참가자가 두 차례 완료하면 낮으로 넘어갈 수 있습니다.</p><div className="space-y-2">{state.mission_progress.map(m=><div key={m.user_id} className="flex flex-wrap items-center justify-between gap-2"><span>{members.find(p=>p.user_id===m.user_id)?.name} · {m.completed}/{m.total}</span>{m.completed<m.total&&<button disabled={busy} className={subtle} onClick={()=>{if(confirm('휴대폰 사용이 어려운 참가자의 현재 미션을 현장에서 완료 처리할까요?'))void run('mission_offline',{user_id:m.user_id});}}>현장 완료 처리</button>}</div>)}</div></section>}
+    {room.phase==='NIGHT'&&!!state.mission_progress?.length&&<section className="rounded-2xl border border-white/15 p-5"><h3 className="font-bold">공통 미션 진행</h3><p className="my-3 text-sm text-zinc-400">도착한 미션을 모두 완료하면 낮으로 넘어갈 수 있습니다.</p><div className="space-y-2">{state.mission_progress.map(m=><div key={m.user_id} className="flex flex-wrap items-center justify-between gap-2"><span>{members.find(p=>p.user_id===m.user_id)?.name} · {m.completed}/{m.total}</span>{m.completed<m.total&&<button disabled={busy} className={subtle} onClick={()=>{if(confirm('휴대폰 사용이 어려운 참가자의 현재 미션을 현장에서 완료 처리할까요?'))void run('mission_offline',{user_id:m.user_id});}}>현장 완료 처리</button>}</div>)}</div></section>}
     <ClocktowerNightFlow state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} />
     {room.phase === 'SETUP' && !room.roles_released && <ClocktowerRoleSetup key={members.map(m=>m.user_id).sort().join(',')} members={members} busy={busy || layoutEditing} onEditingChange={setRolesEditing} save={(rows,expected)=>run('save_roles',{rows,expected})} />}
     {room.phase === 'SETUP' && !room.roles_released && <ClocktowerInformationSetup members={members} engine={{...emptyEngine(),...state.engine}} busy={busy||rolesEditing||layoutEditing} onEditingChange={setInformationEditing} save={draft=>run('engine_information',{version:state.engine_version??0,state:{...emptyEngine(),...state.engine,...draft}})} />}

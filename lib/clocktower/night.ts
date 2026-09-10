@@ -9,7 +9,7 @@ export type NightEffect = { source: string; target: string; night: number };
 export type NightEngine = {
   night: number; cursor: number; tasks: NightTask[]; active?: string; finished: boolean;
   red_herring?: string; poison?: NightEffect; protection?: NightEffect; masters: Record<string,string>;
-  conditions: Record<string,{drunk?:boolean;poisoned?:boolean}>;
+  conditions: Record<string,{drunk?:boolean;poisoned?:boolean;drunk_until?:number;poisoned_until?:number}>;
   deaths: Record<string,{night:number;role:string}>;
   execution?: {night:number;user_id:string;role:string}; notices?: string[];
   information?: InformationSetup;
