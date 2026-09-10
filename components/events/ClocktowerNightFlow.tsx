@@ -55,6 +55,7 @@ function ProposalReview({task,request,engine,members,busy,allowPopup,error,appro
   const [closed,setClosed]=useState(false);
   const [editing,setEditing]=useState(false);const [text,setText]=useState<string|null>(null);
   const [victim,setVictim]=useState<string|undefined>();const [successor,setSuccessor]=useState<string|undefined>();
+  const [choosingReplacement,setChoosingReplacement]=useState(false);
   const proposal=propose(task,request.targets,engine,members,{victim,successor});
   const result=text??proposal.result;
   const choiceMissing=task.role==='임프'?proposal.requiresChoice:task.role==='점쟁이'&&!engine.red_herring?true:proposal.requiresChoice&&text===null;
@@ -62,8 +63,21 @@ function ProposalReview({task,request,engine,members,busy,allowPopup,error,appro
     {request.targets.length>0&&<p className="text-sm">멤버 선택: {request.targets.map(id=>members.find(m=>m.user_id===id)?.name).join(', ')}</p>}
     <h3 className="font-bold text-violet-200">시스템 제안 · 이야기꾼만 볼 수 있습니다</h3>
     <ul className="space-y-2 text-sm leading-6 text-amber-200">{proposal.reason.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
-    <p className="rounded-xl bg-white/5 p-3 text-sm">승인 시 반영: {proposal.effect}</p>
-    {task.role==='임프'&&proposal.canRedirect&&<label className="block text-sm">사망 대상 확인·수정<select className={field} value={victim??'default'} onChange={e=>setVictim(e.target.value==='default'?undefined:e.target.value)}><option value="default">능력과 보호 상태로 계산</option><option value="">사망 없음</option>{members.map(m=><option key={m.user_id} value={m.user_id}>{m.seat}. {m.name}{m.alive?'':' (이미 사망)'}</option>)}</select><span className="mt-2 block text-xs text-zinc-400">시장의 대체 사망 등 예외를 결정하세요. 보호·능력 무효는 선택 후에도 적용됩니다.</span></label>}
+    <p aria-live="polite" className="rounded-xl bg-white/5 p-3 text-sm">{proposal.canRedirect&&victim===undefined?'시장 사망 여부와 대체 대상을 선택해 주세요.':`승인 시 반영: ${proposal.effect}`}</p>
+    {task.role==='임프'&&proposal.canRedirect&&<div className="space-y-3 rounded-2xl border border-amber-300/30 p-4">
+      <h4 className="font-bold text-amber-200">임프가 시장을 선택했습니다</h4>
+      <p className="text-sm">시장을 사망시키겠습니까?</p>
+      <div className="flex flex-wrap gap-2">
+        <button disabled={busy} aria-pressed={victim===request.targets[0]} className={button} onClick={()=>{setVictim(request.targets[0]);setSuccessor(undefined);setChoosingReplacement(false);}}>시장 사망</button>
+        <button disabled={busy} aria-pressed={choosingReplacement} className={button} onClick={()=>{setVictim(undefined);setSuccessor(undefined);setChoosingReplacement(true);}}>시장 생존 · 다른 플레이어 선택</button>
+      </div>
+      {choosingReplacement&&<div className="space-y-3">
+        <p className="text-sm font-bold">시장 대신 공격받을 플레이어를 선택하세요</p>
+        <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto">{members.filter(m=>m.user_id!==request.targets[0]).map(m=><button key={m.user_id} disabled={busy} aria-pressed={victim===m.user_id} className={`${button} text-left ${victim===m.user_id?'border-violet-300 bg-violet-400/20':''}`} onClick={()=>{setVictim(m.user_id);setSuccessor(undefined);}}><span className="block font-bold">{m.seat}. {m.name}</span><span className="text-xs text-zinc-400">{m.actual_role}{m.alive?'':' · 이미 사망'}</span></button>)}</div>
+        <p className="text-xs text-zinc-400">군인·수도사의 보호는 그대로 적용됩니다. 이미 사망한 사람을 선택해도 추가 사망은 없습니다.</p>
+      </div>}
+      <p className="text-xs text-zinc-400">대상 선택만으로 적용되지 않습니다. 판정을 확인한 뒤 아래 ‘확인하고 전달’을 누르세요.</p>
+    </div>}
     {proposal.choices&&proposal.choices.length>1&&<label className="block">승계할 하수인<select className={field} value={successor??''} onChange={e=>setSuccessor(e.target.value)}><option value="">이야기꾼 선택 필요</option>{proposal.choices.map(m=><option key={m.user_id} value={m.user_id}>{m.name} · {m.actual_role}</option>)}</select></label>}
     <h4 className="text-sm font-bold">멤버에게 전달될 내용</h4>
     {editing?<textarea rows={6} maxLength={2000} className={field} value={result} onChange={e=>setText(e.target.value)}/>:<p className="whitespace-pre-wrap rounded-xl bg-violet-400/10 p-4">{result}</p>}
