@@ -1,0 +1,14 @@
+"use client";
+import {useEffect,useMemo,useState} from 'react';
+import {createClient} from '@/lib/supabase/client';
+import {WOLF_BUCKETS,wolfBucketLabel} from '@/lib/wolfstreet';
+type Summary={category:string;member_high_score:number|null;member_average_score:number|null;member_score_count:number;my_high_score:number|null;my_average_score:number|null;my_score_count:number};
+const amount=(n:number|null|undefined)=>n==null?'기록 없음':Number(n).toLocaleString();
+export default function WolfStreetScores({gameId,loggedIn}:{gameId:string;loggedIn:boolean}) {
+ const supabase=useMemo(()=>createClient(),[]);const [rows,setRows]=useState<Summary[]>([]);const [category,setCategory]=useState<string>(WOLF_BUCKETS[0]);const [error,setError]=useState('');const [loading,setLoading]=useState(true);
+ useEffect(()=>{let active=true;void supabase.rpc('get_wolfstreet_score_summary',{p_game_id:gameId}).then(({data,error})=>{if(!active)return;setLoading(false);if(error)setError('금액 통계를 불러오지 못했습니다. 새로고침해 주세요.');else{setRows(data??[]);setError('');}});return()=>{active=false;};},[gameId,supabase]);
+ const current=rows.find(r=>r.category===category);const legacy=rows.find(r=>r.category==='LEGACY');
+ return <section className="mt-8 rounded-3xl border border-amber-400/20 p-6 sm:p-8"><p className="text-xs tracking-widest text-amber-400">WOLF STREET RECORD</p><h2 className="mt-2 text-2xl font-bold">버전·역할별 금액 기록</h2><div className="my-5 flex flex-wrap gap-2">{[...WOLF_BUCKETS,...(Number(legacy?.member_score_count)>0?['LEGACY']:[])].map(c=><button key={c} aria-pressed={category===c} onClick={()=>setCategory(c)} className={`min-h-11 rounded-xl border px-4 py-2 ${category===c?'border-amber-400 bg-amber-400 text-black':'border-white/15 text-zinc-300'}`}>{wolfBucketLabel(c)}</button>)}</div><p className="text-sm text-zinc-400">{category==='LEGACY'?'버전·역할 정보가 없는 이전 기록입니다. 새 기록의 평균에는 포함하지 않습니다.':'선택한 버전과 역할의 금액만 비교합니다. 동점 최고 금액은 공동 승리로 기록합니다.'}</p>
+ {error?<p role="alert" className="my-4 text-red-300">{error}</p>:loading?<p className="my-4">기록을 불러오는 중…</p>:<div className="mt-5 grid gap-4 md:grid-cols-2">{[{title:'보드라운지 멤버 기록',high:current?.member_high_score,avg:current?.member_average_score,count:current?.member_score_count},{title:'나의 기록',high:current?.my_high_score,avg:current?.my_average_score,count:current?.my_score_count}].map((group,i)=><div key={group.title} className="rounded-2xl bg-white/5 p-5"><h3 className="font-bold">{group.title}</h3>{i===1&&!loggedIn?<p className="mt-4 text-zinc-500">로그인하면 내 기록을 확인할 수 있습니다.</p>:<><p className="mt-1 text-xs text-zinc-500">금액 기록 {Number(group.count??0)}건</p><dl className="mt-4 grid grid-cols-2 gap-3"><div><dt className="text-sm text-zinc-400">최고 금액</dt><dd className="mt-2 text-xl text-amber-300">{amount(group.high)}</dd></div><div><dt className="text-sm text-zinc-400">평균 금액</dt><dd className="mt-2 text-xl text-amber-300">{amount(group.avg)}</dd></div></dl></>}</div>)}</div>}
+ </section>;
+}

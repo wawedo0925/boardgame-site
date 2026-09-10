@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict');const ts=require('typescript');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(require('fs').readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,f);
+const {wolfResults,isWolfStreet,WOLF_BUCKETS,wolfScoreLabel}=require('../lib/wolfstreet.ts');
+assert(isWolfStreet('울프 스트리트'));assert(isWolfStreet('Wolf Street'));assert(!isWolfStreet('울프스트리트 확장'));
+const rows=[20,20,5,1000,800].map((score,i)=>({userId:String(i),score,category:WOLF_BUCKETS[i<3?0:1]}));
+let result=wolfResults('SPLIT',rows);
+assert.deepEqual(result.map(x=>x.rank),[1,1,3,1,2]);assert.deepEqual(result.map(x=>x.isWinner),[true,true,false,true,false]);
+result=wolfResults('COMBINED',rows.slice(0,4));assert.deepEqual(result.map(x=>x.rank),[2,2,4,1]);assert(result.every(x=>x.category===WOLF_BUCKETS[2]));
+assert.throws(()=>wolfResults('SPLIT',rows.slice(0,4)));assert.throws(()=>wolfResults('COMBINED',rows));
+assert.throws(()=>wolfResults('SPLIT',rows.map(x=>({...x,category:WOLF_BUCKETS[0]}))));
+assert.throws(()=>wolfResults('SPLIT',rows.map((x,i)=>i?x:{...x,score:null})));assert.throws(()=>wolfResults('SPLIT',rows.map((x,i)=>i?x:{...x,score:1.5})));
+assert.equal(wolfResults('SPLIT',[...rows,{userId:'gm',isGm:true,score:null,category:''}]).at(-1).rank,null);
+assert.equal(wolfResults('COMBINED',[-10,-20,-30].map((score,i)=>({userId:String(i),score,category:''})))[0].isWinner,true);
+assert.equal(wolfScoreLabel({role_name:'other',score:100}),null);
+assert.match(wolfScoreLabel({role_name:WOLF_BUCKETS[1],score:200,rank:1,is_winner:true}),/중개인.*승리/);
+console.log('Passed separate role winners, tied winners, combined totals, counts, GM, negatives, invalid inputs and labels.');

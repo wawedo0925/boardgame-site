@@ -10,6 +10,8 @@ import { createClient } from "@/lib/supabase/client";
 import GameGuideSection from "@/components/boardgames/GameGuideSection";
 import GameReviewAction from "@/components/boardgames/GameReviewAction";
 import ClocktowerCharacterTips from "@/components/boardgames/ClocktowerCharacterTips";
+import WolfStreetScores from "@/components/boardgames/WolfStreetScores";
+import {isWolfStreet} from "@/lib/wolfstreet";
 import CommentSection from "./CommentSection";
 
 type GameRow = {
@@ -260,7 +262,7 @@ export default function BoardGameDetailPage() {
           <InformationCard label="TOTAL PLAYS" value={`${totalPlayCount}판`} />
         </div>
 
-        <section className="mt-8 rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-400/[0.06] to-transparent p-6 sm:p-8">
+        {isWolfStreet(game.name)?<WolfStreetScores gameId={gameId} loggedIn={isLoggedIn}/>:(<section className="mt-8 rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-400/[0.06] to-transparent p-6 sm:p-8">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold tracking-[0.2em] text-amber-400">SCORE RECORD</p>
@@ -304,7 +306,7 @@ export default function BoardGameDetailPage() {
               )}
             </div>
           </div>
-        </section>
+        </section>)}
 
         <GameGuideSection gameId={gameId} />
 

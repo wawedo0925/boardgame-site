@@ -6,13 +6,17 @@ import { clearRoundResults, saveRoundResults } from "@/lib/services/rounds";
 import type { EventGameRound, ResultType } from "@/types/event";
 import { isTichu, TICHU_TEAMS, tichuResult } from "@/lib/tichu";
 
+import {isWolfStreet} from "@/lib/wolfstreet";
+import WolfStreetResultDialog from "./WolfStreetResultDialog";
+
 type Props = { round: EventGameRound; resultType: ResultType; gameName?: string; onClose: () => void; onSaved: () => Promise<void> | void };
 
 function playerName(player: EventGameRound["players"][number]) {
   return player.profile?.activity_name?.trim() || "회원";
 }
 
-export default function RoundResultDialog({ round, resultType, gameName, onClose, onSaved }: Props) {
+export default function RoundResultDialog(props:Props) { return isWolfStreet(props.gameName)?<WolfStreetResultDialog round={props.round} onClose={props.onClose} onSaved={props.onSaved}/>:<DefaultRoundResultDialog {...props}/>; }
+function DefaultRoundResultDialog({ round, resultType, gameName, onClose, onSaved }: Props) {
   const teamScore = isTichu(gameName);
   const supabase = useMemo(() => createClient(), []);
   const [scores, setScores] = useState<Record<string, string>>({});
