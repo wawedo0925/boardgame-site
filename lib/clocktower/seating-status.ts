@@ -1,7 +1,8 @@
 import type {LiveMember} from './live';
-import {impaired,type NightEngine} from './night';
-export function seatingStatus(m:LiveMember,members:LiveMember[],e:NightEngine,phase:string,night:number) {
- e={...e,night};
+import {emptyEngine,impaired,type NightEngine} from './night';
+export function seatingStatus(m:LiveMember,members:LiveMember[],saved:Partial<NightEngine>|null|undefined,phase:string,night:number) {
+ // Before the first night the persisted engine is empty or contains setup fields only.
+ const e:NightEngine={...emptyEngine(),...saved,night,conditions:saved?.conditions??{},masters:saved?.masters??{},deaths:saved?.deaths??{}};
  const flags:string[]=[];
  if(m.actual_role==='주정뱅이'||e.conditions[m.user_id]?.drunk)flags.push('취함');
  const poisoner=members.find(x=>x.user_id===e.poison?.source);
