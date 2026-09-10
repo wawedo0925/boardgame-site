@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
+import { emptyEngine, type NightEngine } from '@/lib/clocktower/night';
+import { seatingStatus } from '@/lib/clocktower/seating-status';
 import type { LiveMember, SeatLayout } from '@/lib/clocktower/live';
 
 export function birthYearLabel(value?: string | null) {
@@ -22,7 +24,8 @@ export function gridLayout(members: LiveMember[]): SeatLayout {
   return Object.fromEntries(ordered.map((m, i) => [m.user_id, { x: 100 + (i % columns) * 800 / Math.max(1, columns - 1), y: rows === 1 ? 350 : 100 + Math.floor(i / columns) * 500 / (rows - 1) }]));
 }
 
-export default function ClocktowerSeating({ members, layout = {}, revision = 0, editable = false, busy = false, myId, swap, sync, save, onEditingChange }: {
+export default function ClocktowerSeating({ members, layout = {}, revision = 0, editable = false, busy = false, myId, swap, sync, save, onEditingChange, storyteller=false, engine, phase='SETUP', night=0 }: {
+  storyteller?:boolean;engine?:NightEngine;phase?:string;night?:number;
   members: LiveMember[]; layout?: SeatLayout; revision?: number; editable?: boolean; busy?: boolean; myId?: string;
   swap?: (first: LiveMember, second: LiveMember) => Promise<boolean>; sync?: () => void;
   onEditingChange?: (editing: boolean) => void;
@@ -47,7 +50,7 @@ export default function ClocktowerSeating({ members, layout = {}, revision = 0, 
   useEffect(() => {
     const element = viewport.current;
     if (!element) return;
-    const observer = new ResizeObserver(() => setFit(Math.min(1, Math.max(0.2, element.clientWidth / 1000))));
+    const observer = new ResizeObserver(() => setFit(Math.min(1, Math.max(0.2, element.clientWidth / 1160))));
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
@@ -73,6 +76,7 @@ export default function ClocktowerSeating({ members, layout = {}, revision = 0, 
   return <section className="rounded-3xl border border-violet-400/25 bg-violet-400/[0.025] p-4 sm:p-6">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold">마을 자리 배치</h2>{editable && sync && <button disabled={busy || mode !== 'view'} onClick={sync} className={control}>일정 참가자 불러오기</button>}</div>
     <p className="mt-3 text-sm leading-6 text-zinc-400">{editable ? '실제로 앉은 위치에 맞춰 카드를 자유롭게 배치하세요. 저장하면 참가자들에게도 같은 모양으로 보입니다.' : '실제 앉은 위치에 맞춰 이야기꾼이 배치한 자리입니다. 작게 보이면 확대해서 확인하세요.'}</p>
+    <p className="mt-2 text-xs text-zinc-400">흰색: 생존 · 회색: 사망 · ●: 남은 투표권 · ○: 투표권 사용 완료{storyteller?' · 직업·상태·메모는 이야기꾼에게만 표시됩니다.':''}</p>
     {editable && <div className="mt-4 flex flex-wrap gap-2">
       {mode === 'view' ? <><button disabled={busy || !members.length} className="rounded-xl bg-violet-400 px-4 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={() => { onEditingChange?.(true); setDraft(positions); setBaseRevision(revision); setMode('move'); setZoom(Math.max(fit, 0.7)); }}>배치 편집</button><button disabled={busy || members.length < 2} className={control} onClick={() => { setMode('order'); setShowOrder(true); setZoom(Math.max(fit, 0.7)); }}>이웃 순서 바꾸기</button></> : <>
         {editing && <><button disabled={busy} className="rounded-xl bg-violet-400 px-4 py-2 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={async () => { if (draft && await save?.(draft, baseRevision)) cancel(); }}>배치 저장</button><button disabled={busy} className={control} onClick={() => { setDraft(gridLayout(members)); setSelected(null); }}>줄 맞추기</button></>}
@@ -83,15 +87,20 @@ export default function ClocktowerSeating({ members, layout = {}, revision = 0, 
     {editable && mode === 'order' && <p role="status" className="mt-3 text-sm text-violet-200">두 사람을 차례로 누르면 자리 번호가 서로 바뀝니다. 번호와 연결선이 실제 이웃 순서와 맞는지 확인하세요.</p>}
     <div className="mt-4 flex flex-wrap items-center gap-2"><button className={control} onClick={() => setZoom(null)}>전체 보기</button><button className={control} onClick={() => setZoom(Math.max(0.25, scale - 0.15))} aria-label="배치 축소">−</button><span className="w-12 text-center text-xs text-zinc-400">{Math.round(scale * 100)}%</span><button className={control} onClick={() => setZoom(Math.min(1.5, scale + 0.15))} aria-label="배치 확대">＋</button><label className="ml-auto flex items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={showOrder} onChange={e => setShowOrder(e.target.checked)} />이웃 연결선</label></div>
     <div ref={viewport} className="mt-4 overflow-auto rounded-2xl border border-white/10 bg-zinc-950" style={{ maxHeight: 750 }}>
-      {!ordered.length ? <p className="p-10 text-center text-zinc-400">아직 배정된 참가자가 없습니다.</p> : <div style={{ width: 1000 * scale, height: 700 * scale }} className="relative">
-        <div ref={board} data-testid="seating-board" className="absolute left-0 top-0 origin-top-left" style={{ width: 1000, height: 700, transform: `scale(${scale})`, backgroundImage: 'radial-gradient(#ffffff16 1px, transparent 1px)', backgroundSize: '20px 20px' }} onClick={e => { if (editing && !busy && selected) { const p = point(e.clientX, e.clientY); move(selected, p.x, p.y); setSelected(null); } }}>
+      {!ordered.length ? <p className="p-10 text-center text-zinc-400">아직 배정된 참가자가 없습니다.</p> : <div style={{ width: 1160 * scale, height: 860 * scale }} className="relative">
+        <div ref={board} data-testid="seating-board" className="absolute origin-top-left" style={{ left:80*scale,top:80*scale,width: 1000, height: 700, transform: `scale(${scale})`, backgroundImage: 'radial-gradient(#ffffff16 1px, transparent 1px)', backgroundSize: '20px 20px' }} onClick={e => { if (editing && !busy && selected) { const p = point(e.clientX, e.clientY); move(selected, p.x, p.y); setSelected(null); } }}>
           {showOrder && ordered.length > 1 && <svg width="1000" height="700" className="pointer-events-none absolute inset-0" aria-hidden="true">{ordered.map((member, i) => { const a = positions[member.user_id], b = positions[ordered[(i + 1) % ordered.length].user_id]; return <line key={member.user_id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#a78bfa" strokeOpacity="0.45" strokeWidth="2" strokeDasharray="6 6" />; })}</svg>}
           {ordered.map(member => {
             const pos = positions[member.user_id];
-            const className = `absolute flex h-[72px] w-[112px] flex-col items-center justify-center overflow-hidden rounded-2xl border px-2 py-2 text-center text-sm font-semibold ${selected === member.user_id ? 'z-10 border-violet-300 bg-violet-950 ring-2 ring-violet-300/30' : member.user_id === myId ? 'border-violet-400/70 bg-zinc-900' : 'border-white/20 bg-zinc-900'}`;
+            const flags=storyteller?seatingStatus(member,members,engine??emptyEngine(),phase,night):[];
+            const className = `absolute flex w-[144px] flex-col items-center justify-center rounded-2xl border-2 px-2 py-3 text-center text-sm font-semibold ${storyteller?'min-h-[146px]':'min-h-[96px]'} ${member.alive?'border-white bg-white text-zinc-950':'border-zinc-600 bg-zinc-800 text-zinc-400'} ${selected===member.user_id?'z-10 ring-4 ring-violet-400':member.user_id===myId?'ring-2 ring-violet-400':''}`;
             const style = { left: pos.x, top: pos.y, transform: 'translate(-50%, -50%)' };
-            const content = <><span className="mb-1 block text-[10px] text-zinc-400">{member.seat}번{member.user_id === myId ? ' · 내 자리' : ''}</span><ClocktowerName member={member} /></>;
-            return editable && mode !== 'view' ? <button key={member.user_id} data-testid={`seat-${member.user_id}`} title={member.name} style={{ ...style, touchAction: editing ? 'none' : 'auto' }} className={`${className} ${editing ? 'cursor-grab active:cursor-grabbing' : ''} disabled:opacity-50`} aria-pressed={selected === member.user_id} disabled={busy}
+            const year=birthYearLabel(member.birth_year).replace('년생','');
+            const content = <><span className="mb-2 block text-[10px] opacity-70">{member.seat}번{member.user_id===myId?' · 내 자리':''} · {member.alive?'생존':'사망'}</span><span className="relative inline-block max-w-[88px] text-base font-bold leading-6"><span className="break-all">{member.name}</span>{year&&<small aria-label={`${year}년생`} className="absolute left-full top-0 ml-1 text-[10px] font-normal opacity-60">{year}</small>}</span>
+              {!member.alive&&<span className="mt-2 rounded-full border border-zinc-500 px-2 py-0.5 text-[10px]">{member.ghost_vote_used===undefined?'투표권 확인 중':member.ghost_vote_used?'○ 투표권 없음':'● 투표권 1표'}</span>}
+              {storyteller&&<><span className="mt-2 text-xs font-bold">{member.actual_role||'역할 미배정'}</span>{member.actual_role!==member.shown_role&&member.shown_role&&<span className="text-[10px] opacity-70">본인 표시: {member.shown_role}</span>}<span className="mt-2 flex flex-wrap justify-center gap-1">{flags.map(flag=><span key={flag} className={`rounded-md px-1.5 py-0.5 text-[10px] ${member.alive?(flag==='중독'?'bg-emerald-100 text-emerald-900':flag==='취함'?'bg-amber-100 text-amber-900':'bg-violet-100 text-violet-900'):'bg-zinc-700 text-zinc-300'}`}>{flag}</span>)}</span>{member.notes&&<span className="mt-1 line-clamp-2 break-all text-[10px] font-normal opacity-70">{member.notes}</span>}</>}
+            </>;
+            return editable && mode !== 'view' ? <button key={member.user_id} data-testid={`seat-${member.user_id}`} title={storyteller?`${member.name} · ${member.actual_role??'미배정'} · ${flags.join(' / ')}${member.notes?` · ${member.notes}`:''}`:member.name} style={{ ...style, touchAction: editing ? 'none' : 'auto' }} className={`${className} ${editing ? 'cursor-grab active:cursor-grabbing' : ''} disabled:opacity-50`} aria-pressed={selected === member.user_id} disabled={busy}
               onClick={e => { e.stopPropagation(); if (mode === 'order') void chooseOrder(member); }}
               onPointerDown={e => { if (!editing || busy) return; e.stopPropagation(); const p = point(e.clientX, e.clientY); drag.current = { id: member.user_id, dx: p.x - pos.x, dy: p.y - pos.y }; setSelected(member.user_id); e.currentTarget.setPointerCapture(e.pointerId); }}
               onPointerMove={e => { if (!editing || busy || drag.current?.id !== member.user_id) return; const p = point(e.clientX, e.clientY); move(member.user_id, p.x - drag.current.dx, p.y - drag.current.dy); }}
