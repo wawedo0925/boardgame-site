@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
+import ClocktowerPopup from './ClocktowerPopup';
 import { emptyEngine, type NightEngine } from '@/lib/clocktower/night';
 import { seatingStatus } from '@/lib/clocktower/seating-status';
 import type { LiveMember, SeatLayout } from '@/lib/clocktower/live';
@@ -24,13 +25,15 @@ export function gridLayout(members: LiveMember[]): SeatLayout {
   return Object.fromEntries(ordered.map((m, i) => [m.user_id, { x: 100 + (i % columns) * 800 / Math.max(1, columns - 1), y: rows === 1 ? 350 : 100 + Math.floor(i / columns) * 500 / (rows - 1) }]));
 }
 
-export default function ClocktowerSeating({ members, layout = {}, revision = 0, editable = false, busy = false, myId, swap, sync, save, onEditingChange, storyteller=false, engine, phase='SETUP', night=0 }: {
+export default function ClocktowerSeating({ members, layout = {}, revision = 0, editable = false, busy = false, myId, swap, sync, save, onEditingChange, storyteller=false, onNominate, nominated=[], engine, phase='SETUP', night=0 }: {
+  onNominate?:(id:string)=>Promise<boolean>;nominated?:string[];
   storyteller?:boolean;engine?:NightEngine;phase?:string;night?:number;
   members: LiveMember[]; layout?: SeatLayout; revision?: number; editable?: boolean; busy?: boolean; myId?: string;
   swap?: (first: LiveMember, second: LiveMember) => Promise<boolean>; sync?: () => void;
   onEditingChange?: (editing: boolean) => void;
   save?: (layout: SeatLayout, revision: number) => Promise<boolean>;
 }) {
+  const [nominee,setNominee]=useState<LiveMember|null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState<SeatLayout | null>(null);
   const [baseRevision, setBaseRevision] = useState(0);
@@ -124,11 +127,12 @@ export default function ClocktowerSeating({ members, layout = {}, revision = 0, 
               onPointerMove={e => { if (!editing || busy || drag.current?.id !== member.user_id) return; const p = point(e.clientX, e.clientY); move(member.user_id, p.x - drag.current.dx, p.y - drag.current.dy); }}
               onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}
               onKeyDown={e => { if (!editing || busy) return; const delta = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[e.key]; if (delta) { e.preventDefault(); setSelected(member.user_id); move(member.user_id, pos.x + delta[0], pos.y + delta[1]); } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(member.user_id); } }}
-            >{content}</button> : <div key={member.user_id} title={member.name} className={className} style={style}>{content}</div>;
+            >{content}</button> : onNominate ? <button key={member.user_id} disabled={busy||nominated.includes(member.user_id)} title={`${member.name} 지목`} className={`${className} disabled:cursor-not-allowed`} style={style} onClick={()=>setNominee(member)}>{content}{nominated.includes(member.user_id)&&<span className="mt-1 text-[10px]">오늘 지목받음</span>}</button> : <div key={member.user_id} title={member.name} className={className} style={style}>{content}</div>;
           })}
         </div>
       </div>}
     </div>
     <p className="mt-2 text-xs text-zinc-500">확대한 화면은 빈 공간을 밀어 이동할 수 있습니다. 자리 번호는 이웃 순서입니다.</p>
+    {nominee&&onNominate&&<ClocktowerPopup title="이 멤버를 지목할까요?" busy={busy} onClose={()=>setNominee(null)}><p className="my-6 text-center text-2xl">{nominee.name}</p><p className="mb-4">지목 후 이야기꾼의 안내에 따라 이유를 설명하고 변론을 들으세요.</p><button disabled={busy} className={control} onClick={async()=>{if(await onNominate(nominee.user_id))setNominee(null);}}>지목하기</button></ClocktowerPopup>}
   </section>;
 }
