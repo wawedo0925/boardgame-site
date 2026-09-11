@@ -19,7 +19,7 @@ begin
  s:=public.clocktower_event_plays_command(eid,'add','{}');p1:=(s->>'id')::uuid;
  assert public.clocktower_event_plays_command(eid,'add','{}')->>'id'=p1::text,'retry same first card';
  assert (select count(*)=before_count from public.event_game_rounds r join public.event_game_sessions s on s.id=r.session_id where s.event_id=eid),'preparation creates no history';
- blocked:=false;begin perform public.clocktower_event_plays_command(eid,'add',jsonb_build_object('after_id',p1));exception when others then blocked:=true;end;assert blocked,'unfinished card cannot add next';
+ perform public.clocktower_event_plays_command(eid,'add',jsonb_build_object('after_id',p1));assert (select count(*)=2 from public.clocktower_event_plays where event_id=eid),'main admin may prepare another card';
  payload:=jsonb_build_object('play_id',p1,'difficulty','점철되는 혼란','winning_faction','선','assignments',jsonb_build_array(jsonb_build_object('user_id',member,'character_name','군인','character_type','주민','faction','선')));
  result1:=(public.clocktower_event_plays_command(eid,'save',payload)->>'result_round_id')::uuid;
  assert (public.clocktower_event_plays_command(eid,'save',payload)->>'result_round_id')::uuid=result1,'manual retry';

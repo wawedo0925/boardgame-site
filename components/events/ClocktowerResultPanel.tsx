@@ -51,20 +51,20 @@ export default function ClocktowerResultPanel(props: Props) {
     catch (error) { setError(errorOf(error)); }
     finally { setBusy(false); }
   }
-  const last = plays.at(-1);
-  const canAdd = !last || Boolean(last.result_round_id) || last.phase === "ENDED";
+
+  const hasActiveRoom = plays.some(play => play.room_id && play.phase !== "ENDED");
   return <section className="space-y-5 text-white">
     <div><p className="text-sm font-semibold tracking-[.18em] text-violet-300">CLOCKTOWER RESULT</p><h2 className="mt-1 text-2xl font-bold">캐릭터·승리 진영 기록</h2><p className="mt-2 text-sm text-zinc-400">판별로 프로그램에 입장하거나, 프로그램 없이 진행한 결과를 직접 기록하세요. 프로그램 결과는 승리 진영이 확정될 때 자동 저장됩니다.</p></div>
     {error && <p role="alert" className="rounded-xl bg-red-400/10 p-4 text-red-300">{error}</p>}
     {loading ? <p className="text-zinc-400">기록을 불러오는 중…</p> : <>
-      {plays.map(play => <PlayCard key={play.id} {...props} play={play} command={command} />)}
+      {plays.map(play => <PlayCard key={play.id} {...props} play={play} command={command} hasActiveRoom={hasActiveRoom} />)}
       {!plays.length && !canManage && <p className="rounded-2xl border border-white/10 p-5 text-zinc-400">이야기꾼이 첫 판을 준비하면 이곳에 입장 버튼이 표시됩니다.</p>}
-      {canManage && (!plays.length || isMainAdmin) && !isClosed && <div><button onClick={() => void add()} disabled={busy || !canAdd} className={button}>{busy ? "준비 중…" : plays.length ? "한판 더" : "첫번째 시계탑 준비하기"}</button>{!canAdd && <p className="mt-2 text-sm text-zinc-400">현재 판의 결과를 저장하거나 진행방을 종료하면 다음 판을 추가할 수 있습니다.</p>}</div>}
+      {canManage && (!plays.length || isMainAdmin) && !isClosed && <div><button onClick={() => void add()} disabled={busy} className={button}>{busy ? "준비 중…" : plays.length ? "한판 더" : "첫번째 시계탑 준비하기"}</button>{hasActiveRoom && <p className="mt-2 text-sm text-zinc-400">다음 게임 카드는 미리 추가할 수 있습니다. 새 마을은 현재 게임 종료 후 열 수 있습니다.</p>}</div>}
     </>}
   </section>;
 }
 
-function PlayCard({ play, command, ...props }: Props & { play: Play; command: Command }) {
+function PlayCard({ play, command, hasActiveRoom, ...props }: Props & { play: Play; command: Command; hasActiveRoom: boolean }) {
   const { eventId, canManage, isClosed } = props;
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -78,7 +78,7 @@ function PlayCard({ play, command, ...props }: Props & { play: Play; command: Co
   }
   return <article id={`clocktower-play-${play.id}`} className="rounded-3xl border border-violet-400/25 bg-violet-400/[0.035] p-5 sm:p-7">
     <div className="flex flex-wrap items-center justify-between gap-4"><div><h3 className="text-xl font-bold">{clocktowerPlayTitle(play.play_number)}</h3><p className="mt-1 text-sm text-zinc-400">{play.result_round_id ? play.automatic ? "승패 확정 · 자동 저장 완료" : "수동 기록 저장 완료" : play.phase === "ENDED" ? "진행 종료 · 승패 기록 없음" : active ? play.phase === "SETUP" ? "프로그램 준비 중" : "프로그램 진행 중" : "새 게임 준비"}</p></div>
-      {active ? <Link className={button} href={`/events/${eventId}/clocktower?room=${play.room_id}`}>시계탑 마을 입장</Link> : !play.result_round_id && !play.room_id && !isClosed && (canManage ? <button className={button} disabled={busy} onClick={() => void open()}>{busy ? "준비 중…" : "이야기꾼으로 프로그램 시작"}</button> : <span className="text-sm text-zinc-400">이야기꾼의 프로그램 시작 대기 중</span>)}
+      {active ? <Link className={button} href={`/events/${eventId}/clocktower?room=${play.room_id}`}>시계탑 마을 입장</Link> : !play.result_round_id && !play.room_id && !isClosed && (canManage ? <button className={button} disabled={busy || hasActiveRoom} onClick={() => void open()}>{busy ? "준비 중…" : hasActiveRoom ? "현재 게임 종료 후 마을 열기" : "이야기꾼으로 프로그램 시작"}</button> : <span className="text-sm text-zinc-400">이야기꾼의 프로그램 시작 대기 중</span>)}
     </div>
     {error && <p role="alert" className="mt-4 text-red-300">{error}</p>}
     {play.result_round_id && <div className="mt-5 space-y-2">{play.players.map(player => <div key={player.user_id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/5 px-4 py-3"><strong>{player.name}</strong><span className={player.is_winner ? "text-amber-300" : "text-zinc-400"}>{player.is_gm ? "이야기꾼 · 진행" : `${player.role_name} · ${player.is_winner ? "승리" : "패배"}`}</span></div>)}</div>}
