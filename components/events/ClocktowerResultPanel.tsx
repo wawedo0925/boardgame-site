@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { clocktowerPlayTitle } from "@/lib/clocktower/play-title";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CLOCKTOWER_CHARACTERS, clocktowerDifficultyFromTitle } from "@/lib/clocktower/characters";
 import type { EventParticipant } from "@/types/event";
 
-type Props = { eventId: string; title: string; participants: EventParticipant[]; canManage: boolean; isClosed: boolean };
+type Props = { eventId: string; title: string; participants: EventParticipant[]; canManage: boolean; isMainAdmin: boolean; isClosed: boolean };
 type SavedPlayer = { user_id: string; name: string; role_name: string | null; team_name: string | null; is_winner: boolean | null; is_gm: boolean };
 type Play = { id: string; play_number: number; room_id: string | null; result_round_id: string | null; phase: string | null; winner: string | null; automatic: boolean; players: SavedPlayer[] };
 type Command = (action: string, data?: Record<string, unknown>) => Promise<Record<string, string>>;
@@ -16,7 +17,7 @@ const errorOf = (error: unknown) => typeof error === "object" && error && "messa
 const button = "rounded-xl bg-violet-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-40";
 
 export default function ClocktowerResultPanel(props: Props) {
-  const { eventId, canManage, isClosed } = props;
+  const { eventId, canManage, isMainAdmin, isClosed } = props;
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [plays, setPlays] = useState<Play[]>([]);
@@ -58,7 +59,7 @@ export default function ClocktowerResultPanel(props: Props) {
     {loading ? <p className="text-zinc-400">기록을 불러오는 중…</p> : <>
       {plays.map(play => <PlayCard key={play.id} {...props} play={play} command={command} />)}
       {!plays.length && !canManage && <p className="rounded-2xl border border-white/10 p-5 text-zinc-400">이야기꾼이 첫 판을 준비하면 이곳에 입장 버튼이 표시됩니다.</p>}
-      {canManage && !isClosed && <div><button onClick={() => void add()} disabled={busy || !canAdd} className={button}>{busy ? "준비 중…" : plays.length ? "한판 더" : "1판 준비하기"}</button>{!canAdd && <p className="mt-2 text-sm text-zinc-400">현재 판의 결과를 저장하거나 진행방을 종료하면 다음 판을 추가할 수 있습니다.</p>}</div>}
+      {canManage && (!plays.length || isMainAdmin) && !isClosed && <div><button onClick={() => void add()} disabled={busy || !canAdd} className={button}>{busy ? "준비 중…" : plays.length ? "한판 더" : "첫번째 시계탑 준비하기"}</button>{!canAdd && <p className="mt-2 text-sm text-zinc-400">현재 판의 결과를 저장하거나 진행방을 종료하면 다음 판을 추가할 수 있습니다.</p>}</div>}
     </>}
   </section>;
 }
@@ -76,8 +77,8 @@ function PlayCard({ play, command, ...props }: Props & { play: Play; command: Co
     catch (error) { setError(errorOf(error)); setBusy(false); }
   }
   return <article id={`clocktower-play-${play.id}`} className="rounded-3xl border border-violet-400/25 bg-violet-400/[0.035] p-5 sm:p-7">
-    <div className="flex flex-wrap items-center justify-between gap-4"><div><h3 className="text-xl font-bold">{play.play_number}판</h3><p className="mt-1 text-sm text-zinc-400">{play.result_round_id ? play.automatic ? "승패 확정 · 자동 저장 완료" : "수동 기록 저장 완료" : play.phase === "ENDED" ? "진행 종료 · 승패 기록 없음" : active ? play.phase === "SETUP" ? "프로그램 준비 중" : "프로그램 진행 중" : "새 게임 준비"}</p></div>
-      {active ? <Link className={button} href={`/events/${eventId}/clocktower?room=${play.room_id}`}>{play.play_number}판 프로그램 입장</Link> : !play.result_round_id && !play.room_id && !isClosed && (canManage ? <button className={button} disabled={busy} onClick={() => void open()}>{busy ? "준비 중…" : "이야기꾼으로 프로그램 시작"}</button> : <span className="text-sm text-zinc-400">이야기꾼의 프로그램 시작 대기 중</span>)}
+    <div className="flex flex-wrap items-center justify-between gap-4"><div><h3 className="text-xl font-bold">{clocktowerPlayTitle(play.play_number)}</h3><p className="mt-1 text-sm text-zinc-400">{play.result_round_id ? play.automatic ? "승패 확정 · 자동 저장 완료" : "수동 기록 저장 완료" : play.phase === "ENDED" ? "진행 종료 · 승패 기록 없음" : active ? play.phase === "SETUP" ? "프로그램 준비 중" : "프로그램 진행 중" : "새 게임 준비"}</p></div>
+      {active ? <Link className={button} href={`/events/${eventId}/clocktower?room=${play.room_id}`}>시계탑 마을 입장</Link> : !play.result_round_id && !play.room_id && !isClosed && (canManage ? <button className={button} disabled={busy} onClick={() => void open()}>{busy ? "준비 중…" : "이야기꾼으로 프로그램 시작"}</button> : <span className="text-sm text-zinc-400">이야기꾼의 프로그램 시작 대기 중</span>)}
     </div>
     {error && <p role="alert" className="mt-4 text-red-300">{error}</p>}
     {play.result_round_id && <div className="mt-5 space-y-2">{play.players.map(player => <div key={player.user_id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/5 px-4 py-3"><strong>{player.name}</strong><span className={player.is_winner ? "text-amber-300" : "text-zinc-400"}>{player.is_gm ? "이야기꾼 · 진행" : `${player.role_name} · ${player.is_winner ? "승리" : "패배"}`}</span></div>)}</div>}

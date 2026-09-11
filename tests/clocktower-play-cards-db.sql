@@ -11,7 +11,7 @@ begin
  update public.events set event_kind='CLOCKTOWER',event_status='OPEN' where id=eid;
  for candidate in select id from auth.users loop
   perform set_config('request.jwt.claim.sub',candidate::text,true);
-  if public.can_operate_event(eid) then host:=candidate;exit;end if;
+  if public.current_site_role()='MAIN_ADMIN' and public.can_operate_event(eid) then host:=candidate;exit;end if;
  end loop;
  assert host is not null,'operator';
  select user_id into member from public.event_participants where event_id=eid limit 1;

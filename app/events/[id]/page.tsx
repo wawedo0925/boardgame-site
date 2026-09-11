@@ -869,6 +869,7 @@ export default function EventDetailPage() {
                   title={event.title}
                   participants={participants}
                   canManage={canManage}
+                  isMainAdmin={siteRole === "MAIN_ADMIN"}
                   isClosed={isLocked}
                 />
               ) : null}
