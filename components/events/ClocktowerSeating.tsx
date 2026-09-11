@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import ClocktowerPopup from './ClocktowerPopup';
+import ClocktowerPersonalNotes from './ClocktowerPersonalNotes';
 import { emptyEngine, type NightEngine } from '@/lib/clocktower/night';
 import { seatingStatus } from '@/lib/clocktower/seating-status';
 import type { LiveMember, SeatLayout } from '@/lib/clocktower/live';
@@ -25,7 +26,8 @@ export function gridLayout(members: LiveMember[]): SeatLayout {
   return Object.fromEntries(ordered.map((m, i) => [m.user_id, { x: 100 + (i % columns) * 800 / Math.max(1, columns - 1), y: rows === 1 ? 350 : 100 + Math.floor(i / columns) * 500 / (rows - 1) }]));
 }
 
-export default function ClocktowerSeating({ members, layout = {}, revision = 0, editable = false, busy = false, myId, swap, sync, save, onEditingChange, storyteller=false, onNominate, nominated=[], engine, phase='SETUP', night=0 }: {
+export default function ClocktowerSeating({ roomId, members, layout = {}, revision = 0, editable = false, busy = false, myId, swap, sync, save, onEditingChange, storyteller=false, onNominate, nominated=[], engine, phase='SETUP', night=0 }: {
+  roomId?: string;
   onNominate?:(id:string)=>Promise<boolean>;nominated?:string[];
   storyteller?:boolean;engine?:NightEngine;phase?:string;night?:number;
   members: LiveMember[]; layout?: SeatLayout; revision?: number; editable?: boolean; busy?: boolean; myId?: string;
@@ -94,7 +96,7 @@ export default function ClocktowerSeating({ members, layout = {}, revision = 0, 
   }
 
   return <section className="rounded-3xl border border-violet-400/25 bg-violet-400/[0.025] p-4 sm:p-6">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold">마을 자리 배치</h2>{editable && sync && <button disabled={busy || mode !== 'view'} onClick={sync} className={control}>일정 참가자 불러오기</button>}</div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold">마을 자리 배치</h2><div className="flex flex-wrap gap-2">{roomId && myId && <ClocktowerPersonalNotes key={`${roomId}:${myId}`} roomId={roomId} userId={myId} />}{editable && sync && <button disabled={busy || mode !== 'view'} onClick={sync} className={control}>일정 참가자 불러오기</button>}</div></div>
     <p className="mt-3 text-sm leading-6 text-zinc-400">{editable ? '실제로 앉은 위치에 맞춰 카드를 자유롭게 배치하세요. 저장하면 참가자들에게도 같은 모양으로 보입니다.' : '실제 앉은 위치에 맞춰 이야기꾼이 배치한 자리입니다. 작게 보이면 확대해서 확인하세요.'}</p>
     <p className="mt-2 text-xs text-zinc-400">흰색: 생존 · 회색: 사망 · ●: 남은 투표권 · ○: 투표권 사용 완료{storyteller?' · 직업·상태·메모는 이야기꾼에게만 표시됩니다.':''}</p>
     {editable && <div className="mt-4 flex flex-wrap gap-2">
