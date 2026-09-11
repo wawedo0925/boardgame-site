@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ClocktowerPopup from './ClocktowerPopup';
 import ClocktowerPersonalNotes from './ClocktowerPersonalNotes';
+import useClocktowerMemberNotes from './useClocktowerMemberNotes';
 import { emptyEngine, type NightEngine } from '@/lib/clocktower/night';
 import { seatingStatus } from '@/lib/clocktower/seating-status';
 import type { LiveMember, LiveVote, SeatLayout } from '@/lib/clocktower/live';
@@ -36,6 +37,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
   onEditingChange?: (editing: boolean) => void;
   save?: (layout: SeatLayout, revision: number) => Promise<boolean>;
 }) {
+  const {notes: memberNotes, update: updateMemberNote, error: noteError} = useClocktowerMemberNotes(storyteller ? undefined : roomId, myId);
   const [nominee,setNominee]=useState<LiveMember|null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState<SeatLayout | null>(null);
@@ -125,6 +127,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
             const year=birthYearLabel(member.birth_year).replace('년생','');
             const content = <><span className="mb-1 block text-[10px] opacity-70">{member.seat}번{member.user_id===myId?' · 내 자리':''} · {member.alive?'생존':'사망'}</span><span className="relative inline-block mx-3 max-w-[100px] text-base font-bold leading-6"><span className="break-all">{member.name}</span>{year&&<small aria-label={`${year}년생`} className="absolute left-full top-0 ml-1 text-[10px] font-normal opacity-60">{year}</small>}</span>
               {tallying&&<span className={`mt-1 rounded-md px-2 py-1 text-xs ${voted?'bg-violet-600 text-white':'bg-zinc-200 text-zinc-700'}`}>{voted?'✓ 찬성':!member.alive&&member.ghost_vote_used?'투표권 없음':'기권'}</span>}
+              {!storyteller&&memberNotes[member.user_id]?.role.trim()&&<span className="mt-1 max-w-full break-words text-xs text-violet-600">예상: {memberNotes[member.user_id].role}</span>}
               {!member.alive&&<span className="mt-2 rounded-full border border-zinc-500 px-2 py-0.5 text-[10px]">{member.ghost_vote_used===undefined?'투표권 확인 중':member.ghost_vote_used?'○ 투표권 없음':'● 투표권 1표'}</span>}
               {storyteller&&<><span className="mt-1 text-xs font-bold">{member.actual_role||'역할 미배정'}</span>{member.actual_role!==member.shown_role&&member.shown_role&&<span className="text-[10px] opacity-70">본인 표시: {member.shown_role}</span>}<span className="mt-1 flex flex-wrap justify-center gap-1 empty:hidden">{flags.map(flag=><span key={flag} className={`rounded-md px-1.5 py-0.5 text-[10px] ${member.alive?(flag==='중독'?'bg-emerald-100 text-emerald-900':flag==='취함'?'bg-amber-100 text-amber-900':'bg-violet-100 text-violet-900'):'bg-zinc-700 text-zinc-300'}`}>{flag}</span>)}</span>{member.notes&&<span className="mt-1 line-clamp-2 break-all text-[10px] font-normal opacity-70">{member.notes}</span>}</>}
             </>;
@@ -134,12 +137,19 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
               onPointerMove={e => { if (!editing || busy || drag.current?.id !== member.user_id) return; const p = point(e.clientX, e.clientY); move(member.user_id, p.x - drag.current.dx, p.y - drag.current.dy); }}
               onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}
               onKeyDown={e => { if (!editing || busy) return; const delta = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[e.key]; if (delta) { e.preventDefault(); setSelected(member.user_id); move(member.user_id, pos.x + delta[0], pos.y + delta[1]); } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(member.user_id); } }}
-            >{content}</button> : tallying && vote ? <button key={member.user_id} aria-pressed={voted} aria-label={`${member.name} · ${voted?'찬성 취소':'찬성으로 집계'}`} disabled={busy||!vote.voter_order.includes(member.user_id)||(!member.alive&&member.ghost_vote_used&&!voted)} className={`${className} ${voted?'outline outline-4 outline-violet-500':''} disabled:cursor-not-allowed`} style={style} onClick={()=>void onRecordVote?.(vote.id,member.user_id,!voted)}>{content}</button> : onNominate ? <button key={member.user_id} disabled={busy||nominated.includes(member.user_id)} title={`${member.name} 지목`} className={`${className} disabled:cursor-not-allowed`} style={style} onClick={()=>setNominee(member)}>{content}{nominated.includes(member.user_id)&&<span className="mt-1 text-[10px]">오늘 지목받음</span>}</button> : <div key={member.user_id} title={member.name} className={className} style={style}>{content}</div>;
+            >{content}</button> : tallying && vote ? <button key={member.user_id} aria-pressed={voted} aria-label={`${member.name} · ${voted?'찬성 취소':'찬성으로 집계'}`} disabled={busy||!vote.voter_order.includes(member.user_id)||(!member.alive&&member.ghost_vote_used&&!voted)} className={`${className} ${voted?'outline outline-4 outline-violet-500':''} disabled:cursor-not-allowed`} style={style} onClick={()=>void onRecordVote?.(vote.id,member.user_id,!voted)}>{content}</button> : !storyteller && roomId && myId ? <button key={member.user_id} title={`${member.name} · 예상 역할과 메모`} className={`${className} disabled:cursor-not-allowed`} style={style} onClick={()=>setNominee(member)}>{content}{nominated.includes(member.user_id)&&<span className="mt-1 text-[10px]">오늘 지목받음</span>}</button> : <div key={member.user_id} title={member.name} className={className} style={style}>{content}</div>;
           })}
         </div>
       </div>}
     </div>
     <p className="mt-2 text-xs text-zinc-500">확대한 화면은 빈 공간을 밀어 이동할 수 있습니다. 자리 번호는 이웃 순서입니다.</p>
-    {nominee&&onNominate&&<ClocktowerPopup title="이 멤버를 지목할까요?" busy={busy} onClose={()=>setNominee(null)}><p className="my-6 text-center text-2xl">{nominee.name}</p><p className="mb-4">지목 후 이야기꾼의 안내에 따라 이유를 설명하고 변론을 들으세요.</p><button disabled={busy} className={control} onClick={async()=>{if(await onNominate(nominee.user_id))setNominee(null);}}>지목하기</button></ClocktowerPopup>}
+    {nominee&&!storyteller&&<ClocktowerPopup title={`${nominee.name} · 개인 메모`} onClose={()=>setNominee(null)}>
+      <p className="mb-4 text-sm leading-6 text-zinc-400">본인에게만 보이는 예상과 메모입니다. 이 게임·계정별로 현재 브라우저에 자동 저장되며, 다른 기기로 동기화되지 않습니다.</p>
+      <label className="block text-sm font-semibold">예상 역할<input maxLength={60} value={memberNotes[nominee.user_id]?.role??''} onChange={e=>updateMemberNote(nominee.user_id,{role:e.target.value,memo:memberNotes[nominee.user_id]?.memo??''})} placeholder="예: 점쟁이, 수사관 또는 임프?" className="mt-2 w-full rounded-xl border border-white/20 bg-zinc-900 p-3 text-base"/></label>
+      <label className="mt-4 block text-sm font-semibold">추가 메모<textarea maxLength={10000} value={memberNotes[nominee.user_id]?.memo??''} onChange={e=>updateMemberNote(nominee.user_id,{role:memberNotes[nominee.user_id]?.role??'',memo:e.target.value})} placeholder="이 사람이 말한 정보, 의심되는 점 등을 적어 보세요." className="mt-2 min-h-40 w-full rounded-xl border border-white/20 bg-zinc-900 p-3 text-base"/></label>
+      <p role={noteError?'alert':'status'} className={`mt-2 text-sm ${noteError?'text-amber-300':'text-zinc-400'}`}>{noteError||'자동 저장됨'}</p>
+      <div className="mt-5 flex flex-wrap gap-3"><button className={control} onClick={()=>setNominee(null)}>닫기</button><button disabled={busy||!onNominate||nominated.includes(nominee.user_id)} className={control} onClick={async()=>{if(onNominate&&confirm(`${nominee.name}님을 지목할까요?`)&&await onNominate(nominee.user_id))setNominee(null);}}>지목하기</button></div>
+      <p className="mt-3 text-xs leading-6 text-zinc-400">지목은 전체 토론·지목 단계에서만 가능합니다. 다른 지목·투표가 진행 중이거나 오늘 지목권을 사용했거나 사망한 경우에는 할 수 없습니다. 이미 지목받은 사람도 다시 지목할 수 없습니다.</p>
+    </ClocktowerPopup>}
   </section>;
 }
