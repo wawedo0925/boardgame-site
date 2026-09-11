@@ -17,9 +17,12 @@ export default function ClocktowerResultPanel({eventId,title,participants,canMan
   const [winningFaction,setWinningFaction]=useState<"선"|"악"|"">("");
   const [busy,setBusy]=useState(false);
   const [saved,setSaved]=useState(false);
+  const [automatic,setAutomatic]=useState(false);
   const eligible=participants.filter(p=>p.attendance_status==="PRESENT");
 
   const load=useCallback(async()=>{
+    const {data:live}=await supabase.rpc("clocktower_live_snapshot",{p_event_id:eventId});
+    if(live?.room?.result_round_id){setAutomatic(true);setSaved(true);return;}
     const {data:sessions}=await supabase.from("event_game_sessions").select("id").eq("event_id",eventId).eq("result_type","ROLE");
     const sessionIds=(sessions??[]).map(row=>row.id); if(!sessionIds.length)return;
     const {data:rounds}=await supabase.from("event_game_rounds").select("id").in("session_id",sessionIds).order("round_number").limit(1);
@@ -30,7 +33,7 @@ export default function ClocktowerResultPanel({eventId,title,participants,canMan
     const winner=rows.find(row=>row.is_winner); if(winner?.team_name)setWinningFaction(winner.team_name.endsWith(" · 악")?"악":"선");
     setSaved(true);
   },[eventId,supabase]);
-  useEffect(()=>{void load()},[load]);
+  useEffect(()=>{const timer=setTimeout(()=>void load(),0);return()=>clearTimeout(timer)},[load]);
 
   async function save(){
     if(!difficulty){alert("시계탑 난이도를 확인하지 못했습니다.");return}
@@ -45,6 +48,7 @@ export default function ClocktowerResultPanel({eventId,title,participants,canMan
   }
 
   if(!canManage)return null;
+  if(automatic)return <section className="rounded-3xl border border-emerald-400/25 bg-emerald-400/5 p-5 text-white"><h2 className="text-xl font-bold">캐릭터·승리 진영 자동 저장 완료</h2><p className="mt-2 text-sm text-zinc-400">진행방의 종료 시점 실제 역할과 승리 진영이 플레이 기록에 저장되었습니다. 사망자도 팀 승패에 포함되며, 이야기꾼은 진행자로 기록됩니다. 별도로 결과를 다시 입력하지 않아도 됩니다.</p></section>;
   return <section className="rounded-3xl border border-violet-400/25 bg-violet-400/[0.035] p-5 text-white sm:p-7">
     <p className="text-sm font-semibold tracking-[.18em] text-violet-300">CLOCKTOWER RESULT</p><div className="mt-1 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-2xl font-bold">캐릭터·승리 진영 기록</h2><p className="mt-2 text-sm text-zinc-400">출석 멤버의 캐릭터를 기록하면 플레이 이력과 평가 작성에 자동 연결됩니다.</p></div>{saved&&<span className="rounded-full bg-emerald-400/10 px-3 py-1 text-sm text-emerald-300">저장된 결과</span>}</div>
     {!difficulty?<p className="mt-5 text-red-300">이벤트 제목에서 난이도를 확인할 수 없습니다.</p>:characters.length===0?<p className="mt-5 rounded-2xl border border-white/10 p-5 text-zinc-400">캐러셀 캐릭터 목록은 추후 업데이트됩니다.</p>:<>
