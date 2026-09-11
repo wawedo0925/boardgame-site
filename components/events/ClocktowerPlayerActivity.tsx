@@ -6,6 +6,7 @@ import { ClocktowerName } from './ClocktowerSeating';
 
 const button='min-h-12 rounded-xl bg-violet-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-40';
 export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,error}:{state:LiveState;run:(action:string,data?:Record<string,unknown>)=>Promise<boolean>;busy:boolean;allowPopup:boolean;error:string}) {
+  const [confirmedPrivate,setConfirmedPrivate]=useState<string[]>([]);
   const [dismissed,setDismissed]=useState<string[]>([]);
   const [selected,setSelected]=useState<Record<string,string[]>>({});
   const [numbers,setNumbers]=useState<Record<string,number>>({});
@@ -13,12 +14,13 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
   const [hint,setHint]=useState('');
   const members=state.members??[];
   const requests=(state.requests??[]).filter(q=>q.night===state.room?.night);
-  const actionable=requests.filter(q=>q.status==='OPEN'||(q.status==='RESOLVED'&&!q.acknowledged));
+  const actionable=requests.filter(q=>q.status==='OPEN'||(q.status==='RESOLVED'&&!q.acknowledged&&!confirmedPrivate.includes(q.id)));
   const missions=(state.missions??[]).filter(m=>!m.completed);
   const activeNight=state.room?.phase==='NIGHT';
   const q=activeNight?actionable.find(q=>!dismissed.includes(`request:${q.id}:${q.status}`)):undefined;
   const mission=activeNight&&!q?missions.find(m=>!dismissed.includes(`mission:${m.id}`)):undefined;
   const key=q?`request:${q.id}:${q.status}`:mission?`mission:${mission.id}`:'';
+  const privateResult=!!q&&(q.private_once||q.prompt.startsWith('첩자 · '));
   const picked=q?selected[q.id]??[]:[];
   const close=()=>{setDismissed([...dismissed,key]);setHint('');};
   const reopen=(key:string)=>{setDismissed(dismissed.filter(k=>k!==key));setHint('');};
@@ -29,10 +31,10 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
       {!actionable.length&&!missions.length&&<p className="mt-3 text-sm">{requests.some(q=>q.status==='SUBMITTED')?'이야기꾼이 제출한 선택을 확인하고 있습니다.':'다음 활동을 기다리고 있습니다.'}</p>}
       {!!state.missions?.length&&<p className="mt-3 text-xs text-zinc-500">공통 미션 {state.missions.filter(m=>m.completed).length}/{state.missions.length} 완료</p>}
     </div>}
-    {allowPopup&&(q||mission)&&<ClocktowerPopup key={key} title="밤 활동" subtitle={`${state.room?.night}일차 · 나에게 온 안내`} onClose={close} busy={busy}>
+    {allowPopup&&(q||mission)&&<ClocktowerPopup key={key} title={privateResult?'첩자 · 마도서 확인':'밤 활동'} subtitle={`${state.room?.night}일차 · 나에게 온 안내`} onClose={close} busy={busy||privateResult}>
       {error&&<p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-3 text-sm text-red-300">{error}</p>}
       {q&&<div className="space-y-4"><p className="whitespace-pre-wrap text-lg leading-8">{q.status==='RESOLVED'?'이야기꾼이 확인한 결과입니다.':q.prompt}</p>
-        {q.status==='RESOLVED'?<><p className="whitespace-pre-wrap rounded-2xl bg-violet-400/10 p-5 text-2xl font-bold leading-relaxed">{q.result}</p><button disabled={busy} className={`${button} w-full`} onClick={()=>void run('ack',{request_id:q.id})}>결과 확인했습니다</button></>:<>
+        {q.status==='RESOLVED'?<>{privateResult&&<p className="text-sm text-amber-200">메모하지 말고 기억해 주세요. 아래 확인 버튼을 눌러야 다음 차례로 넘어갑니다. 확인 후 이 내용은 다시 볼 수 없고, 다음 밤 능력 차례에 새 정보를 받습니다.</p>}<p className="whitespace-pre-wrap rounded-2xl bg-violet-400/10 p-5 text-2xl font-bold leading-relaxed">{q.result}</p><button disabled={busy} className={`${button} w-full`} onClick={async()=>{if(await run('ack',{request_id:q.id})&&privateResult)setConfirmedPrivate(ids=>[...ids,q.id]);}}>{privateResult?'확인 · 다음 단계로 진행 (다시 볼 수 없음)':'결과 확인했습니다'}</button></>:<>
           {q.target_count>0&&<><p className="text-sm text-violet-200">{q.target_count}명 선택 · {picked.length}/{q.target_count}</p><div className="grid grid-cols-2 gap-2">{members.filter(m=>q.allow_self||m.user_id!==state.my_id).map(m=><button key={m.user_id} aria-pressed={picked.includes(m.user_id)} disabled={busy} className={`min-h-16 rounded-xl border p-3 text-left ${picked.includes(m.user_id)?'border-violet-300 bg-violet-400/20':'border-white/15'}`} onClick={()=>setSelected({...selected,[q.id]:picked.includes(m.user_id)?picked.filter(id=>id!==m.user_id):picked.length<q.target_count?[...picked,m.user_id]:picked})}>{m.seat}. <ClocktowerName member={m}/>{picked.includes(m.user_id)&&<span aria-hidden="true" className="ml-2 text-violet-200">✓</span>}</button>)}</div></>}
           <button disabled={busy||picked.length!==q.target_count} className={`${button} w-full`} onClick={()=>void run('reply',{request_id:q.id,targets:picked})}>{q.target_count?'선택 제출':'내용 확인했습니다'}</button>
         </>}
@@ -42,8 +44,8 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
         {hint&&<p role="status" className="text-sm text-amber-200">{hint}</p>}
         <button disabled={busy||(mission.kind==='NUMBERS'?(numbers[mission.id]??0)!==10:(texts[mission.id]??'').trim()!==mission.challenge.text)} className={`${button} w-full`} onClick={()=>void run('mission_complete',{mission_id:mission.id,answer:mission.kind==='NUMBERS'?'1,2,3,4,5,6,7,8,9,10':(texts[mission.id]??'').trim()})}>미션 확인</button>
       </div>}
-      <p className="mt-4 text-center text-xs text-zinc-500">팝업을 닫아도 제출·확인 처리되지 않습니다.</p>
+      {!privateResult&&<p className="mt-4 text-center text-xs text-zinc-500">팝업을 닫아도 제출·확인 처리되지 않습니다.</p>}
     </ClocktowerPopup>}
-    <details className="rounded-2xl border border-white/10 p-5"><summary>내 요청·결과 기록</summary><div className="mt-4 space-y-3">{state.requests?.map(q=><div key={q.id} className="rounded-xl bg-white/5 p-4"><p className="text-sm text-violet-300">{q.night}일차 · {q.status==='OPEN'?'선택 대기':q.status==='SUBMITTED'?'이야기꾼 확인 중':q.status==='CANCELLED'?'취소':'결과 도착'}</p><p className="mt-2 whitespace-pre-wrap">{q.prompt}</p>{q.targets.length>0&&<p className="mt-2 text-sm text-zinc-400">제출: {q.targets.map(id=><span key={id} className="mr-2">{name(id)}</span>)}</p>}{q.result&&<p className="mt-3 whitespace-pre-wrap font-semibold text-violet-200">{q.result}</p>}</div>)}</div></details>
+    <details className="rounded-2xl border border-white/10 p-5"><summary>내 요청·결과 기록</summary><div className="mt-4 space-y-3">{state.requests?.filter(q=>!q.private_once&&!q.prompt.startsWith('첩자 · ')).map(q=><div key={q.id} className="rounded-xl bg-white/5 p-4"><p className="text-sm text-violet-300">{q.night}일차 · {q.status==='OPEN'?'선택 대기':q.status==='SUBMITTED'?'이야기꾼 확인 중':q.status==='CANCELLED'?'취소':'결과 도착'}</p><p className="mt-2 whitespace-pre-wrap">{q.prompt}</p>{q.targets.length>0&&<p className="mt-2 text-sm text-zinc-400">제출: {q.targets.map(id=><span key={id} className="mr-2">{name(id)}</span>)}</p>}{q.result&&<p className="mt-3 whitespace-pre-wrap font-semibold text-violet-200">{q.result}</p>}</div>)}</div></details>
   </section>;
 }

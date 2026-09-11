@@ -49,7 +49,7 @@ export function nextTask(engine:NightEngine,members:LiveMember[]) {
 }
 export function taskRequest(task:NightTask) {
   const count=task.role==='점쟁이'?2:['독살범','수도사','임프','까마귀지기','집사'].includes(task.role)?1:0;
-  return {user_id:task.user_id,target_count:count,allow_self:!['수도사','집사'].includes(task.role),prompt:count?`${task.role} · ${count===2?'확인할 참가자 두 명':'능력을 사용할 참가자 한 명'}을 선택해 주세요.`:'이야기꾼이 확인한 정보를 전달합니다.'};
+  return {user_id:task.user_id,target_count:count,allow_self:!['수도사','집사'].includes(task.role),prompt:task.role==='첩자'?'첩자 · 마도서를 확인하세요. 확인 후에는 다시 볼 수 없습니다.':count?`${task.role} · ${count===2?'확인할 참가자 두 명':'능력을 사용할 참가자 한 명'}을 선택해 주세요.`:'이야기꾼이 확인한 정보를 전달합니다.'};
 }
 export type NightProposal = {result:string;reason:string[];effect:string;victim?:string;successor?:string;requiresChoice?:boolean;canRedirect?:boolean;choices?:LiveMember[]};
 export function propose(task:NightTask,targets:string[],e:NightEngine,members:LiveMember[],override?:{victim?:string;successor?:string}):NightProposal {
