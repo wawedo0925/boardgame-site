@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {flowLabel,nextFlowLabel} from '@/lib/clocktower/flow';
 import ClocktowerVoting from './ClocktowerVoting';
+import ClocktowerRecap from './ClocktowerRecap';
 import ClocktowerSlayer from './ClocktowerSlayer';
 import ClocktowerPopup from './ClocktowerPopup';
 import ClocktowerPlayerActivity from './ClocktowerPlayerActivity';
@@ -77,6 +78,7 @@ export default function ClocktowerLive({ eventId, expectedRoomId }: { eventId: s
       {room.phase==='ENDED'&&room.end_reason&&<p className="my-4 text-xl text-amber-200">{room.end_reason}</p>}
       {room.phase==='DAY'&&<><ClocktowerVoting allowPopup={allowPopup} state={state} run={run} busy={busy} error={error}/><ClocktowerSlayer state={state} run={run} busy={busy}/></>}
       {state.is_host ? <Host key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} /> : <Player key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} />}
+      <ClocktowerRecap key={`recap:${room.id}`} roomId={room.id} />
     </>}
     {!hidden&&announcement&&!allowPopup&&<ClocktowerPopup title={announcement.title} onClose={()=>setSeenPhase(announcement.key)}><div className="space-y-6 text-center"><p aria-hidden="true" className="text-6xl">{announcement.icon}</p><p className="text-lg leading-8">{announcement.description}</p><button className={`${button} w-full`} onClick={()=>setSeenPhase(announcement.key)}>확인</button></div></ClocktowerPopup>}
   </div>;

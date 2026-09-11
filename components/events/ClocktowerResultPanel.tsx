@@ -1,4 +1,5 @@
 "use client";
+import ClocktowerRecap from './ClocktowerRecap';
 
 import Link from "next/link";
 import { clocktowerPlayTitle } from "@/lib/clocktower/play-title";
@@ -86,6 +87,7 @@ function PlayCard({ play, command, hasActiveRoom, ...props }: Props & { play: Pl
       <button className="mt-5 rounded-xl border border-white/15 px-4 py-3 text-sm" onClick={() => setEditing(!editing)}>{editing ? "입력창 접기" : play.result_round_id ? "수동 기록 수정" : "프로그램 없이 진행 · 결과 직접 기록"}</button>
       {editing && <ManualResult {...props} play={play} command={command} onSaved={() => { setEditing(false); router.refresh(); }} />}
     </>}
+    {play.room_id && play.phase === "ENDED" && <details className="mt-5"><summary className="cursor-pointer text-violet-200">게임 복기 로그 보기</summary><ClocktowerRecap key={play.room_id} roomId={play.room_id} /></details>}
     {active && <p className="mt-4 text-sm text-zinc-400">브라우저를 닫아도 승패 결과는 저장되지 않습니다. 선·악 진영 중 승자가 확정되면 이 카드에 기록됩니다.</p>}
   </article>;
 }
