@@ -19,6 +19,9 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
   const activeNight=state.room?.phase==='NIGHT';
   const q=activeNight?actionable.find(q=>!dismissed.includes(`request:${q.id}:${q.status}`)):undefined;
   const mission=activeNight&&!q?missions.find(m=>!dismissed.includes(`mission:${m.id}`)):undefined;
+  const numberTiles=mission?.challenge.tiles??[];
+  const numberCount=numberTiles.length;
+  const numberAnswer=[...numberTiles].sort((a,b)=>a-b).join(',');
   const key=q?`request:${q.id}:${q.status}`:mission?`mission:${mission.id}`:'';
   const privateResult=!!q&&(q.private_once||q.prompt.startsWith('첩자 · '));
   const picked=q?selected[q.id]??[]:[];
@@ -39,10 +42,10 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
           <button disabled={busy||picked.length!==q.target_count} className={`${button} w-full`} onClick={()=>void run('reply',{request_id:q.id,targets:picked})}>{q.target_count?'선택 제출':'내용 확인했습니다'}</button>
         </>}
       </div>}
-      {mission&&<div className="space-y-4"><p className="text-lg font-bold">{mission.kind==='NUMBERS'?'1부터 10까지 차례대로 눌러 주세요':'아래 문장을 똑같이 입력해 주세요'}</p>
-        {mission.kind==='NUMBERS'?<><p aria-live="polite" className="text-sm text-violet-200">{(numbers[mission.id]??0)===10?'모두 눌렀습니다. 확인 버튼을 눌러 주세요.':`다음 숫자: ${(numbers[mission.id]??0)+1}`}</p><div className="grid grid-cols-5 gap-2">{mission.challenge.tiles?.map(n=><button key={n} disabled={busy||n<=(numbers[mission.id]??0)} className="aspect-square min-h-11 rounded-xl border border-violet-300/30 bg-violet-400/10 text-xl font-bold disabled:border-transparent disabled:bg-white/5 disabled:text-zinc-600" onClick={()=>{if(n===(numbers[mission.id]??0)+1){setNumbers({...numbers,[mission.id]:n});setHint('');}else setHint('작은 숫자부터 차례대로 눌러 주세요.');}}>{n}</button>)}</div></>:<><p className="rounded-xl bg-violet-400/10 p-4 text-lg leading-8">{mission.challenge.text}</p><label className="block text-sm">문장 입력<input autoComplete="off" maxLength={200} disabled={busy} className="mt-2 w-full rounded-xl border border-white/20 bg-zinc-900 p-3 text-base" value={texts[mission.id]??''} onChange={e=>setTexts({...texts,[mission.id]:e.target.value})}/></label></>}
+      {mission&&<div className="space-y-4"><p className="text-lg font-bold">{mission.kind==='NUMBERS'?`1부터 ${numberCount}까지 차례대로 눌러 주세요`:'아래 문장을 똑같이 입력해 주세요'}</p>
+        {mission.kind==='NUMBERS'?<><p aria-live="polite" className="text-sm text-violet-200">{(numbers[mission.id]??0)===numberCount?'모두 눌렀습니다. 확인 버튼을 눌러 주세요.':`다음 숫자: ${(numbers[mission.id]??0)+1}`}</p><div className={`grid gap-2 ${numberCount===3?'grid-cols-3':'grid-cols-5'}`}>{numberTiles.map(n=><button key={n} disabled={busy||n<=(numbers[mission.id]??0)} className="aspect-square min-h-11 rounded-xl border border-violet-300/30 bg-violet-400/10 text-xl font-bold disabled:border-transparent disabled:bg-white/5 disabled:text-zinc-600" onClick={()=>{if(n===(numbers[mission.id]??0)+1){setNumbers({...numbers,[mission.id]:n});setHint('');}else setHint('작은 숫자부터 차례대로 눌러 주세요.');}}>{n}</button>)}</div></>:<><p className="rounded-xl bg-violet-400/10 p-4 text-lg leading-8">{mission.challenge.text}</p><label className="block text-sm">문장 입력<input autoComplete="off" maxLength={200} disabled={busy} className="mt-2 w-full rounded-xl border border-white/20 bg-zinc-900 p-3 text-base" value={texts[mission.id]??''} onChange={e=>setTexts({...texts,[mission.id]:e.target.value})}/></label></>}
         {hint&&<p role="status" className="text-sm text-amber-200">{hint}</p>}
-        <button disabled={busy||(mission.kind==='NUMBERS'?(numbers[mission.id]??0)!==10:(texts[mission.id]??'').trim()!==mission.challenge.text)} className={`${button} w-full`} onClick={()=>void run('mission_complete',{mission_id:mission.id,answer:mission.kind==='NUMBERS'?'1,2,3,4,5,6,7,8,9,10':(texts[mission.id]??'').trim()})}>미션 확인</button>
+        <button disabled={busy||(mission.kind==='NUMBERS'?!numberCount||(numbers[mission.id]??0)!==numberCount:(texts[mission.id]??'').trim()!==mission.challenge.text)} className={`${button} w-full`} onClick={()=>void run('mission_complete',{mission_id:mission.id,answer:mission.kind==='NUMBERS'?numberAnswer:(texts[mission.id]??'').trim()})}>미션 확인</button>
       </div>}
       {!privateResult&&<p className="mt-4 text-center text-xs text-zinc-500">팝업을 닫아도 제출·확인 처리되지 않습니다.</p>}
     </ClocktowerPopup>}
