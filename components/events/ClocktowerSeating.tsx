@@ -5,7 +5,7 @@ import ClocktowerPopup from './ClocktowerPopup';
 import ClocktowerPersonalNotes from './ClocktowerPersonalNotes';
 import { emptyEngine, type NightEngine } from '@/lib/clocktower/night';
 import { seatingStatus } from '@/lib/clocktower/seating-status';
-import type { LiveMember, SeatLayout } from '@/lib/clocktower/live';
+import type { LiveMember, LiveVote, SeatLayout } from '@/lib/clocktower/live';
 
 export function birthYearLabel(value?: string | null) {
   const digits = value?.replace(/[^0-9]/g, '') ?? '';
@@ -26,7 +26,8 @@ export function gridLayout(members: LiveMember[]): SeatLayout {
   return Object.fromEntries(ordered.map((m, i) => [m.user_id, { x: 100 + (i % columns) * 800 / Math.max(1, columns - 1), y: rows === 1 ? 350 : 100 + Math.floor(i / columns) * 500 / (rows - 1) }]));
 }
 
-export default function ClocktowerSeating({ roomId, members, layout = {}, revision = 0, editable = false, busy = false, myId, swap, sync, save, onEditingChange, storyteller=false, onNominate, nominated=[], engine, phase='SETUP', night=0 }: {
+export default function ClocktowerSeating({ vote, onRecordVote, roomId, members, layout = {}, revision = 0, editable = false, busy = false, myId, swap, sync, save, onEditingChange, storyteller=false, onNominate, nominated=[], engine, phase='SETUP', night=0 }: {
+  vote?: LiveVote; onRecordVote?: (voteId: string, userId: string, yes: boolean) => Promise<boolean>;
   roomId?: string;
   onNominate?:(id:string)=>Promise<boolean>;nominated?:string[];
   storyteller?:boolean;engine?:NightEngine;phase?:string;night?:number;
@@ -55,6 +56,7 @@ export default function ClocktowerSeating({ roomId, members, layout = {}, revisi
   const positions = (editable ? draft : null) ?? Object.fromEntries(ordered.map(m => [m.user_id, layout[m.user_id] ?? defaults[m.user_id]]));
   const scale = zoom ?? fit;
   const editing = editable && mode === 'move';
+  const tallying = storyteller && phase === 'DAY' && vote?.status === 'RUNNING' && !!onRecordVote;
 
   useEffect(() => {
     const element = viewport.current;
@@ -99,6 +101,7 @@ export default function ClocktowerSeating({ roomId, members, layout = {}, revisi
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold">마을 자리 배치</h2><div className="flex flex-wrap gap-2">{roomId && myId && <ClocktowerPersonalNotes key={`${roomId}:${myId}`} roomId={roomId} userId={myId} />}{editable && sync && <button disabled={busy || mode !== 'view'} onClick={sync} className={control}>일정 참가자 불러오기</button>}</div></div>
     <p className="mt-3 text-sm leading-6 text-zinc-400">{editable ? '실제로 앉은 위치에 맞춰 카드를 자유롭게 배치하세요. 저장하면 참가자들에게도 같은 모양으로 보입니다.' : '실제 앉은 위치에 맞춰 이야기꾼이 배치한 자리입니다. 작게 보이면 확대해서 확인하세요.'}</p>
     <p className="mt-2 text-xs text-zinc-400">흰색: 생존 · 회색: 사망 · ●: 남은 투표권 · ○: 투표권 사용 완료{storyteller?' · 직업·상태·메모는 이야기꾼에게만 표시됩니다.':''}</p>
+    {tallying && vote && <div className="mt-4 rounded-xl bg-violet-400/15 p-4"><p className="font-bold">{members.find(m=>m.user_id===vote.nominee)?.name} 처형 투표 · 찬성 {Object.values(vote.ballots).filter(Boolean).length}표 / 필요 {vote.threshold}표</p><p className="mt-2 text-sm">손 든 멤버의 카드를 누르면 찬성표로 집계됩니다. 다시 누르면 취소됩니다. 모두 확인한 뒤 위의 지목·투표 섹션에서 집계 완료를 눌러 주세요.</p></div>}
     {editable && <div className="mt-4 flex flex-wrap gap-2">
       {mode === 'view' ? <><button disabled={busy || !members.length} className="rounded-xl bg-violet-400 px-4 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={() => { onEditingChange?.(true); setDraft(positions); setBaseRevision(revision); setMode('move'); setZoom(Math.max(fit, 0.7)); }}>배치 편집</button><button disabled={busy || members.length < 2} className={control} onClick={() => { onEditingChange?.(true); setOrderDraft(Object.fromEntries(members.map(m=>[m.user_id,m.seat]))); setSwaps([]); setSelected(null); setMode('order'); setShowOrder(true); setZoom(Math.max(fit, 0.7)); }}>이웃 순서 바꾸기</button></> : <>
         {editing && <><button disabled={busy} className="rounded-xl bg-violet-400 px-4 py-2 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={async () => { if (draft && await save?.(draft, baseRevision)) cancel(); }}>배치 저장</button><button disabled={busy} className={control} onClick={() => { setDraft(gridLayout(members)); setSelected(null); }}>줄 맞추기</button></>}
@@ -115,11 +118,13 @@ export default function ClocktowerSeating({ roomId, members, layout = {}, revisi
           {showOrder && ordered.length > 1 && <svg width="1000" height="700" className="pointer-events-none absolute inset-0" aria-hidden="true">{ordered.map((member, i) => { const a = positions[member.user_id], b = positions[ordered[(i + 1) % ordered.length].user_id]; return <line key={member.user_id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#a78bfa" strokeOpacity="0.45" strokeWidth="2" strokeDasharray="6 6" />; })}</svg>}
           {ordered.map(member => {
             const pos = positions[member.user_id];
+            const voted = vote?.ballots[member.user_id] === true;
             const flags=storyteller?seatingStatus(member,members,engine??emptyEngine(),phase,night):[];
             const className = `absolute flex w-max max-w-[160px] flex-col items-center justify-center rounded-xl border-2 px-3 py-2 text-center text-sm font-semibold ${member.alive?'border-white bg-white text-zinc-950':'border-zinc-600 bg-zinc-800 text-zinc-400'} ${selected===member.user_id?'z-10 ring-4 ring-violet-400':member.user_id===myId?'ring-2 ring-violet-400':''}`;
             const style = { left: pos.x, top: pos.y, transform: 'translate(-50%, -50%)' };
             const year=birthYearLabel(member.birth_year).replace('년생','');
             const content = <><span className="mb-1 block text-[10px] opacity-70">{member.seat}번{member.user_id===myId?' · 내 자리':''} · {member.alive?'생존':'사망'}</span><span className="relative inline-block mx-3 max-w-[100px] text-base font-bold leading-6"><span className="break-all">{member.name}</span>{year&&<small aria-label={`${year}년생`} className="absolute left-full top-0 ml-1 text-[10px] font-normal opacity-60">{year}</small>}</span>
+              {tallying&&<span className={`mt-1 rounded-md px-2 py-1 text-xs ${voted?'bg-violet-600 text-white':'bg-zinc-200 text-zinc-700'}`}>{voted?'✓ 찬성':!member.alive&&member.ghost_vote_used?'투표권 없음':'기권'}</span>}
               {!member.alive&&<span className="mt-2 rounded-full border border-zinc-500 px-2 py-0.5 text-[10px]">{member.ghost_vote_used===undefined?'투표권 확인 중':member.ghost_vote_used?'○ 투표권 없음':'● 투표권 1표'}</span>}
               {storyteller&&<><span className="mt-1 text-xs font-bold">{member.actual_role||'역할 미배정'}</span>{member.actual_role!==member.shown_role&&member.shown_role&&<span className="text-[10px] opacity-70">본인 표시: {member.shown_role}</span>}<span className="mt-1 flex flex-wrap justify-center gap-1 empty:hidden">{flags.map(flag=><span key={flag} className={`rounded-md px-1.5 py-0.5 text-[10px] ${member.alive?(flag==='중독'?'bg-emerald-100 text-emerald-900':flag==='취함'?'bg-amber-100 text-amber-900':'bg-violet-100 text-violet-900'):'bg-zinc-700 text-zinc-300'}`}>{flag}</span>)}</span>{member.notes&&<span className="mt-1 line-clamp-2 break-all text-[10px] font-normal opacity-70">{member.notes}</span>}</>}
             </>;
@@ -129,7 +134,7 @@ export default function ClocktowerSeating({ roomId, members, layout = {}, revisi
               onPointerMove={e => { if (!editing || busy || drag.current?.id !== member.user_id) return; const p = point(e.clientX, e.clientY); move(member.user_id, p.x - drag.current.dx, p.y - drag.current.dy); }}
               onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}
               onKeyDown={e => { if (!editing || busy) return; const delta = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[e.key]; if (delta) { e.preventDefault(); setSelected(member.user_id); move(member.user_id, pos.x + delta[0], pos.y + delta[1]); } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(member.user_id); } }}
-            >{content}</button> : onNominate ? <button key={member.user_id} disabled={busy||nominated.includes(member.user_id)} title={`${member.name} 지목`} className={`${className} disabled:cursor-not-allowed`} style={style} onClick={()=>setNominee(member)}>{content}{nominated.includes(member.user_id)&&<span className="mt-1 text-[10px]">오늘 지목받음</span>}</button> : <div key={member.user_id} title={member.name} className={className} style={style}>{content}</div>;
+            >{content}</button> : tallying && vote ? <button key={member.user_id} aria-pressed={voted} aria-label={`${member.name} · ${voted?'찬성 취소':'찬성으로 집계'}`} disabled={busy||!vote.voter_order.includes(member.user_id)||(!member.alive&&member.ghost_vote_used&&!voted)} className={`${className} ${voted?'outline outline-4 outline-violet-500':''} disabled:cursor-not-allowed`} style={style} onClick={()=>void onRecordVote?.(vote.id,member.user_id,!voted)}>{content}</button> : onNominate ? <button key={member.user_id} disabled={busy||nominated.includes(member.user_id)} title={`${member.name} 지목`} className={`${className} disabled:cursor-not-allowed`} style={style} onClick={()=>setNominee(member)}>{content}{nominated.includes(member.user_id)&&<span className="mt-1 text-[10px]">오늘 지목받음</span>}</button> : <div key={member.user_id} title={member.name} className={className} style={style}>{content}</div>;
           })}
         </div>
       </div>}
