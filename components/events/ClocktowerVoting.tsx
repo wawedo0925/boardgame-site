@@ -3,12 +3,15 @@ import {useState} from 'react';
 import type {LiveState} from '@/lib/clocktower/live';
 import {voteOutcome} from '@/lib/clocktower/voting';
 import ClocktowerPopup from './ClocktowerPopup';
+import ClocktowerNominationAlert, { vibrateNomination } from './ClocktowerNominationAlert';
 import {ClocktowerName} from './ClocktowerSeating';
 const button='rounded-xl border border-white/20 px-4 py-3 disabled:opacity-40';
 const field='mt-2 w-full rounded-xl border border-white/20 bg-zinc-900 p-3';
-export default function ClocktowerVoting({state,run,busy,error}:{state:LiveState;run:(action:string,data?:Record<string,unknown>)=>Promise<boolean>;busy:boolean;error:string}){
+export default function ClocktowerVoting({state,run,busy,error,allowPopup=true}:{allowPopup?:boolean;state:LiveState;run:(action:string,data?:Record<string,unknown>)=>Promise<boolean>;busy:boolean;error:string}){
  const [nominator,setNominator]=useState('');const [nominee,setNominee]=useState('');
  const [seenVote,setSeenVote]=useState('');
+ const [seenNomination,setSeenNomination]=useState('');
+ const [vibrationHint,setVibrationHint]=useState('');
  const [butlerChecked,setButlerChecked]=useState(false);
  const votes=state.votes??[];const members=state.members??[];const active=votes.find(v=>v.status==='WAITING'||v.status==='RUNNING');
  const me=members.find(m=>m.user_id===state.my_id);
@@ -19,7 +22,10 @@ export default function ClocktowerVoting({state,run,busy,error}:{state:LiveState
  const name=(id:string)=>{const m=members.find(m=>m.user_id===id);return m?<ClocktowerName member={m}/>:<span>참가자</span>;};
  if(state.room?.phase!=='DAY')return null;
  return <section className="space-y-4 rounded-3xl border border-violet-400/30 p-5">
-  <h2 className="text-xl font-bold">지목·투표</h2>
+  <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold">지목·투표</h2>{state.is_host&&<button className={button} onClick={()=>setVibrationHint(vibrateNomination()?'진동을 요청했습니다. 실제로 울리는지 확인해 주세요.':'이 기기 또는 브라우저에서는 진동을 사용할 수 없습니다. 팝업으로 알려드릴게요.')}>진동 테스트</button>}</div>
+  {state.is_host&&<p className="text-xs leading-6 text-zinc-400">지목이 오면 팝업과 진동으로 알려드립니다. 진행 화면을 켜 두고 진동 테스트를 한 번 눌러 주세요. 기기·브라우저 설정에 따라 진동은 지원되지 않을 수 있습니다.</p>}
+  {state.is_host&&vibrationHint&&<p role="status" className="text-sm text-violet-200">{vibrationHint}</p>}
+  {state.is_host&&allowPopup&&state.room.day_stage==='NOMINATIONS'&&active?.status==='WAITING'&&seenNomination!==active.id&&<ClocktowerNominationAlert key={active.id} nominator={members.find(m=>m.user_id===active.nominator)?.name??'참가자'} nominee={members.find(m=>m.user_id===active.nominee)?.name??'참가자'} onClose={()=>setSeenNomination(active.id)}/>}
   {!state.is_host&&active?.status==='RUNNING'&&seenVote!==active.id&&<ClocktowerPopup title="투표가 시작되었습니다" onClose={()=>setSeenVote(active.id)}><p className="text-xl">{name(active.nominee)}님의 처형에 찬성하면 현장에서 손을 들어 주세요.</p><p className="my-4">이야기꾼이 돌아가며 확인하고 기록합니다. 휴대폰에서 투표 버튼을 누르지 않아도 됩니다.</p><button className={button} onClick={()=>setSeenVote(active.id)}>확인</button></ClocktowerPopup>}
 
   <p className="text-sm leading-6 text-zinc-400">하루에 한 번 지목하고, 한 번만 지목받습니다. 지목된 사람의 다음 자리부터 자리 번호 순서로 진행하며 본인은 마지막입니다. 현장에서 손을 들면 이야기꾼이 누릅니다. 선택하지 않은 사람은 기권입니다.</p>
