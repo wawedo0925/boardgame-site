@@ -60,7 +60,7 @@ function ProposalReview({task,request,engine,members,busy,allowPopup,error,appro
   const result=text??proposal.result;
   const choiceMissing=task.role==='임프'?proposal.requiresChoice:task.role==='점쟁이'&&!engine.red_herring?true:proposal.requiresChoice&&text===null;
   return <><button className={button} onClick={()=>setClosed(false)}>능력 결과 검토 열기</button>{allowPopup&&!closed&&<ClocktowerPopup title={`${task.role} · 결과 검토`} subtitle="이야기꾼 전용" busy={busy} onClose={()=>setClosed(true)}><div className="space-y-4">{error&&<p role="alert" className="text-red-300">{error}</p>}
-    {request.targets.length>0&&<p className="text-sm">멤버 선택: {request.targets.map(id=>members.find(m=>m.user_id===id)?.name).join(', ')}</p>}
+    {request.targets.length>0&&<div className="flex flex-wrap items-baseline gap-x-3 gap-y-2"><span className="text-sm">멤버 선택:</span>{request.targets.map(id=>{const member=members.find(m=>m.user_id===id);return <span key={id} className="inline-flex flex-wrap items-baseline gap-1.5"><span className="text-base font-semibold">{member?.name??'참가자'}</span><small className="text-xs text-zinc-400">({member?.actual_role||'역할 미배정'})</small></span>;})}</div>}
     <h3 className="font-bold text-violet-200">시스템 제안 · 이야기꾼만 볼 수 있습니다</h3>
     <ul className="space-y-2 text-sm leading-6 text-amber-200">{proposal.reason.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
     <p aria-live="polite" className="rounded-xl bg-white/5 p-3 text-sm">{proposal.canRedirect&&victim===undefined?'시장 사망 여부와 대체 대상을 선택해 주세요.':`승인 시 반영: ${proposal.effect}`}</p>
