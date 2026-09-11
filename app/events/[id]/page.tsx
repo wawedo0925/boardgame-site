@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -496,8 +496,6 @@ export default function EventDetailPage() {
                 ← 이벤트 목록
               </Link>
 
-              {event.event_kind === "CLOCKTOWER" && !isCancelled && <Link href={`/events/${eventId}/clocktower`} className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-violet-400/40 bg-violet-400/15 p-5 text-violet-100 hover:bg-violet-400/25"><span><strong className="block text-lg">시계탑 프로그램 입장</strong><span className="mt-1 block text-sm text-violet-200/80">일정 참가자 · 내 자리 확인과 밤 진행</span></span><span aria-hidden="true">→</span></Link>}
-
               <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -865,7 +863,7 @@ export default function EventDetailPage() {
                   canManage={canManage}
                   isClosed={isLocked}
                 />
-              ) : event.event_kind === "CLOCKTOWER" && canManage ? (
+              ) : event.event_kind === "CLOCKTOWER" && (canManage || participants.some(p => p.user_id === user?.id)) ? (
                 <ClocktowerResultPanel
                   eventId={eventId}
                   title={event.title}

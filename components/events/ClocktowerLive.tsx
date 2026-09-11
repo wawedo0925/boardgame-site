@@ -24,7 +24,7 @@ const subtle = 'rounded-xl border border-white/20 px-4 py-3 text-sm disabled:opa
 const roles = CLOCKTOWER_CHARACTERS['점철되는 혼란'].filter(c => c.type !== '이야기꾼');
 type Run = (action: string, data?: Record<string, unknown>) => Promise<boolean>;
 
-export default function ClocktowerLive({ eventId }: { eventId: string }) {
+export default function ClocktowerLive({ eventId, expectedRoomId }: { eventId: string; expectedRoomId?: string }) {
   const supabase = useMemo(() => createClient(), []);
   const [state, setState] = useState<LiveState | null>(null);
   const [error, setError] = useState('');
@@ -64,6 +64,7 @@ export default function ClocktowerLive({ eventId }: { eventId: string }) {
   const [seenPhase,setSeenPhase]=useState('');
   const announcement=state?phaseAnnouncement(state):null;
   const allowPopup=!announcement||seenPhase===announcement.key;
+  if (state?.room && expectedRoomId && state.room.id !== expectedRoomId) return <div className="mt-6 rounded-3xl border border-violet-400/30 p-6"><h2 className="text-xl font-bold">이 판은 종료되었습니다.</h2><p className="mt-3 text-zinc-400">일정의 새 판 카드에서 다시 입장해 주세요.</p><a className={`${button} mt-5 inline-block`} href={`/events/${eventId}`}>일정으로 돌아가기</a></div>;
   return <div className="mt-6">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-zinc-400">화면을 켜 두세요. 투표 차례는 서버 시간에 맞춰 자동으로 표시됩니다.</span><div className="flex gap-2"><button className={subtle} onClick={() => setHidden(!hidden)}>{hidden ? '화면 다시 보기' : '화면 가리기'}</button><button className={subtle} onClick={() => void refresh()}>새로고침</button></div></div>
     {connectionError && <p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-4 text-red-300">{connectionError}</p>}

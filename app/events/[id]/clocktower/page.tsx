@@ -3,8 +3,9 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import ClocktowerLive from '@/components/events/ClocktowerLive';
 
-export default async function ClocktowerLivePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClocktowerLivePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ room?: string }> }) {
   const { id } = await params;
+  const { room } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
@@ -20,7 +21,7 @@ export default async function ClocktowerLivePage({ params }: { params: Promise<{
     <div className="mx-auto max-w-6xl"><Link href={`/events/${id}`} className="text-sm text-zinc-400 hover:text-violet-300">← 이벤트로 돌아가기</Link>
       <p className="mt-6 text-sm font-semibold text-violet-300">시계탑 프로그램 · 점철되는 혼란</p>
       <h1 className="mt-2 text-2xl font-bold sm:text-3xl">{event.title}</h1>
-      <ClocktowerLive eventId={id} />
+      <ClocktowerLive eventId={id} expectedRoomId={room} />
     </div>
   </main>;
 }
