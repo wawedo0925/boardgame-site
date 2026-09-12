@@ -18,7 +18,7 @@ export function ClocktowerName({ member }: { member: { name: string; birth_year?
   return <span className="inline-flex max-w-full flex-wrap items-baseline justify-center gap-x-1.5"><span className="break-words">{member.name}</span>{year && <small className="text-[10px] font-normal text-zinc-400">{year}</small>}</span>;
 }
 
-const control = 'rounded-xl border border-white/20 px-3 py-2 text-sm disabled:opacity-40';
+const control = 'min-h-11 min-w-11 rounded-xl border border-white/20 px-3 py-2 text-sm disabled:opacity-40';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, Math.round(value / 10) * 10));
 export function gridLayout(members: LiveMember[]): SeatLayout {
   const ordered = [...members].sort((a, b) => a.seat - b.seat);
@@ -56,7 +56,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
   const ordered = members.map(m=>({...m,seat:orderDraft?.[m.user_id]??m.seat})).sort((a, b) => a.seat - b.seat);
   const defaults = gridLayout(members);
   const positions = (editable ? draft : null) ?? Object.fromEntries(ordered.map(m => [m.user_id, layout[m.user_id] ?? defaults[m.user_id]]));
-  const scale = zoom ?? fit;
+  const scale = zoom ?? (fit < 0.6 ? 1 : fit);
   const editing = editable && mode === 'move';
   const tallying = storyteller && phase === 'DAY' && vote?.status === 'RUNNING' && !!onRecordVote;
 
@@ -67,6 +67,16 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+
+  const focusPosition = positions[myId ?? ''] ?? positions[ordered[0]?.user_id];
+  const focusX = focusPosition?.x ?? 500;
+  const focusY = focusPosition?.y ?? 350;
+  useEffect(() => {
+    if (zoom !== null || fit >= 0.6 || !viewport.current) return;
+    const element = viewport.current;
+    element.scrollLeft = Math.max(0, (focusX + 80) * scale - element.clientWidth / 2);
+    element.scrollTop = Math.max(0, (focusY + 80) * scale - element.clientHeight / 2);
+  }, [fit, zoom, scale, focusX, focusY]);
 
   useEffect(() => () => onEditingChange?.(false), [onEditingChange]);
 
@@ -113,8 +123,8 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
     </div>}
     {editing && <p role="status" className="mt-3 text-sm text-violet-200">카드를 끌어 놓거나, 카드를 누른 뒤 빈 곳을 누르세요. 선택한 카드는 방향키로도 이동할 수 있습니다. 저장 전에는 본인 화면에만 보입니다.</p>}
     {editable && mode === 'order' && <p role="status" className="mt-3 text-sm text-violet-200">두 사람씩 계속 선택해 순서를 바꾸세요. 저장을 누르면 변경 사항이 반영되고 편집이 종료됩니다.</p>}
-    <div className="mt-4 flex flex-wrap items-center gap-2"><button className={control} onClick={() => setZoom(null)}>전체 보기</button><button className={control} onClick={() => setZoom(Math.max(0.25, scale - 0.15))} aria-label="배치 축소">−</button><span className="w-12 text-center text-xs text-zinc-400">{Math.round(scale * 100)}%</span><button className={control} onClick={() => setZoom(Math.min(1.5, scale + 0.15))} aria-label="배치 확대">＋</button><label className="ml-auto flex items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={showOrder} onChange={e => setShowOrder(e.target.checked)} />이웃 연결선</label></div>
-    <div ref={viewport} className="mt-4 overflow-auto rounded-2xl border border-white/10 bg-zinc-950" style={{ maxHeight: 750 }}>
+    <div className="mt-4 flex flex-wrap items-center gap-2"><button className={control} onClick={() => setZoom(fit)}>전체 보기</button><button className={control} onClick={() => setZoom(1)}>읽기 편하게</button><button className={control} onClick={() => setZoom(Math.max(0.25, scale - 0.15))} aria-label="배치 축소">−</button><span className="w-12 text-center text-xs text-zinc-400">{Math.round(scale * 100)}%</span><button className={control} onClick={() => setZoom(Math.min(1.5, scale + 0.15))} aria-label="배치 확대">＋</button><label className="ml-auto flex items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={showOrder} onChange={e => setShowOrder(e.target.checked)} />이웃 연결선</label></div>
+    <div ref={viewport} className="mt-4 overflow-auto rounded-2xl border border-white/10 bg-zinc-950" style={{ maxHeight: 'min(70dvh, 750px)' }}>
       {!ordered.length ? <p className="p-10 text-center text-zinc-400">아직 배정된 참가자가 없습니다.</p> : <div style={{ width: 1160 * scale, height: 860 * scale }} className="relative">
         <div ref={board} data-testid="seating-board" className="absolute origin-top-left" style={{ left:80*scale,top:80*scale,width: 1000, height: 700, transform: `scale(${scale})`, backgroundImage: 'radial-gradient(#ffffff16 1px, transparent 1px)', backgroundSize: '20px 20px' }} onClick={e => { if (editing && !busy && selected) { const p = point(e.clientX, e.clientY); move(selected, p.x, p.y); setSelected(null); } }}>
           {showOrder && ordered.length > 1 && <svg width="1000" height="700" className="pointer-events-none absolute inset-0" aria-hidden="true">{ordered.map((member, i) => { const a = positions[member.user_id], b = positions[ordered[(i + 1) % ordered.length].user_id]; return <line key={member.user_id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#a78bfa" strokeOpacity="0.45" strokeWidth="2" strokeDasharray="6 6" />; })}</svg>}

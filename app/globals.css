@@ -24,3 +24,33 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Scoped to the Clocktower UI; keep browser pinch zoom available. */
+.clocktower-popup {
+  top: calc(var(--popup-top, 0px) + env(safe-area-inset-top, 0px) + 8px);
+  bottom: auto;
+  margin-top: 0;
+  max-height: calc(var(--popup-height, 100dvh) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px);
+}
+.clocktower-popup-frame {
+  max-height: inherit;
+}
+@media (max-width: 640px), (pointer: coarse) {
+  .clocktower-mobile button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .clocktower-mobile input:not([type="checkbox"]):not([type="radio"]),
+  .clocktower-mobile select,
+  .clocktower-mobile textarea {
+    font-size: 16px;
+    max-width: 100%;
+    scroll-margin-block: 16px;
+  }
+  .clocktower-mobile {
+    overflow-wrap: anywhere;
+  }
+  .clocktower-popup {
+    width: calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+  }
+}

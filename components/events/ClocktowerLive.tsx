@@ -48,8 +48,11 @@ export default function ClocktowerLive({ eventId, expectedRoomId }: { eventId: s
     async function poll() { if (document.visibilityState === 'visible') await refresh(); if (active) timer = setTimeout(poll, 2000); }
     void poll();
     const focus = () => { void refresh(); };
+    const resume = () => { if (document.visibilityState === 'visible') void refresh(); };
     window.addEventListener('focus', focus);
-    return () => { active = false; clearTimeout(timer); window.removeEventListener('focus', focus); };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('online', focus);
+    return () => { active = false; clearTimeout(timer); window.removeEventListener('focus', focus); document.removeEventListener('visibilitychange', resume); window.removeEventListener('online', focus); };
   }, [refresh]);
   const run: Run = async (action, data = {}) => {
     if (busy) return false;
@@ -66,7 +69,7 @@ export default function ClocktowerLive({ eventId, expectedRoomId }: { eventId: s
   const announcement=state?phaseAnnouncement(state):null;
   const allowPopup=!announcement||seenPhase===announcement.key;
   if (state?.room && expectedRoomId && state.room.id !== expectedRoomId) return <div className="mt-6 rounded-3xl border border-violet-400/30 p-6"><h2 className="text-xl font-bold">이 판은 종료되었습니다.</h2><p className="mt-3 text-zinc-400">일정의 새 판 카드에서 다시 입장해 주세요.</p><a className={`${button} mt-5 inline-block`} href={`/events/${eventId}`}>일정으로 돌아가기</a></div>;
-  return <div className="mt-6">
+  return <div className="clocktower-mobile mt-6 min-w-0">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-zinc-400">화면을 켜 두세요. 투표 차례는 서버 시간에 맞춰 자동으로 표시됩니다.</span><div className="flex gap-2"><button className={subtle} onClick={() => setHidden(!hidden)}>{hidden ? '화면 다시 보기' : '화면 가리기'}</button><button className={subtle} onClick={() => void refresh()}>새로고침</button></div></div>
     {connectionError && <p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-4 text-red-300">{connectionError}</p>}
     {error && <p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-4 text-red-300">{error}</p>}
