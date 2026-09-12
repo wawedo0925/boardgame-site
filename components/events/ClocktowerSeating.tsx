@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import ClocktowerPopup from './ClocktowerPopup';
+import useClocktowerPinch from './useClocktowerPinch';
 import ClocktowerPersonalNotes from './ClocktowerPersonalNotes';
 import useClocktowerMemberNotes from './useClocktowerMemberNotes';
 import { emptyEngine, type NightEngine } from '@/lib/clocktower/night';
@@ -58,6 +59,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
   const positions = (editable ? draft : null) ?? Object.fromEntries(ordered.map(m => [m.user_id, layout[m.user_id] ?? defaults[m.user_id]]));
   const scale = zoom ?? (fit < 0.6 ? 1 : fit);
   const editing = editable && mode === 'move';
+  const pinch = useClocktowerPinch(viewport, scale, setZoom, editing, () => { drag.current = null; });
   const tallying = storyteller && phase === 'DAY' && vote?.status === 'RUNNING' && !!onRecordVote;
 
   useEffect(() => {
@@ -123,8 +125,8 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
     </div>}
     {editing && <p role="status" className="mt-3 text-sm text-violet-200">카드를 끌어 놓거나, 카드를 누른 뒤 빈 곳을 누르세요. 선택한 카드는 방향키로도 이동할 수 있습니다. 저장 전에는 본인 화면에만 보입니다.</p>}
     {editable && mode === 'order' && <p role="status" className="mt-3 text-sm text-violet-200">두 사람씩 계속 선택해 순서를 바꾸세요. 저장을 누르면 변경 사항이 반영되고 편집이 종료됩니다.</p>}
-    <div className="mt-4 flex flex-wrap items-center gap-2"><button className={control} onClick={() => setZoom(fit)}>전체 보기</button><button className={control} onClick={() => setZoom(1)}>읽기 편하게</button><button className={control} onClick={() => setZoom(Math.max(0.25, scale - 0.15))} aria-label="배치 축소">−</button><span className="w-12 text-center text-xs text-zinc-400">{Math.round(scale * 100)}%</span><button className={control} onClick={() => setZoom(Math.min(1.5, scale + 0.15))} aria-label="배치 확대">＋</button><label className="ml-auto flex items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={showOrder} onChange={e => setShowOrder(e.target.checked)} />이웃 연결선</label></div>
-    <div ref={viewport} className="mt-4 overflow-auto rounded-2xl border border-white/10 bg-zinc-950" style={{ maxHeight: 'min(70dvh, 750px)' }}>
+    <div className="mt-4 flex flex-wrap items-center gap-2"><button className={control} onClick={() => setZoom(fit)}>전체 보기</button><button className={control} onClick={() => setZoom(1)}>읽기 편하게</button><button className={control} onClick={() => setZoom(Math.max(0.25, scale - 0.15))} aria-label="배치 축소">−</button><span className="w-12 text-center text-xs text-zinc-400">{Math.round(scale * 100)}%</span><button className={control} onClick={() => setZoom(Math.min(2.5, scale + 0.15))} aria-label="배치 확대">＋</button><label className="ml-auto flex items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={showOrder} onChange={e => setShowOrder(e.target.checked)} />이웃 연결선</label></div>
+    <div ref={viewport} {...pinch} className="mt-4 overflow-auto rounded-2xl border border-white/10 bg-zinc-950" style={{ maxHeight: 'min(70dvh, 750px)', touchAction: 'none' }}>
       {!ordered.length ? <p className="p-10 text-center text-zinc-400">아직 배정된 참가자가 없습니다.</p> : <div style={{ width: 1160 * scale, height: 860 * scale }} className="relative">
         <div ref={board} data-testid="seating-board" className="absolute origin-top-left" style={{ left:80*scale,top:80*scale,width: 1000, height: 700, transform: `scale(${scale})`, backgroundImage: 'radial-gradient(#ffffff16 1px, transparent 1px)', backgroundSize: '20px 20px' }} onClick={e => { if (editing && !busy && selected) { const p = point(e.clientX, e.clientY); move(selected, p.x, p.y); setSelected(null); } }}>
           {showOrder && ordered.length > 1 && <svg width="1000" height="700" className="pointer-events-none absolute inset-0" aria-hidden="true">{ordered.map((member, i) => { const a = positions[member.user_id], b = positions[ordered[(i + 1) % ordered.length].user_id]; return <line key={member.user_id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#a78bfa" strokeOpacity="0.45" strokeWidth="2" strokeDasharray="6 6" />; })}</svg>}
@@ -152,7 +154,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
         </div>
       </div>}
     </div>
-    <p className="mt-2 text-xs text-zinc-500">확대한 화면은 빈 공간을 밀어 이동할 수 있습니다. 자리 번호는 이웃 순서입니다.</p>
+    <p className="mt-2 text-xs text-zinc-500">두 손가락을 벌리거나 오므려 확대·축소하고, 한 손가락으로 밀어 이동하세요. 자리 번호는 이웃 순서입니다.</p>
     {nominee&&!storyteller&&<ClocktowerPopup title={`${nominee.name} · 개인 메모`} onClose={()=>setNominee(null)}>
       <p className="mb-4 text-sm leading-6 text-zinc-400">본인에게만 보이는 예상과 메모입니다. 이 게임·계정별로 현재 브라우저에 자동 저장되며, 다른 기기로 동기화되지 않습니다.</p>
       <label className="block text-sm font-semibold">예상 역할<input maxLength={60} value={memberNotes[nominee.user_id]?.role??''} onChange={e=>updateMemberNote(nominee.user_id,{role:e.target.value,memo:memberNotes[nominee.user_id]?.memo??''})} placeholder="예: 점쟁이, 수사관 또는 임프?" className="mt-2 w-full rounded-xl border border-white/20 bg-zinc-900 p-3 text-base"/></label>
