@@ -40,6 +40,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
 }) {
   const {notes: memberNotes, update: updateMemberNote, error: noteError} = useClocktowerMemberNotes(storyteller ? undefined : roomId, myId);
   const [nominee,setNominee]=useState<LiveMember|null>(null);
+  const [view,setView]=useState<'map'|'list'>('map');
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState<SeatLayout | null>(null);
   const [baseRevision, setBaseRevision] = useState(0);
@@ -65,7 +66,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
   useEffect(() => {
     const element = viewport.current;
     if (!element) return;
-    const observer = new ResizeObserver(() => setFit(Math.min(1, Math.max(0.2, element.clientWidth / 1160))));
+    const observer = new ResizeObserver(() => {if(element.clientWidth>0)setFit(Math.min(1, Math.max(0.2, element.clientWidth / 1160)));});
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
@@ -116,6 +117,22 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
     <p className="mt-3 text-sm leading-6 text-zinc-400">{editable ? '실제로 앉은 위치에 맞춰 카드를 자유롭게 배치하세요. 저장하면 참가자들에게도 같은 모양으로 보입니다.' : '실제 앉은 위치에 맞춰 이야기꾼이 배치한 자리입니다. 작게 보이면 확대해서 확인하세요.'}</p>
     <p className="mt-2 text-xs text-zinc-400">흰색: 생존 · 회색: 사망 · ●: 남은 투표권 · ○: 투표권 사용 완료{storyteller?' · 직업·상태·메모는 이야기꾼에게만 표시됩니다.':''}</p>
     {tallying && vote && <div className="mt-4 rounded-xl bg-violet-400/15 p-4"><p className="font-bold">{members.find(m=>m.user_id===vote.nominee)?.name} 처형 투표 · 찬성 {Object.values(vote.ballots).filter(Boolean).length}표 / 필요 {vote.threshold}표</p><p className="mt-2 text-sm">손 든 멤버의 카드를 누르면 찬성표로 집계됩니다. 다시 누르면 취소됩니다. 모두 확인한 뒤 위의 지목·투표 섹션에서 집계 완료를 눌러 주세요.</p></div>}
+    {!storyteller && roomId && myId && <div className="mt-4 flex gap-2" role="group" aria-label="멤버 보기 방식"><button className={`${control} aria-pressed:bg-violet-400 aria-pressed:text-zinc-950 aria-pressed:font-bold`} aria-pressed={view==='map'} onClick={()=>setView('map')}>마을 배치</button><button className={`${control} aria-pressed:bg-violet-400 aria-pressed:text-zinc-950 aria-pressed:font-bold`} aria-pressed={view==='list'} onClick={()=>setView('list')}>멤버 목록</button></div>}
+    {view==='list' && !storyteller && <div className="mt-4 space-y-3">
+      <p className="text-sm text-zinc-400">멤버를 누르면 예상 역할과 개인 메모를 작성할 수 있습니다. 본인이 적은 내용만 표시됩니다.</p>
+      {!ordered.length && <p className="py-6 text-center text-zinc-400">아직 배정된 참가자가 없습니다.</p>}
+      <ul className="grid gap-3 sm:grid-cols-2">{ordered.map(member=>{
+        const note=memberNotes[member.user_id];
+        return <li key={member.user_id} className="min-w-0"><button type="button" onClick={()=>setNominee(member)} aria-label={member.name+' · 예상 역할과 개인 메모'} className={`w-full min-w-0 rounded-2xl border p-4 text-left ${member.alive?'border-white bg-white text-zinc-950':'border-zinc-600 bg-zinc-800 text-zinc-300'}`}>
+          <span className="flex flex-wrap items-baseline justify-between gap-2"><span className="text-lg font-bold">{member.name}<small className="ml-2 text-xs font-normal opacity-60">{birthYearLabel(member.birth_year).replace('년생','')}</small></span><span className="text-xs opacity-70">{member.seat}번 · {member.user_id===myId?'나 · ':''}{member.alive?'생존':'사망'}</span></span>
+          <span className={`mt-2 block break-words text-base font-semibold ${member.alive?'text-violet-700':'text-violet-300'}`}>예상 역할: {note?.role.trim() || '아직 작성하지 않았어요'}</span>
+          <span className="mt-2 block whitespace-pre-wrap break-words text-sm opacity-80 line-clamp-2">{note?.memo.trim() || '눌러서 개인 메모 작성하기'}</span>
+          {!member.alive && <span className="mt-2 block text-xs">{member.ghost_vote_used===undefined?'투표권 확인 중':member.ghost_vote_used?'○ 투표권 없음':'● 투표권 1표'}</span>}
+          {nominated.includes(member.user_id)&&<span className="mt-2 block text-xs">오늘 지목받음</span>}
+        </button></li>;
+      })}</ul>
+    </div>}
+    <div hidden={view==='list' && !storyteller}>
     {editable && <div className="mt-4 flex flex-wrap gap-2">
       {mode === 'view' ? <><button disabled={busy || !members.length} className="rounded-xl bg-violet-400 px-4 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={() => { onEditingChange?.(true); setDraft(positions); setBaseRevision(revision); setMode('move'); setZoom(Math.max(fit, 0.7)); }}>배치 편집</button><button disabled={busy || members.length < 2} className={control} onClick={() => { onEditingChange?.(true); setOrderDraft(Object.fromEntries(members.map(m=>[m.user_id,m.seat]))); setSwaps([]); setSelected(null); setMode('order'); setShowOrder(true); setZoom(Math.max(fit, 0.7)); }}>이웃 순서 바꾸기</button></> : <>
         {editing && <><button disabled={busy} className="rounded-xl bg-violet-400 px-4 py-2 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={async () => { if (draft && await save?.(draft, baseRevision)) cancel(); }}>배치 저장</button><button disabled={busy} className={control} onClick={() => { setDraft(gridLayout(members)); setSelected(null); }}>줄 맞추기</button></>}
@@ -155,6 +172,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
       </div>}
     </div>
     <p className="mt-2 text-xs text-zinc-500">두 손가락을 벌리거나 오므려 확대·축소하고, 한 손가락으로 밀어 이동하세요. 자리 번호는 이웃 순서입니다.</p>
+    </div>
     {nominee&&!storyteller&&<ClocktowerPopup title={`${nominee.name} · 개인 메모`} onClose={()=>setNominee(null)}>
       <p className="mb-4 text-sm leading-6 text-zinc-400">본인에게만 보이는 예상과 메모입니다. 이 게임·계정별로 현재 브라우저에 자동 저장되며, 다른 기기로 동기화되지 않습니다.</p>
       <label className="block text-sm font-semibold">예상 역할<input maxLength={60} value={memberNotes[nominee.user_id]?.role??''} onChange={e=>updateMemberNote(nominee.user_id,{role:e.target.value,memo:memberNotes[nominee.user_id]?.memo??''})} placeholder="예: 점쟁이, 수사관 또는 임프?" className="mt-2 w-full rounded-xl border border-white/20 bg-zinc-900 p-3 text-base"/></label>
