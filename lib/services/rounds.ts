@@ -1,3 +1,4 @@
+import { scoreRanks } from "@/lib/score-rank";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ResultType } from "@/types/event";
@@ -23,24 +24,16 @@ export async function saveRoundResults(
 ) {
   if (values.length === 0) throw new Error("저장할 참가자가 없습니다.");
 
-  const players = values.filter(value => !value.isGm);
   const teamResult = teamScore ? tichuResult(values) : null;
-  if (resultType === "SCORE" && players.some((value) => value.score === null || !Number.isFinite(value.score))) {
-    throw new Error("모든 참가자의 점수를 입력해 주세요.");
-  }
-
-  const ranks = players.map((value) => value.rank).filter((rank): rank is number => rank !== null);
-  if (!teamScore && resultType === "SIMPLE_SCORE" && (ranks.length !== players.length || new Set(ranks).size !== ranks.length || ranks.some(rank => !Number.isInteger(rank) || rank < 1 || rank > players.length))) {
-    throw new Error("모든 참가자에게 서로 다른 등수를 선택해 주세요.");
-  }
+  const normalized = !teamScore && (resultType === "SCORE" || resultType === "SIMPLE_SCORE") ? scoreRanks(values) : values;
 
   const { error } = await supabase.from(ROUND_PLAYERS).upsert(
-    values.map((value) => ({
+    normalized.map((value) => ({
       round_id: roundId,
       user_id: value.userId,
       is_gm: value.isGm === true,
-      score: !value.isGm && (teamScore || resultType === "SCORE") ? value.score : null,
-      rank: !value.isGm && !teamScore && resultType === "SIMPLE_SCORE" ? value.rank : null,
+      score: !value.isGm && (teamScore || resultType === "SCORE" || resultType === "SIMPLE_SCORE") ? value.score : null,
+      rank: !value.isGm && !teamScore && (resultType === "SIMPLE_SCORE" || resultType === "SCORE") ? value.rank : null,
       role_name: null,
       team_name: !value.isGm && teamResult ? value.teamName : null,
       is_winner: !value.isGm && teamResult?.winner ? value.teamName === teamResult.winner : null,

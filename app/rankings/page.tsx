@@ -12,8 +12,8 @@ const MIN_PLAYS = 3;
 
 function typeLabel(type: Game["type"]) {
   if (type === "ROLE") return "역할형";
-  if (type === "SIMPLE_SCORE") return "등수형";
-  return "점수형";
+  if (type === "SIMPLE_SCORE") return "점수/등수형";
+  return "점수/등수형";
 }
 
 function orderRows(rows: Ranking[], type: Game["type"]) {

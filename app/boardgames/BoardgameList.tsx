@@ -310,7 +310,7 @@ export default function BoardgameList({
     setEditDraft({
       name: draftText(data.name),
       is_unowned: String(data.is_unowned === true),
-      type: draftText(data.type) || "SCORE",
+      type: data.type === "SIMPLE_SCORE" ? "SCORE" : draftText(data.type) || "SCORE",
       min_players: draftText(data.min_players),
       max_players: draftText(data.max_players),
       best_players: draftText(data.best_players),
@@ -675,8 +675,7 @@ export default function BoardgameList({
                         updateEditDraft("type", event.target.value)
                       }
                     >
-                      <option value="SCORE">점수형</option>
-                      <option value="SIMPLE_SCORE">등수형</option>
+                      <option value="SCORE">점수/등수형</option>
                       <option value="ROLE">역할형</option>
                       <option value="COOP">협력형</option>
                     </select>

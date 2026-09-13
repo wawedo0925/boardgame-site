@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),ts=require('typescript'),fs=require('fs');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,f);
+const {scoreRanks,scoreRankLabel}=require('../lib/score-rank.ts');
+const make=(scores)=>scores.map((score,i)=>({userId:String(i),score,rank:null}));
+let rows=scoreRanks([...make([100,80,80,20]),{userId:'gm',isGm:true,score:999,rank:1}]);
+assert.deepEqual(rows.map(p=>p.rank),[1,2,2,4,null]);assert.equal(rows[4].score,null);
+assert.equal(scoreRankLabel(rows[1],rows.slice(0,4)),'80점 · 공동 2등');
+rows=scoreRanks(make([null,null,null]).map((p,i)=>({...p,rank:i===2?3:1})));
+assert.deepEqual(rows.map(p=>p.rank),[1,1,3]);assert.equal(scoreRankLabel(rows[0],rows),'공동 1등');
+assert.deepEqual(scoreRanks(make([0,-3,-3])).map(p=>p.rank),[1,2,2]);
+assert.throws(()=>scoreRanks(make([0,null])));assert.throws(()=>scoreRanks(make([null])));
+assert.equal(scoreRankLabel({score:80,rank:null},make([100,80,80,20])),'80점 · 공동 2등');
+assert.equal(scoreRankLabel({score:100,rank:1,team_name:'A팀'}),null);
+console.log('PASS: score ranks, shared places, rank-only ties, zero/negative scores, incomplete inputs, legacy labels and GM exclusion');

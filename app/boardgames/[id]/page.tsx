@@ -50,9 +50,9 @@ type ScoreSummary = {
 
 function formatGameType(type: string | null) {
   switch (type) {
-    case "SCORE": return "점수형";
+    case "SCORE": return "점수/등수형";
     case "ROLE": return "역할 추리";
-    case "SIMPLE_SCORE": return "간단 점수형";
+    case "SIMPLE_SCORE": return "점수/등수형";
     case "COOP": return "협력형";
     default: return type?.trim() || "보드게임";
   }

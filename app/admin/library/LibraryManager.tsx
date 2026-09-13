@@ -116,7 +116,7 @@ export default function LibraryManager() {
 
         {tab === "BOARDGAME" ? (
           <>
-            <label><span className="mb-2 block text-sm">결과 방식</span><select name="result_type" className={field}><option value="SCORE">점수형</option><option value="SIMPLE_SCORE">등수형</option><option value="ROLE">역할형</option><option value="COOP">협력형</option></select></label>
+            <label><span className="mb-2 block text-sm">결과 방식</span><select name="result_type" className={field}><option value="SCORE">점수/등수형</option><option value="ROLE">역할형</option><option value="COOP">협력형</option></select></label>
             <label><span className="mb-2 block text-sm">난이도(1~5)</span><input name="difficulty" type="number" min="1" max="5" step="0.01" className={field} /></label>
             <label><span className="mb-2 block text-sm">장르</span><input name="genre" className={field} /></label>
             <label><span className="mb-2 block text-sm">베스트 인원</span><input name="best_players" placeholder="예: 4명" className={field} /></label>

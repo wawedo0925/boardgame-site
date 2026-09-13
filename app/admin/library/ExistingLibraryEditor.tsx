@@ -99,7 +99,7 @@ export default function ExistingLibraryEditor() {
       <label className="mt-4 flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.is_unowned === "true"} onChange={(e) => set("is_unowned", String(e.target.checked))} className="accent-red-400" />미보유</label>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {section === "BOARDGAME" ? <>
-          <Field label="게임 이름" name="name" /><label className="block"><span className="mb-1.5 block text-xs font-semibold text-zinc-400">결과 방식</span><select value={draft.type ?? "SCORE"} onChange={(e) => set("type", e.target.value)} className={inputClass}><option value="SCORE">점수형</option><option value="SIMPLE_SCORE">등수형</option><option value="ROLE">역할형</option><option value="COOP">협력형</option></select></label>
+          <Field label="게임 이름" name="name" /><label className="block"><span className="mb-1.5 block text-xs font-semibold text-zinc-400">결과 방식</span><select value={draft.type === "SIMPLE_SCORE" ? "SCORE" : draft.type ?? "SCORE"} onChange={(e) => set("type", e.target.value)} className={inputClass}><option value="SCORE">점수/등수형</option><option value="ROLE">역할형</option><option value="COOP">협력형</option></select></label>
           <Field label="최소 인원" name="min_players" type="number" /><Field label="최대 인원" name="max_players" type="number" />
           <Field label="베스트 인원" name="best_players" /><Field label="플레이 시간(분)" name="play_time" type="number" />
           <Field label="난이도(1~5)" name="difficulty" type="number" min={1} max={5} step={0.01} /><Field label="장르" name="genre" />
