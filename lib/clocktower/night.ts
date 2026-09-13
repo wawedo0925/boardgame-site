@@ -51,7 +51,7 @@ export function taskRequest(task:NightTask) {
   const count=task.role==='점쟁이'?2:['독살범','수도사','임프','까마귀지기','집사'].includes(task.role)?1:0;
   return {user_id:task.user_id,target_count:count,allow_self:!['수도사','집사'].includes(task.role),prompt:task.role==='첩자'?'첩자 · 마도서를 확인하세요. 확인 후에는 다시 볼 수 없습니다.':count?`${task.role} · ${count===2?'확인할 참가자 두 명':'능력을 사용할 참가자 한 명'}을 선택해 주세요.`:'이야기꾼이 확인한 정보를 전달합니다.'};
 }
-export type NightProposal = {result:string;reason:string[];effect:string;victim?:string;successor?:string;requiresChoice?:boolean;canRedirect?:boolean;choices?:LiveMember[]};
+export type NightProposal = {result:string;reason:string[];effect:string;victim?:string;successor?:string;requiresChoice?:boolean;canRedirect?:boolean;choices?:LiveMember[];truthResult?:string;falseResult?:string};
 export function propose(task:NightTask,targets:string[],e:NightEngine,members:LiveMember[],override?:{victim?:string;successor?:string}):NightProposal {
   const m=members.find(x=>x.user_id===task.user_id)!;
   const name=(id:string)=>{const x=members.find(y=>y.user_id===id);return x?`${x.seat}번 ${x.name}`:'없음';};
@@ -123,6 +123,21 @@ export function propose(task:NightTask,targets:string[],e:NightEngine,members:Li
     else if(!actual)p.result='외지인은 0명입니다.';
     else {const decoy=members.find(x=>x.user_id!==actual.user_id&&x.user_id!==m.user_id)??members.find(x=>x.user_id!==actual.user_id)!;const pair=[actual,decoy].sort((a,b)=>a.seat-b.seat);p.result=`${pair.map(x=>name(x.user_id)).join(' 또는 ')} 중 한 명은 ${actual.actual_role}입니다.`;}
     reason.push('제시할 두 사람과 역할의 기본 제안입니다. 원하는 조합이나 위장 감지를 반영해 수정할 수 있습니다.');
+    if(m.actual_role==='주정뱅이'){
+      const format=(pair:LiveMember[],role:string)=>`${[...pair].sort((a,b)=>a.seat-b.seat).map(x=>name(x.user_id)).join(' 또는 ')} 중 한 명은 ${role}입니다.`;
+      // A saved Drunk clue may itself be false: recompute a valid reference clue.
+      const valid=members.find(x=>x.user_id!==m.user_id&&roleType(perceived(x))===type);
+      const other=members.find(x=>x.user_id!==m.user_id&&x.user_id!==valid?.user_id);
+      p.truthResult=valid&&other?format([valid,other],perceived(valid)!):type==='외지인'&&!members.some(x=>roleType(perceived(x))==='외지인')?'외지인은 0명입니다.':undefined;
+      const candidates=setupRoles.filter(x=>x.type===type).sort((a,b)=>Number(b.name===clue?.role)-Number(a.name===clue?.role));
+      for(const candidate of candidates){
+        const pair=members.filter(x=>x.user_id!==m.user_id&&x.actual_role!==candidate.name&&perceived(x)!==candidate.name).slice(0,2);
+        if(pair.length===2){p.falseResult=format(pair,candidate.name);break;}
+      }
+      p.result=p.falseResult??'';
+      if(!p.falseResult)p.requiresChoice=true;
+      reason.push('주정뱅이 기본 거짓 정보: 제시한 두 사람 모두 해당 역할이 아닌 조합입니다. 직접 수정하거나 정상 기준 정보를 선택할 수 있습니다.');
+    }
   }else if(task.role==='까마귀지기'||task.role==='장의사'){
     const id=task.role==='까마귀지기'?targets[0]:e.execution?.user_id;
     const target=members.find(x=>x.user_id===id);
@@ -135,11 +150,14 @@ export function propose(task:NightTask,targets:string[],e:NightEngine,members:Li
   }
   if(e.information&&members.some(x=>perceived(x)!==x.actual_role))reason.push('은둔자·첩자의 저장된 위장 기본값을 적용한 제안입니다. 이번 감지 결과는 수정할 수 있습니다.');
   if(disabled && !['독살범','수도사','집사','임프'].includes(task.role)){
+    if(m.actual_role==='주정뱅이'&&['세탁부','사서','수사관'].includes(task.role))return p;
+    if(m.actual_role==='주정뱅이'&&['초공감자','요리사','점쟁이','까마귀지기','장의사'].includes(task.role))p.truthResult=p.result;
     reason.push(`정상 상태일 때의 참고 답: ${p.result}`);
     if(['초공감자','요리사'].includes(task.role))p.result=String((Number(p.result)+1)%(task.role==='초공감자'?3:Math.max(2,members.length)));
     else if(task.role==='점쟁이')p.result=p.result==='악마가 있습니다.'?'악마가 없습니다.':'악마가 있습니다.';
     else if(task.role==='까마귀지기'||task.role==='장의사')p.result=setupRoles.find(x=>x.type==='주민'&&x.name!==p.result)!.name;
     else {p.requiresChoice=true;reason.push('정보가 무효인 상황입니다. 전달할 내용을 수정한 뒤 승인해 주세요.');}
+    if(p.truthResult!==undefined)p.falseResult=p.result;
   }
   return p;
 }
