@@ -9,8 +9,10 @@ function nodes(x){if(!x||typeof x!=='object')return [];if(Array.isArray(x))retur
 const buttons=tree=>nodes(tree).filter(n=>n.type==='button');
 let tree=render();effects[0]();let all=buttons(tree);
 assert.equal(all.at(-1).props.disabled,true);
-all[0].props.onClick();all=buttons(render());assert.equal(all.at(-1).props.disabled,true);
-now=3000;tick();all=buttons(render());assert.equal(all.at(-1).props.disabled,false);
+assert.equal(all[0].props.disabled,true);
+all[0].props.onClick();all=buttons(render());assert.equal(all[0].props['aria-pressed'],false);
+now=3000;tick();all=buttons(render());assert.equal(all[0].props.disabled,false);assert.equal(all.at(-1).props.disabled,true);
+all[0].props.onClick();all=buttons(render());assert.equal(all.at(-1).props.disabled,false);
 all.at(-1).props.onClick();assert.equal(submitted.join(','),'a');
 // A single choice can be corrected directly by tapping someone else.
 all[1].props.onClick();buttons(render()).at(-1).props.onClick();assert.equal(submitted.join(','),'b');

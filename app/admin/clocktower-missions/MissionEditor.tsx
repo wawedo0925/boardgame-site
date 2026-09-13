@@ -19,7 +19,7 @@ export default function MissionEditor({initial}:{initial:{questions:string[];mes
    </div>)}</div>
    <button disabled={busy||items.length>=100} className="mt-3 min-h-11 rounded-xl border border-violet-300/40 px-4 text-violet-200 disabled:opacity-40" onClick={()=>{set([...items,'']);setStatus('');}}>문구 추가</button>
   </section>)}
-  <p className="text-sm text-zinc-400">선택형·확인형 모두 확인 버튼이 1~5초 뒤 활성화됩니다.</p>
+  <p className="text-sm text-zinc-400">선택형은 1~5초 뒤 멤버 선택이 가능해지며, 선택 후 바로 확인할 수 있습니다. 안내형은 1~5초 뒤 확인할 수 있습니다.</p>
   {status&&<p role="status" className="text-violet-200">{status}</p>}
   <button disabled={busy||[...questions,...messages].some(s=>!s.trim())} className="min-h-12 w-full rounded-xl bg-violet-400 p-3 font-bold text-black disabled:opacity-40" onClick={()=>void save()}>{busy?'저장 중…':'미션 문구 저장'}</button>
  </div>;
