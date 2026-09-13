@@ -21,3 +21,10 @@ values=[];now=0;tree=render({...props,count:0,message:'안내'});effects[0]();as
 for(let i=0;i<100;i++)assert.ok(mod.exports.activityDelay(String(i))>=1&&mod.exports.activityDelay(String(i))<=5);
 assert.equal(mod.exports.activityDelay('x',99),5);
 console.log('PASS: countdown gates selection and notice, choice required, change selection, busy lock, delay range');
+// Two-target cover uses the same selection requirement as the real Fortune Teller.
+values=[];now=0;tree=render({...props,count:2});effects[0]();now=3000;tick();
+all=buttons(render({...props,count:2}));all[0].props.onClick();
+all=buttons(render({...props,count:2}));assert.equal(all.at(-1).props.disabled,true);
+all[1].props.onClick();all=buttons(render({...props,count:2}));assert.equal(all.at(-1).props.disabled,false);
+all.at(-1).props.onClick();assert.equal(submitted.join(','),'a,b');
+console.log('PASS: two distinct targets required before confirmation');

@@ -25,7 +25,7 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
     {activeNight&&<div className="rounded-2xl border border-violet-300/25 bg-violet-400/5 p-5"><h3 className="font-bold text-violet-200">밤 활동</h3><p className="mt-2 text-sm leading-6 text-zinc-400">화면을 계속 확인해 주세요. 밤 시작 직후 첫 미션이 도착하고, 밤 동안 추가 미션이 무작위로 도착합니다. 잠시 닫은 활동은 아래 버튼으로 다시 열 수 있습니다.</p>
       <div className="mt-3 flex flex-wrap gap-2">{actionable.map(q=><button key={q.id} className={button} onClick={()=>reopen(`request:${q.id}:${q.status}`)}>{q.status==='RESOLVED'?'도착한 결과 확인':'능력 요청 열기'}</button>)}{missions.map(m=><button key={m.id} className={button} onClick={()=>reopen(`mission:${m.id}`)}>공통 미션 {m.round} 열기</button>)}</div>
       {!actionable.length&&!missions.length&&<p className="mt-3 text-sm">{requests.some(q=>q.status==='SUBMITTED')?'이야기꾼이 제출한 선택을 확인하고 있습니다.':'다음 활동을 기다리고 있습니다.'}</p>}
-      {!!state.missions?.length&&<p className="mt-3 text-xs text-zinc-500">공통 미션 {state.missions.filter(m=>m.completed).length}/{state.missions.length} 완료</p>}
+      {!!state.missions?.length&&<p className="mt-3 text-xs text-zinc-500">공통 미션 {state.missions.filter(m=>m.completed&&!m.challenge.superseded).length}/{state.missions.filter(m=>!m.challenge.superseded).length} 완료</p>}
     </div>}
     {allowPopup&&(q||mission)&&<ClocktowerPopup key={key} title='밤 활동' subtitle={`${state.room?.night}일차 · 나에게 온 안내`} onClose={close} busy={busy||privateResult}>
       {error&&<p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-3 text-sm text-red-300">{error}</p>}
@@ -44,8 +44,8 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
       {mission&&<ClocktowerNightActivity key={key} id={key} seconds={mission.challenge.delay_seconds}
         prompt={mission.kind==='SELECT'?(mission.challenge.text??'참가자 한 명을 선택해 주세요.'):'도착한 안내를 확인해 주세요.'}
         message={mission.kind==='SELECT'?undefined:(mission.kind==='NOTICE'?mission.challenge.text:'화면을 계속 확인해 주세요.')}
-        members={members} count={mission.kind==='SELECT'?1:0} busy={busy}
-        onConfirm={async targets=>{await run('mission_complete',{mission_id:mission.id,answer:mission.kind==='SELECT'?targets[0]:mission.kind==='NOTICE'?'ACK':mission.kind==='NUMBERS'?[...(mission.challenge.tiles??[])].sort((a,b)=>a-b).join(','):mission.challenge.text});}}
+        members={members} count={mission.kind==='SELECT'?(mission.challenge.target_count??1):0} busy={busy}
+        onConfirm={async targets=>{await run('mission_complete',{mission_id:mission.id,answer:mission.kind==='SELECT'?targets.join(','):mission.kind==='NOTICE'?'ACK':mission.kind==='NUMBERS'?[...(mission.challenge.tiles??[])].sort((a,b)=>a-b).join(','):mission.challenge.text});}}
       />}
       {!privateResult&&<p className="mt-4 text-center text-xs text-zinc-500">팝업을 닫아도 제출·확인 처리되지 않습니다.</p>}
     </ClocktowerPopup>}
