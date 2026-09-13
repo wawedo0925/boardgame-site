@@ -46,6 +46,10 @@ export default async function AdminPage() {
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <Link href="/admin/clocktower-missions" className="rounded-2xl border border-violet-900 bg-violet-950/30 p-6 transition hover:border-violet-400">
+            <h2 className="text-xl font-black">시계탑 미션 수정</h2>
+            <p className="mt-2 text-sm text-zinc-400">밤 활동의 참가자 선택 질문과 보드라운지 안내 문구를 추가·수정합니다.</p>
+          </Link>
           <Link href="/admin/home" className="rounded-2xl border border-amber-900 bg-amber-950/30 p-6 transition hover:border-amber-500">
             <h2 className="text-xl font-black">메인 소개 문구 수정</h2>
             <p className="mt-2 text-sm text-zinc-400">메인 화면의 소제목, 큰 제목과 소개글을 수정합니다.</p>
