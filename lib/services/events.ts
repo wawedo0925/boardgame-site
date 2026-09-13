@@ -28,7 +28,7 @@ export async function deleteEventGame(supabase: SupabaseClient, sessionId: strin
 export async function getEventGames(supabase: SupabaseClient, eventId: string): Promise<EventGame[]> {
   const { data: games, error } = await supabase
     .from("event_game_sessions")
-    .select("id, event_id, game_id, result_type, created_at, game:games(id, name, publisher, thumbnail)")
+    .select("id, event_id, game_id, result_type, created_at, game:games(id, name, publisher, thumbnail, type)")
     .eq("event_id", eventId)
     .order("created_at", { ascending: true });
   if (error) throw error;

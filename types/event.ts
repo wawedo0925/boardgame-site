@@ -55,6 +55,7 @@ export type EventGame = {
     name: string;
     publisher: string | null;
     thumbnail?: string | null;
+    type?: string | null;
   } | null;
   rounds: EventGameRound[];
 };
