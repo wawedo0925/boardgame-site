@@ -13,6 +13,7 @@ export type NightEngine = {
   deaths: Record<string,{night:number;role:string}>;
   execution?: {night:number;user_id:string;role:string}; notices?: string[];
   information?: InformationSetup;
+  drunkFalseAnswers?: Record<string,string>;
 };
 export const emptyEngine = (): NightEngine => ({night:0,cursor:0,tasks:[],finished:false,masters:{},conditions:{},deaths:{}});
 export const evil = (m: LiveMember) => ['하수인','악마'].includes(roleType(m.actual_role??'')??'');
@@ -51,8 +52,32 @@ export function taskRequest(task:NightTask) {
   const count=task.role==='점쟁이'?2:['독살범','수도사','임프','까마귀지기','집사'].includes(task.role)?1:0;
   return {user_id:task.user_id,target_count:count,allow_self:!['수도사','집사'].includes(task.role),prompt:task.role==='첩자'?'첩자 · 마도서를 확인하세요. 확인 후에는 다시 볼 수 없습니다.':count?`${task.role} · ${count===2?'확인할 참가자 두 명':'능력을 사용할 참가자 한 명'}을 선택해 주세요.`:'이야기꾼이 확인한 정보를 전달합니다.'};
 }
-export type NightProposal = {result:string;reason:string[];effect:string;victim?:string;successor?:string;requiresChoice?:boolean;canRedirect?:boolean;choices?:LiveMember[];truthResult?:string;falseResult?:string};
+export type NightProposal = {result:string;reason:string[];effect:string;victim?:string;successor?:string;requiresChoice?:boolean;canRedirect?:boolean;choices?:LiveMember[];truthResult?:string;falseResult?:string;drunkMemoryKey?:string};
 export function propose(task:NightTask,targets:string[],e:NightEngine,members:LiveMember[],override?:{victim?:string;successor?:string}):NightProposal {
+  const proposal=calculateProposal(task,targets,e,members,override);
+  if(members.find(x=>x.user_id===task.user_id)?.actual_role!=='주정뱅이'||proposal.falseResult===undefined)return proposal;
+  let context=[...targets].sort();
+  if(task.role==='초공감자'){
+    const all=[...members].sort((a,b)=>a.seat-b.seat),index=all.findIndex(x=>x.user_id===task.user_id);
+    context=[-1,1].map(dir=>{
+      for(let step=1;step<all.length;step++){
+        const neighbour=all[(index+dir*step+all.length)%all.length];
+        if(neighbour.alive)return neighbour.user_id;
+      }
+      return '';
+    }).sort();
+  }else if(task.role==='장의사')context=[e.execution?.user_id??'',String(e.execution?.night??'')];
+  const key=JSON.stringify([task.user_id,task.role,context]);
+  proposal.drunkMemoryKey=key;
+  const saved=e.drunkFalseAnswers?.[key];
+  if(saved!==undefined){
+    proposal.result=saved;proposal.falseResult=saved;
+    proposal.reason.push('같은 조건에서 저장한 주정뱅이 기본 거짓 답을 유지합니다. 이전 차례의 직접 수정·진실 정보 선택은 기본 답에 덮어쓰지 않습니다.');
+    if(saved===proposal.truthResult)proposal.reason.push('주의: 상황 변화로 저장된 기본 답이 현재 정상 답과 같아졌습니다. 일관성을 위해 자동 변경하지 않았으니 필요하면 직접 수정해 주세요.');
+  }
+  return proposal;
+}
+function calculateProposal(task:NightTask,targets:string[],e:NightEngine,members:LiveMember[],override?:{victim?:string;successor?:string}):NightProposal {
   const m=members.find(x=>x.user_id===task.user_id)!;
   const name=(id:string)=>{const x=members.find(y=>y.user_id===id);return x?`${x.seat}번 ${x.name}`:'없음';};
   const disabled=impaired(m,e,members);
@@ -164,6 +189,9 @@ export function propose(task:NightTask,targets:string[],e:NightEngine,members:Li
 export function approveEffects(task:NightTask,targets:string[],e:NightEngine,members:LiveMember[],proposal:NightProposal) {
   const state:NightEngine=structuredClone(e);const changes:{user_id:string;alive:boolean;actual_role:string;shown_role:string}[]=[];
   const actor=members.find(m=>m.user_id===task.user_id)!;
+  if(actor.actual_role==='주정뱅이'&&proposal.drunkMemoryKey&&proposal.falseResult!==undefined){
+    state.drunkFalseAnswers={...state.drunkFalseAnswers,[proposal.drunkMemoryKey]:proposal.falseResult};
+  }
   if(task.role==='역할 변경')state.notices=state.notices?.filter(id=>id!==actor.user_id);
   if(!impaired(actor,e,members)){
     if(task.role==='독살범')state.poison={source:actor.user_id,target:targets[0],night:e.night};

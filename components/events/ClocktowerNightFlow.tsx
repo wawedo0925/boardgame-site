@@ -81,7 +81,7 @@ function ProposalReview({task,request,engine,members,busy,allowPopup,error,appro
     {proposal.choices&&proposal.choices.length>1&&<label className="block">승계할 하수인<select className={field} value={successor??''} onChange={e=>setSuccessor(e.target.value)}><option value="">이야기꾼 선택 필요</option>{proposal.choices.map(m=><option key={m.user_id} value={m.user_id}>{m.name} · {m.actual_role}</option>)}</select></label>}
     <h4 className="text-sm font-bold">멤버에게 전달될 내용</h4>
     {proposal.falseResult!==undefined&&<div className="space-y-3 rounded-xl border border-amber-300/30 p-4">
-      <p className="text-sm text-amber-200">주정뱅이 · 기본은 거짓 정보입니다. 직접 수정하거나 정상 기준의 정보를 선택할 수 있습니다. 선택만으로 전달되지는 않습니다.</p>
+      <p className="text-sm text-amber-200">주정뱅이 · 같은 조건에서는 저장된 기본 거짓 답을 유지합니다. 직접 수정·진실 정보 선택은 이번 차례에만 적용되고, 다음 밤에는 기본 거짓 답으로 돌아갑니다. 선택만으로 전달되지는 않습니다.</p>
       <div className="flex flex-wrap gap-2"><button className={button} disabled={busy} aria-pressed={result===proposal.falseResult} onClick={()=>{setText(proposal.falseResult!);setEditing(false);}}>거짓 정보로 되돌리기</button><button className={button} disabled={busy||proposal.truthResult===undefined} aria-pressed={proposal.truthResult!==undefined&&result===proposal.truthResult} onClick={()=>{setText(proposal.truthResult!);setEditing(false);}}>진실된 정보 주기</button></div>
       <p className="text-xs text-zinc-400">{proposal.truthResult===undefined?'정상 기준의 정보 조합을 만들 수 없습니다. 위장 설정 등을 확인하고 직접 수정해 주세요.':'진실된 정보는 현재 허상·위장 설정을 반영한 정상 능력 기준입니다. 실제 취함 상태나 역할은 바뀌지 않습니다.'}</p>
     </div>}
