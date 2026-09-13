@@ -206,7 +206,7 @@ export default function AttendanceManager({
         !isClosed &&
         participants.length > 0 && (
           <div className="mt-5 border-t border-white/10 pt-5">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               {participants.map((participant) => {
                 const current =
                   participant.attendance_status ?? "REGISTERED";
@@ -221,24 +221,33 @@ export default function AttendanceManager({
                 return (
                   <article
                     key={participant.user_id}
-                    className="min-w-0 rounded-2xl border border-white/10 bg-black/10 p-3"
+                    className="min-w-0 rounded-2xl border border-white/10 bg-black/10 p-2 sm:p-3"
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-h-10 items-center justify-center gap-2 sm:justify-between">
                       <p
-                        className="min-w-0 truncate font-semibold text-zinc-200"
+                        className="min-w-0 break-all text-center text-sm font-semibold text-zinc-200 sm:text-left sm:text-base"
                         title={name}
                       >
                         {name}
                       </p>
 
                       <span
-                        className={`shrink-0 rounded-full border px-2.5 py-1 text-xs ${STATUS[current].className}`}
+                        className={`hidden shrink-0 rounded-full border px-2.5 py-1 text-xs sm:inline ${STATUS[current].className}`}
                       >
                         {STATUS[current].label}
                       </span>
                     </div>
 
-                    <div className="mt-3 grid grid-cols-3 gap-1.5">
+                    <select
+                      aria-label={`${name} 출석 상태`}
+                      value={current}
+                      disabled={isBusy || allBusy}
+                      onChange={(event) => void changeStatus(participant.user_id, event.target.value as AttendanceStatus)}
+                      className={`mt-2 min-h-11 w-full min-w-0 rounded-lg border bg-zinc-950 px-1 text-xs font-semibold disabled:opacity-40 sm:hidden ${STATUS[current].className}`}
+                    >
+                      {OPTIONS.map((status) => <option key={status} value={status}>{STATUS[status].label}</option>)}
+                    </select>
+                    <div className="mt-3 hidden grid-cols-3 gap-1.5 sm:grid">
                       {OPTIONS.map((status) => (
                         <button
                           key={status}
