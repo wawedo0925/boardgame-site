@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import ClocktowerPopup from './ClocktowerPopup';
+import {clickedSeatOrder,seatOrderSwaps} from '@/lib/clocktower/seat-order';
 import useClocktowerPinch from './useClocktowerPinch';
 import ClocktowerPersonalNotes from './ClocktowerPersonalNotes';
 import useClocktowerMemberNotes from './useClocktowerMemberNotes';
@@ -23,7 +24,7 @@ const control = 'min-h-11 min-w-11 rounded-xl border border-white/20 px-3 py-2 t
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, Math.round(value / 10) * 10));
 export function gridLayout(members: LiveMember[]): SeatLayout {
   const ordered = [...members].sort((a, b) => a.seat - b.seat);
-  const columns = Math.min(5, Math.max(1, ordered.length));
+  const columns = Math.min(2, Math.max(1, ordered.length));
   const rows = Math.ceil(ordered.length / columns);
   return Object.fromEntries(ordered.map((m, i) => [m.user_id, { x: 100 + (i % columns) * 800 / Math.max(1, columns - 1), y: rows === 1 ? 350 : 100 + Math.floor(i / columns) * 500 / (rows - 1) }]));
 }
@@ -46,7 +47,10 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
   const [baseRevision, setBaseRevision] = useState(0);
   const [mode, setMode] = useState<'view' | 'move' | 'order'>('view');
   const [orderDraft, setOrderDraft] = useState<Record<string,number> | null>(null);
-  const [swaps, setSwaps] = useState<[LiveMember,LiveMember][]>([]);
+  const [chosen,setChosen]=useState<string[]>([]);
+  const [orderBase,setOrderBase]=useState<Record<string,number>>({});
+  const [pairChanged,setPairChanged]=useState(false);
+  const [orderError,setOrderError]=useState('');
   const [savingOrder, setSavingOrder] = useState(false);
   busy = busy || savingOrder;
   const [showOrder, setShowOrder] = useState(false);
@@ -66,7 +70,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
   useEffect(() => {
     const element = viewport.current;
     if (!element) return;
-    const observer = new ResizeObserver(() => {if(element.clientWidth>0)setFit(Math.min(1, Math.max(0.2, element.clientWidth / 1160)));});
+    const observer = new ResizeObserver(() => {if(element.clientWidth>0)setFit(Math.min(1, Math.max(0.2, element.clientWidth / 760)));});
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
@@ -77,39 +81,40 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
   useEffect(() => {
     if (zoom !== null || fit >= 0.6 || !viewport.current) return;
     const element = viewport.current;
-    element.scrollLeft = Math.max(0, (focusX + 80) * scale - element.clientWidth / 2);
-    element.scrollTop = Math.max(0, (focusY + 80) * scale - element.clientHeight / 2);
+    element.scrollLeft = Math.max(0, (focusX * 0.6 + 80) * scale - element.clientWidth / 2);
+    element.scrollTop = Math.max(0, (focusY * 1.5 + 80) * scale - element.clientHeight / 2);
   }, [fit, zoom, scale, focusX, focusY]);
 
   useEffect(() => () => onEditingChange?.(false), [onEditingChange]);
 
   function point(clientX: number, clientY: number) {
     const rect = board.current!.getBoundingClientRect();
-    return { x: (clientX - rect.left) / scale, y: (clientY - rect.top) / scale };
+    return { x: (clientX - rect.left) / scale / 0.6, y: (clientY - rect.top) / scale / 1.5 };
   }
   function move(id: string, x: number, y: number) {
     setDraft(current => ({ ...(current ?? positions), [id]: { x: clamp(x, 60, 940), y: clamp(y, 40, 660) } }));
   }
-  function cancel() { onEditingChange?.(false); setDraft(null); setOrderDraft(null); setSwaps([]); setMode('view'); setSelected(null); drag.current = null; }
-  async function chooseOrder(member: LiveMember) {
+  function cancel() { onEditingChange?.(false); setDraft(null); setOrderDraft(null); setChosen([]); setPairChanged(false); setMode('view'); setSelected(null); drag.current = null; }
+  function chooseOrder(member: LiveMember) {
     if (!editable || busy || mode !== 'order') return;
-    const first = ordered.find(m => m.user_id === selected);
-    if (!first) { setSelected(member.user_id); return; }
-    if (first.user_id === member.user_id) { setSelected(null); return; }
-    setOrderDraft(current=>({...current,[first.user_id]:member.seat,[member.user_id]:first.seat}));
-    setSwaps(current=>[...current,[first,member]]);
-    setSelected(null);
+    const next=chosen.includes(member.user_id)?chosen.filter(id=>id!==member.user_id):[...chosen,member.user_id];
+    setChosen(next);setOrderDraft(next.length?clickedSeatOrder(orderBase,next):orderBase);
+  }
+  function swapPair() {
+    if(busy||chosen.length!==2)return;
+    const [a,b]=chosen;
+    const next={...orderBase,[a]:orderBase[b],[b]:orderBase[a]};
+    setOrderBase(next);setOrderDraft(next);setChosen([]);setPairChanged(true);
   }
   async function saveOrder() {
-    if(busy||!swap)return;
-    setSavingOrder(true);
+    if(busy||!swap||!orderDraft||!(chosen.length===members.length || (!chosen.length&&pairChanged)))return;
+    setSavingOrder(true);setOrderError('');
     try {
-      for(const [first,second] of swaps) {
+      for(const [first,second] of seatOrderSwaps(members,orderDraft)) {
         if(!await swap(first,second))return;
-        setSwaps(current=>current.slice(1));
       }
       cancel();
-    } finally {setSavingOrder(false);}
+    } catch {setOrderError('순서를 저장하지 못했습니다. 현재 자리 번호를 확인하고 다시 저장해 주세요.');} finally {setSavingOrder(false);}
   }
 
   return <section className="rounded-3xl border border-violet-400/25 bg-violet-400/[0.025] p-4 sm:p-6">
@@ -134,33 +139,34 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
     </div>}
     <div hidden={view==='list' && !storyteller}>
     {editable && <div className="mt-4 flex flex-wrap gap-2">
-      {mode === 'view' ? <><button disabled={busy || !members.length} className="rounded-xl bg-violet-400 px-4 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={() => { onEditingChange?.(true); setDraft(positions); setBaseRevision(revision); setMode('move'); setZoom(Math.max(fit, 0.7)); }}>배치 편집</button><button disabled={busy || members.length < 2} className={control} onClick={() => { onEditingChange?.(true); setOrderDraft(Object.fromEntries(members.map(m=>[m.user_id,m.seat]))); setSwaps([]); setSelected(null); setMode('order'); setShowOrder(true); setZoom(Math.max(fit, 0.7)); }}>이웃 순서 바꾸기</button></> : <>
-        {editing && <><button disabled={busy} className="rounded-xl bg-violet-400 px-4 py-2 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={async () => { if (draft && await save?.(draft, baseRevision)) cancel(); }}>배치 저장</button><button disabled={busy} className={control} onClick={() => { setDraft(gridLayout(members)); setSelected(null); }}>줄 맞추기</button></>}
-        {mode === 'order' && <button disabled={busy} className={control} onClick={() => void saveOrder()}>순서 저장</button>}
+      {mode === 'view' ? <><button disabled={busy || !members.length} className="rounded-xl bg-violet-400 px-4 py-3 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={() => { onEditingChange?.(true); setDraft(positions); setBaseRevision(revision); setMode('move'); setZoom(Math.max(fit, 0.7)); }}>배치 편집</button><button disabled={busy || members.length < 2} className={control} onClick={() => { onEditingChange?.(true); setOrderDraft(Object.fromEntries(members.map(m=>[m.user_id,m.seat]))); setOrderBase(Object.fromEntries(members.map(m=>[m.user_id,m.seat]))); setChosen([]); setPairChanged(false); setOrderError(''); setSelected(null); setMode('order'); setShowOrder(true); setZoom(Math.max(fit, 0.7)); }}>순서 바꾸기</button></> : <>
+        {editing && <><button disabled={busy} className="rounded-xl bg-violet-400 px-4 py-2 text-sm font-bold text-zinc-950 disabled:opacity-40" onClick={async () => { if (draft && await save?.(draft, baseRevision)) cancel(); }}>배치 저장</button><button disabled={busy} className={control} onClick={() => { setDraft(gridLayout(members)); setSelected(null); }}>세로로 줄 맞추기</button></>}
+        {mode === 'order' && <><button disabled={busy||chosen.length!==2} className={control} onClick={swapPair}>두 사람 순번 바꾸기</button><button disabled={busy||!chosen.length} className={control} onClick={()=>{setChosen([]);setOrderDraft(orderBase);}}>선택 다시 시작</button><button disabled={busy||!(chosen.length===members.length||(!chosen.length&&pairChanged))} className={control} onClick={() => void saveOrder()}>순서 저장</button></>}
         <button disabled={busy} className={control} onClick={cancel}>취소</button>
       </>}
     </div>}
+    {orderError&&<p role="alert" className="mt-3 text-red-300">{orderError}</p>}
     {editing && <p role="status" className="mt-3 text-sm text-violet-200">카드를 끌어 놓거나, 카드를 누른 뒤 빈 곳을 누르세요. 선택한 카드는 방향키로도 이동할 수 있습니다. 저장 전에는 본인 화면에만 보입니다.</p>}
-    {editable && mode === 'order' && <p role="status" className="mt-3 text-sm text-violet-200">두 사람씩 계속 선택해 순서를 바꾸세요. 저장을 누르면 변경 사항이 반영되고 편집이 종료됩니다.</p>}
+    {editable && mode === 'order' && <p role="status" className="mt-3 text-sm text-violet-200">누른 순서대로 1번부터 지정됩니다. 전체 {members.length}명 중 {chosen.length}명 선택. 다시 누르면 선택을 취소합니다. 두 명만 선택했다면 ‘두 사람 순번 바꾸기’를 누르세요. 마지막에 ‘순서 저장’을 눌러 반영합니다.</p>}
     <div className="mt-4 flex flex-wrap items-center gap-2"><button className={control} onClick={() => setZoom(fit)}>전체 보기</button><button className={control} onClick={() => setZoom(1)}>읽기 편하게</button><button className={control} onClick={() => setZoom(Math.max(0.25, scale - 0.15))} aria-label="배치 축소">−</button><span className="w-12 text-center text-xs text-zinc-400">{Math.round(scale * 100)}%</span><button className={control} onClick={() => setZoom(Math.min(2.5, scale + 0.15))} aria-label="배치 확대">＋</button><label className="ml-auto flex items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={showOrder} onChange={e => setShowOrder(e.target.checked)} />이웃 연결선</label></div>
-    <div ref={viewport} {...pinch} className="mt-4 overflow-auto rounded-2xl border border-white/10 bg-zinc-950" style={{ maxHeight: 'min(70dvh, 750px)', touchAction: 'none' }}>
-      {!ordered.length ? <p className="p-10 text-center text-zinc-400">아직 배정된 참가자가 없습니다.</p> : <div style={{ width: 1160 * scale, height: 860 * scale }} className="relative">
-        <div ref={board} data-testid="seating-board" className="absolute origin-top-left" style={{ left:80*scale,top:80*scale,width: 1000, height: 700, transform: `scale(${scale})`, backgroundImage: 'radial-gradient(#ffffff16 1px, transparent 1px)', backgroundSize: '20px 20px' }} onClick={e => { if (editing && !busy && selected) { const p = point(e.clientX, e.clientY); move(selected, p.x, p.y); setSelected(null); } }}>
-          {showOrder && ordered.length > 1 && <svg width="1000" height="700" className="pointer-events-none absolute inset-0" aria-hidden="true">{ordered.map((member, i) => { const a = positions[member.user_id], b = positions[ordered[(i + 1) % ordered.length].user_id]; return <line key={member.user_id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#a78bfa" strokeOpacity="0.45" strokeWidth="2" strokeDasharray="6 6" />; })}</svg>}
+    <div ref={viewport} {...pinch} className="mt-4 overflow-auto rounded-2xl border border-white/10 bg-zinc-950" style={{ maxWidth: 600, height: 'min(80dvh, 1000px)', touchAction: 'none' }}>
+      {!ordered.length ? <p className="p-10 text-center text-zinc-400">아직 배정된 참가자가 없습니다.</p> : <div style={{ width: 760 * scale, height: 1210 * scale }} className="relative">
+        <div ref={board} data-testid="seating-board" className="absolute origin-top-left" style={{ left:80*scale,top:80*scale,width: 600, height: 1050, transform: `scale(${scale})`, backgroundImage: 'radial-gradient(#ffffff16 1px, transparent 1px)', backgroundSize: '20px 20px' }} onClick={e => { if (editing && !busy && selected) { const p = point(e.clientX, e.clientY); move(selected, p.x, p.y); setSelected(null); } }}>
+          {showOrder && ordered.length > 1 && <svg width="600" height="1050" className="pointer-events-none absolute inset-0" aria-hidden="true">{ordered.map((member, i) => { const a = positions[member.user_id], b = positions[ordered[(i + 1) % ordered.length].user_id]; return <line key={member.user_id} x1={a.x*0.6} y1={a.y*1.5} x2={b.x*0.6} y2={b.y*1.5} stroke="#a78bfa" strokeOpacity="0.45" strokeWidth="2" strokeDasharray="6 6" />; })}</svg>}
           {ordered.map(member => {
             const pos = positions[member.user_id];
             const voted = vote?.ballots[member.user_id] === true;
             const flags=storyteller?seatingStatus(member,members,engine??emptyEngine(),phase,night):[];
-            const className = `absolute flex w-max max-w-[160px] flex-col items-center justify-center rounded-xl border-2 px-3 py-2 text-center text-sm font-semibold ${member.alive?'border-white bg-white text-zinc-950':'border-zinc-600 bg-zinc-800 text-zinc-400'} ${selected===member.user_id?'z-10 ring-4 ring-violet-400':member.user_id===myId?'ring-2 ring-violet-400':''}`;
-            const style = { left: pos.x, top: pos.y, transform: 'translate(-50%, -50%)' };
+            const className = `absolute flex w-max max-w-[160px] flex-col items-center justify-center rounded-xl border-2 px-3 py-2 text-center text-sm font-semibold ${member.alive?'border-white bg-white text-zinc-950':'border-zinc-600 bg-zinc-800 text-zinc-400'} ${(mode==='order'?chosen.includes(member.user_id):selected===member.user_id)?'z-10 ring-4 ring-violet-400':member.user_id===myId?'ring-2 ring-violet-400':''}`;
+            const style = { left: pos.x*0.6, top: pos.y*1.5, transform: 'translate(-50%, -50%)' };
             const year=birthYearLabel(member.birth_year).replace('년생','');
-            const content = <><span className="mb-1 block text-[10px] opacity-70">{member.seat}번{member.user_id===myId?' · 내 자리':''} · {member.alive?'생존':'사망'}</span><span className="relative inline-block mx-3 max-w-[100px] text-lg font-bold leading-7"><span className="break-all">{member.name}</span>{year&&<small aria-label={`${year}년생`} className="absolute left-full top-0 ml-1 text-[10px] font-normal opacity-60">{year}</small>}</span>
+            const content = <>{mode==='order'&&chosen.includes(member.user_id)&&<span className="mb-1 rounded bg-violet-600 px-2 py-1 text-xs text-white">{chosen.indexOf(member.user_id)+1}번째 선택</span>}<span className="mb-1 block text-[10px] opacity-70">{member.seat}번{member.user_id===myId?' · 내 자리':''} · {member.alive?'생존':'사망'}</span><span className="relative inline-block mx-3 max-w-[100px] text-lg font-bold leading-7"><span className="break-all">{member.name}</span>{year&&<small aria-label={`${year}년생`} className="absolute left-full top-0 ml-1 text-[10px] font-normal opacity-60">{year}</small>}</span>
               {tallying&&<span className={`mt-1 rounded-md px-2 py-1 text-xs ${voted?'bg-violet-600 text-white':'bg-zinc-200 text-zinc-700'}`}>{voted?'✓ 찬성':!member.alive&&member.ghost_vote_used?'투표권 없음':'기권'}</span>}
               {!storyteller&&memberNotes[member.user_id]?.role.trim()&&<span className="mt-1 max-w-full break-words text-xs text-violet-600">예상: {memberNotes[member.user_id].role}</span>}
               {!member.alive&&<span className="mt-2 rounded-full border border-zinc-500 px-2 py-0.5 text-[10px]">{member.ghost_vote_used===undefined?'투표권 확인 중':member.ghost_vote_used?'○ 투표권 없음':'● 투표권 1표'}</span>}
               {storyteller&&<><span className="mt-1 text-xs font-bold">{member.actual_role||'역할 미배정'}</span>{member.actual_role!==member.shown_role&&member.shown_role&&<span className="text-[10px] opacity-70">본인 표시: {member.shown_role}</span>}<span className="mt-1 flex flex-wrap justify-center gap-1 empty:hidden">{flags.map(flag=><span key={flag} className={`rounded-md px-1.5 py-0.5 text-[10px] ${member.alive?(flag==='중독'?'bg-emerald-100 text-emerald-900':flag==='취함'?'bg-amber-100 text-amber-900':'bg-violet-100 text-violet-900'):'bg-zinc-700 text-zinc-300'}`}>{flag}</span>)}</span>{member.notes&&<span className="mt-1 line-clamp-2 break-all text-[10px] font-normal opacity-70">{member.notes}</span>}</>}
             </>;
-            return editable && mode !== 'view' ? <button key={member.user_id} data-testid={`seat-${member.user_id}`} title={storyteller?`${member.name} · ${member.actual_role??'미배정'} · ${flags.join(' / ')}${member.notes?` · ${member.notes}`:''}`:member.name} style={{ ...style, touchAction: editing ? 'none' : 'auto' }} className={`${className} ${editing ? 'cursor-grab active:cursor-grabbing' : ''} disabled:opacity-50`} aria-pressed={selected === member.user_id} disabled={busy}
+            return editable && mode !== 'view' ? <button key={member.user_id} data-testid={`seat-${member.user_id}`} title={storyteller?`${member.name} · ${member.actual_role??'미배정'} · ${flags.join(' / ')}${member.notes?` · ${member.notes}`:''}`:member.name} style={{ ...style, touchAction: editing ? 'none' : 'auto' }} className={`${className} ${editing ? 'cursor-grab active:cursor-grabbing' : ''} disabled:opacity-50`} aria-pressed={mode==='order'?chosen.includes(member.user_id):selected === member.user_id} disabled={busy}
               onClick={e => { e.stopPropagation(); if (mode === 'order') void chooseOrder(member); }}
               onPointerDown={e => { if (!editing || busy) return; e.stopPropagation(); const p = point(e.clientX, e.clientY); drag.current = { id: member.user_id, dx: p.x - pos.x, dy: p.y - pos.y }; setSelected(member.user_id); e.currentTarget.setPointerCapture(e.pointerId); }}
               onPointerMove={e => { if (!editing || busy || drag.current?.id !== member.user_id) return; const p = point(e.clientX, e.clientY); move(member.user_id, p.x - drag.current.dx, p.y - drag.current.dy); }}
