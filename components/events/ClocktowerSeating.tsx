@@ -12,12 +12,11 @@ import type { LiveMember, LiveVote, SeatLayout } from '@/lib/clocktower/live';
 
 export function birthYearLabel(value?: string | null) {
   const digits = value?.replace(/[^0-9]/g, '') ?? '';
-  return /^(\d{2}|\d{4})$/.test(digits) ? `${digits.slice(-2)}년생` : '';
+  return /^(\d{2}|\d{4})$/.test(digits) ? digits.slice(-2) : '';
 }
 
 export function ClocktowerName({ member }: { member: { name: string; birth_year?: string | null } }) {
-  const year = birthYearLabel(member.birth_year);
-  return <span className="inline-flex max-w-full flex-wrap items-baseline justify-center gap-x-1.5"><span className="break-words">{member.name}</span>{year && <small className="text-[10px] font-normal text-zinc-400">{year}</small>}</span>;
+  return <span className="inline-flex max-w-full flex-wrap items-baseline justify-center gap-x-1.5"><span className="break-words">{member.name}</span></span>;
 }
 
 const control = 'min-h-11 min-w-11 rounded-xl border border-white/20 px-3 py-2 text-sm disabled:opacity-40';

@@ -13,6 +13,7 @@ export type NightEngine = {
   deaths: Record<string,{night:number;role:string}>;
   execution?: {night:number;user_id:string;role:string}; notices?: string[];
   information?: InformationSetup;
+  timeline?: Record<string,{actor:string;targets:string[];result:string;effect:string}>;
   drunkFalseAnswers?: Record<string,string>;
 };
 export const emptyEngine = (): NightEngine => ({night:0,cursor:0,tasks:[],finished:false,masters:{},conditions:{},deaths:{}});
@@ -194,6 +195,12 @@ function calculateProposal(task:NightTask,targets:string[],e:NightEngine,members
 export function approveEffects(task:NightTask,targets:string[],e:NightEngine,members:LiveMember[],proposal:NightProposal) {
   const state:NightEngine=structuredClone(e);const changes:{user_id:string;alive:boolean;actual_role:string;shown_role:string}[]=[];
   const actor=members.find(m=>m.user_id===task.user_id)!;
+  state.timeline={...state.timeline,[task.key]:{
+    actor:actor.actual_role+'('+actor.name+')',
+    targets:targets.map(id=>{const m=members.find(x=>x.user_id===id);return m?m.name+'('+m.actual_role+')':'참가자';}),
+    result:task.role==='첩자'?'마도서 정보를 전달했습니다.':proposal.result,
+    effect:proposal.effect,
+  }};
   if(actor.actual_role==='주정뱅이'&&proposal.drunkMemoryKey&&proposal.falseResult!==undefined){
     state.drunkFalseAnswers={...state.drunkFalseAnswers,[proposal.drunkMemoryKey]:proposal.falseResult};
   }

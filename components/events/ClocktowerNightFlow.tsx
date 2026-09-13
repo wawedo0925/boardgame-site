@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
-import { approveEffects, beginNight, emptyEngine, evil, nextTask, propose, taskRequest, FIRST_NIGHT, OTHER_NIGHTS, type NightEngine, type NightTask } from '@/lib/clocktower/night';
+import { approveEffects, beginNight, emptyEngine, evil, nextTask, propose, taskRequest, type NightEngine, type NightTask } from '@/lib/clocktower/night';
 import type { LiveMember, LiveRequest, LiveState } from '@/lib/clocktower/live';
+import ClocktowerNightTimeline from './ClocktowerNightTimeline';
 import ClocktowerPopup from './ClocktowerPopup';
 import { ClocktowerName } from './ClocktowerSeating';
 type Run=(action:string,data?:Record<string,unknown>)=>Promise<boolean>;
@@ -38,13 +39,13 @@ export default function ClocktowerNightFlow({state,run,busy,allowPopup,error}:{s
     <p className="text-sm leading-6 text-zinc-400">밤을 시작하면 시트 순서로 요청합니다. 제안은 이야기꾼에게만 보이며, 전달을 승인한 뒤 멤버가 확인하면 다음 차례로 넘어갑니다. 자동 진행 중에는 이야기꾼 화면을 켜 두세요.</p>
     {settings&&<NightSettings key={version} engine={engine} members={members} locked={room.phase!=='SETUP'&&!!engine.red_herring} busy={busy} save={async updated=>{if(await run('engine_settings',{version,state:updated}))setSettings(false);}}/>}
     {room.phase==='NIGHT'&&<>
-      <p className="text-sm text-violet-200">{room.night===1?'첫 번째 밤':'두 번째 밤부터 동일 순서'}: {(room.night===1?FIRST_NIGHT:OTHER_NIGHTS).join(' → ')} → 새벽</p>
+      {engine.night===room.night&&<ClocktowerNightTimeline engine={engine} members={members} current={current}/>}
       <div className="flex flex-wrap gap-2"><button className={button} onClick={()=>setPaused(!paused)}>{paused?'자동 진행 재개':'자동 진행 일시정지'}</button><button disabled={busy} className={button} onClick={()=>{attempted.current='';setPaused(false);void run('engine_settings',{version,state:engine});}}>연결 후 진행 재시도</button></div>
       {paused&&<p className="text-amber-200">자동 요청을 일시정지했습니다.</p>}
       {engine.night!==room.night?<p>밤 순서를 준비하고 있습니다.</p>:engine.finished?<p className="text-emerald-300">밤 시트 완료 · 낮 시작 버튼으로 사망을 공개하세요.</p>:<>
         <p className="font-bold">{engine.cursor+1} / {engine.tasks.length} · {task?.role} · {members.find(m=>m.user_id===task?.user_id)?.name}</p>
         {current?.status==='OPEN'&&<p>멤버가 대상을 선택하고 있습니다.</p>}
-        {task&&current?.status==='SUBMITTED'&&<ProposalReview key={`${current.id}:${version}`} task={task} request={current} engine={engine} members={members} busy={busy} allowPopup={allowPopup} error={error} approve={(result,proposal)=>{const effects=approveEffects(task,current.targets,engine,members,proposal);return run('engine_approve',{version,request_id:current.id,result,...effects});}}/>}
+        {task&&current?.status==='SUBMITTED'&&<ProposalReview key={`${current.id}:${version}`} task={task} request={current} engine={engine} members={members} busy={busy} allowPopup={allowPopup} error={error} approve={(result,proposal)=>{const effects=approveEffects(task,current.targets,engine,members,{...proposal,result});return run('engine_approve',{version,request_id:current.id,result,...effects});}}/>}
         {current?.status==='RESOLVED'&&!current.acknowledged&&<><p className="text-violet-200">결과 전달 완료 · 멤버의 확인을 기다립니다.</p><button disabled={busy} className={button} onClick={()=>{if(confirm('멤버가 현장에서 결과를 확인했나요?'))void run('ack_offline',{request_id:current.id});}}>현장에서 확인 완료</button></>}
         {current&&['OPEN','SUBMITTED'].includes(current.status)&&<button disabled={busy} className={button} onClick={()=>{if(confirm('이 차례를 건너뛰나요? 능력 효과는 적용하지 않습니다.'))void run('cancel',{request_id:current.id});}}>예외 처리 · 이 차례 건너뛰기</button>}
       </>}
@@ -59,7 +60,7 @@ function ProposalReview({task,request,engine,members,busy,allowPopup,error,appro
   const proposal=propose(task,request.targets,engine,members,{victim,successor});
   const result=text??proposal.result;
   const choiceMissing=task.role==='임프'?proposal.requiresChoice:task.role==='점쟁이'&&!engine.red_herring?true:proposal.requiresChoice&&text===null;
-  return <><button className={button} onClick={()=>setClosed(false)}>능력 결과 검토 열기</button>{allowPopup&&!closed&&<ClocktowerPopup title={`${task.role} · 결과 검토`} subtitle="이야기꾼 전용" busy={busy} onClose={()=>setClosed(true)}><div className="space-y-4">{error&&<p role="alert" className="text-red-300">{error}</p>}
+  return <><button className={button} onClick={()=>setClosed(false)}>능력 결과 검토 열기</button>{allowPopup&&!closed&&<ClocktowerPopup title={`${task.role}(${members.find(m=>m.user_id===task.user_id)?.name??'참가자'}) · 결과 검토`} subtitle="이야기꾼 전용" busy={busy} onClose={()=>setClosed(true)}><div className="space-y-4">{error&&<p role="alert" className="text-red-300">{error}</p>}
     {request.targets.length>0&&<div className="flex flex-wrap items-baseline gap-x-3 gap-y-2"><span className="text-sm">멤버 선택:</span>{request.targets.map(id=>{const member=members.find(m=>m.user_id===id);return <span key={id} className="inline-flex flex-wrap items-baseline gap-1.5"><span className="text-base font-semibold">{member?.name??'참가자'}</span><small className="text-xs text-zinc-400">({member?.actual_role||'역할 미배정'})</small></span>;})}</div>}
     <h3 className="font-bold text-violet-200">시스템 제안 · 이야기꾼만 볼 수 있습니다</h3>
     <ul className="space-y-2 text-sm leading-6 text-amber-200">{proposal.reason.map((reason,i)=><li key={i}>{reason}</li>)}</ul>
