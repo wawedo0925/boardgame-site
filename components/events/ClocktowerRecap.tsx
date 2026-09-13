@@ -44,7 +44,21 @@ export default function ClocktowerRecap({ roomId }: { roomId: string }) {
     {!data ? <p className="mt-3 text-zinc-400">로그를 불러오는 중…</p> : !data.visible ? <p className="mt-3 text-sm text-zinc-400">게임 종료 후 또는 이야기꾼이 공개하면 함께 볼 수 있습니다.</p> : <>
       <p className="mt-3 text-sm text-zinc-400">{data.ended || data.shared ? '참가자에게 공개된 로그입니다.' : '이야기꾼만 볼 수 있습니다. 게임 종료 시 자동 공개됩니다.'} 이 기능이 추가된 이후의 진행부터 기록됩니다.</p>
       {!groups.length && <p className="mt-4 text-sm">아직 기록된 진행이 없습니다.</p>}
-      <div className="mt-5 space-y-5">{groups.map((group, index) => <details key={`${group.label}:${index}`} open className="rounded-2xl border border-white/10 p-4"><summary className="font-bold text-violet-200">{group.label}</summary><ol className="mt-4 space-y-4">{group.entries.map(entry => <li key={entry.id} className="border-l-2 border-violet-400/30 pl-3"><p className="font-semibold">{entry.title}</p>{entry.details.map((line, i) => <p key={i} className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-300">{line}</p>)}</li>)}</ol></details>)}</div>
+      <div className="mt-5 space-y-3">{groups.map((group, index) => <details key={`${roomId}:${group.label}:${index}`} className="group rounded-2xl border border-white/10 p-4">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 font-bold text-violet-200 [&::-webkit-details-marker]:hidden">
+          <span>{group.label}</span>
+          <span className="shrink-0 rounded-lg border border-violet-300/25 px-3 py-2 text-sm"><span className="group-open:hidden">더보기</span><span className="hidden group-open:inline">접기</span></span>
+        </summary>
+        <ol className="mt-4 space-y-4">{group.entries.map(entry => <li key={entry.id} className="border-l-2 border-violet-400/30 pl-3"><p className="font-semibold">{entry.title}</p>{entry.details.map((line, i) => <p key={i} className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-300">{line}</p>)}</li>)}</ol>
+        <button className={`${button} mt-5 w-full`} aria-label={`${group.label} 접기`} onClick={event => {
+          const details = event.currentTarget.closest('details');
+          if (!details) return;
+          details.open = false;
+          const summary = details.querySelector('summary');
+          summary?.focus({ preventScroll: true });
+          summary?.scrollIntoView({ block: 'nearest' });
+        }}>접기</button>
+      </details>)}</div>
     </>}
     {confirming && <ClocktowerPopup title="복기 로그를 공개할까요?" busy={busy} onClose={() => setConfirming(false)}><p className="leading-7">역할, 능력 사용 대상, 전달 결과 등 비밀 정보가 모든 참가자에게 공개됩니다. 이후 추가되는 로그도 계속 공개되며, 공개를 되돌릴 수 없습니다.</p><div className="mt-6 flex gap-3"><button disabled={busy} className={button} onClick={() => setConfirming(false)}>취소</button><button disabled={busy} className="rounded-xl bg-violet-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40" onClick={() => void publish()}>확인 · 플레이어에게 공개</button></div></ClocktowerPopup>}
   </section>;
