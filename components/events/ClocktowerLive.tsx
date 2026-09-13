@@ -79,7 +79,7 @@ export default function ClocktowerLive({ eventId, expectedRoomId }: { eventId: s
     </div> : <>
       <div className="mb-6 rounded-2xl border border-violet-400/30 bg-violet-400/5 p-5"><h2 className="text-xl font-bold text-violet-200">{flowLabel(state)}</h2><p className="mt-2 text-sm text-zinc-400">{state.is_host ? '이야기꾼 화면 · 역할과 메모는 본인만 볼 수 있습니다.' : '참가자 화면 · 요청이 오면 선택하고 결과를 확인해 주세요.'}</p></div>
       {room.phase==='ENDED'&&room.end_reason&&<p className="my-4 text-xl text-amber-200">{room.end_reason}</p>}
-      {room.phase==='DAY'&&<><ClocktowerVoting allowPopup={allowPopup} state={state} run={run} busy={busy} error={error}/><ClocktowerSlayer state={state} run={run} busy={busy}/></>}
+      {room.phase==='DAY'&&<><ClocktowerVoting allowPopup={allowPopup} state={state} run={run} busy={busy} error={error}/><ClocktowerSlayer allowPopup={allowPopup} error={error} state={state} run={run} busy={busy}/></>}
       {state.is_host ? <Host key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} /> : <Player key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} />}
       <ClocktowerRecap key={`recap:${room.id}`} roomId={room.id} />
     </>}
