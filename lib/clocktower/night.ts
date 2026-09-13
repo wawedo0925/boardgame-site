@@ -67,7 +67,8 @@ export function propose(task:NightTask,targets:string[],e:NightEngine,members:Li
       return '';
     }).sort();
   }else if(task.role==='장의사')context=[e.execution?.user_id??'',String(e.execution?.night??'')];
-  const key=JSON.stringify([task.user_id,task.role,context]);
+  // Ignore older Empath defaults (1 -> 2) after adopting the zero-first policy.
+  const key=JSON.stringify([task.user_id,task.role,task.role==='초공감자'?['zero-first-v1',...context]:context]);
   proposal.drunkMemoryKey=key;
   const saved=e.drunkFalseAnswers?.[key];
   if(saved!==undefined){
@@ -178,7 +179,11 @@ function calculateProposal(task:NightTask,targets:string[],e:NightEngine,members
     if(m.actual_role==='주정뱅이'&&['세탁부','사서','수사관'].includes(task.role))return p;
     if(m.actual_role==='주정뱅이'&&['초공감자','요리사','점쟁이','까마귀지기','장의사'].includes(task.role))p.truthResult=p.result;
     reason.push(`정상 상태일 때의 참고 답: ${p.result}`);
-    if(['초공감자','요리사'].includes(task.role))p.result=String((Number(p.result)+1)%(task.role==='초공감자'?3:Math.max(2,members.length)));
+    if(task.role==='초공감자'){
+      p.result=Number(p.result)>0?'0':'1';
+      reason.push('취함·중독 초공감자 기본 제안: 악한 이웃이 감지되면 0명, 0명이면 1명입니다. 이야기꾼이 수정할 수 있습니다.');
+    }
+    else if(task.role==='요리사')p.result=String((Number(p.result)+1)%Math.max(2,members.length));
     else if(task.role==='점쟁이')p.result=p.result==='악마가 있습니다.'?'악마가 없습니다.':'악마가 있습니다.';
     else if(task.role==='까마귀지기'||task.role==='장의사')p.result=setupRoles.find(x=>x.type==='주민'&&x.name!==p.result)!.name;
     else {p.requiresChoice=true;reason.push('정보가 무효인 상황입니다. 전달할 내용을 수정한 뒤 승인해 주세요.');}
