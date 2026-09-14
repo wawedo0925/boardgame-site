@@ -1,3 +1,4 @@
+import { initialRange } from "@/lib/korean-initial";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/server";
@@ -10,6 +11,7 @@ type SearchParams = Promise<{
   page?: string;
   q?: string;
   genre?: string;
+  initial?: string;
 }>;
 
 function normalizeRole(value: unknown) {
@@ -50,6 +52,8 @@ export default async function BoardgamesPage({
 
   const query = String(params.q ?? "").trim();
   const genre = String(params.genre ?? "").trim();
+  const range = initialRange(String(params.initial ?? ""));
+  const initial = range ? String(params.initial) : "";
 
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -83,6 +87,8 @@ export default async function BoardgamesPage({
       `name.ilike.%${safeQuery}%,publisher.ilike.%${safeQuery}%`,
     );
   }
+
+  if (range) gameRequest = gameRequest.gte("name", range.start).lt("name", range.end);
 
   if (genre) {
     gameRequest = gameRequest.eq("genre", genre);
@@ -169,7 +175,7 @@ export default async function BoardgamesPage({
           {error.message}
         </section>
       ) : (
-        <BoardgameList
+        <BoardgameList initial={initial}
           games={games ?? []}
           total={count ?? 0}
           page={page}

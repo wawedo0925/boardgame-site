@@ -1,5 +1,6 @@
 "use client";
 
+import { KOREAN_INITIALS } from "@/lib/korean-initial";
 import Link from "next/link";
 import {
   type ChangeEvent,
@@ -82,6 +83,7 @@ function nullableNumber(value: string) {
 }
 
 type Props = {
+  initial: string;
   games: Game[];
   total: number;
   page: number;
@@ -139,6 +141,7 @@ const EditField = ({
   );
 
 export default function BoardgameList({
+  initial,
   games,
   total,
   page,
@@ -195,11 +198,12 @@ export default function BoardgameList({
   const firstNumber = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const lastNumber = Math.min(page * pageSize, total);
 
-  function pageHref(targetPage: number) {
+  function pageHref(targetPage: number, nextInitial = initial) {
     const parameters = new URLSearchParams();
 
     if (query) parameters.set("q", query);
     if (genre) parameters.set("genre", genre);
+    if (nextInitial) parameters.set("initial", nextInitial);
 
     parameters.set("page", String(targetPage));
 
@@ -452,7 +456,7 @@ export default function BoardgameList({
         </div>
       )}
 
-      <form
+      <form id="boardgame-search"
         method="get"
         action="/boardgames"
         className="searchForm"
@@ -482,11 +486,16 @@ export default function BoardgameList({
         <button type="submit">검색</button>
       </form>
 
+      {initial && <input form="boardgame-search" type="hidden" name="initial" value={initial}/>}
       <div className="listSummary">
         <p>
           총 <strong>{total}</strong>개의 게임
         </p>
 
+        <div className="initialFilter">
+          <nav className="initialButtons" aria-label="게임 이름 초성 필터">{['',...KOREAN_INITIALS].map(value=><Link key={value} href={pageHref(1,value)} aria-current={initial===value?'page':undefined} className={initial===value?'selectedInitial':''}>{value||'전체'}</Link>)}</nav>
+          <select aria-label="게임 이름 초성 선택" className="initialSelect" value={initial} onChange={event=>router.push(pageHref(1,event.target.value))}><option value="">전체 초성</option>{KOREAN_INITIALS.map(value=><option key={value} value={value}>{value}</option>)}</select>
+        </div>
         <p>
           {firstNumber}–{lastNumber} 표시
         </p>
@@ -805,7 +814,18 @@ export default function BoardgameList({
           color: #91a0ba;
         }
 
+        .initialFilter { flex: 1; min-width: 0; }
+        .initialButtons { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+        .initialButtons :global(a) { display: grid; place-items: center; min-width: 30px; min-height: 40px; padding: 0 5px; border: 1px solid #34353b; border-radius: 8px; color: #bbc4d4; text-decoration: none; }
+        .initialButtons :global(a.selectedInitial) { background: #ffbd00; color: #171000; border-color: #ffbd00; font-weight: 800; }
+        .initialSelect { display: none; }
+        @media (max-width: 700px) {
+          .listSummary { gap: 8px; font-size: 12px; }
+          .initialButtons { display: none; }
+          .initialSelect { display: block; min-height: 44px; width: 100%; max-width: 130px; margin: 0 auto; padding: 0 8px; border: 1px solid #34353b; border-radius: 10px; background: #191a1e; color: white; }
+        }
         .listSummary p {
+          flex-shrink: 0;
           margin: 0;
         }
 
