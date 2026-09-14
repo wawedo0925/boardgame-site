@@ -106,6 +106,38 @@ function playerText(game: Game) {
   return "인원 미정";
 }
 
+const EditField = ({
+    editDraft,
+    updateEditDraft,
+    label,
+    name,
+    type = "text",
+    min,
+    max,
+    step,
+  }: {
+    editDraft: GameEditDraft;
+    updateEditDraft: (name: keyof GameEditDraft, value: string) => void;
+    label: string;
+    name: keyof GameEditDraft;
+    type?: string;
+    min?: number;
+    max?: number;
+    step?: number;
+  }) => (
+    <label className="editField">
+      <span>{label}</span>
+      <input
+        type={type}
+        min={min}
+        max={max}
+        step={step}
+        value={editDraft[name]}
+        onChange={(event) => updateEditDraft(name, event.target.value)}
+      />
+    </label>
+  );
+
 export default function BoardgameList({
   games,
   total,
@@ -397,33 +429,7 @@ export default function BoardgameList({
     router.refresh();
   }
 
-  const EditField = ({
-    label,
-    name,
-    type = "text",
-    min,
-    max,
-    step,
-  }: {
-    label: string;
-    name: keyof GameEditDraft;
-    type?: string;
-    min?: number;
-    max?: number;
-    step?: number;
-  }) => (
-    <label className="editField">
-      <span>{label}</span>
-      <input
-        type={type}
-        min={min}
-        max={max}
-        step={step}
-        value={editDraft[name]}
-        onChange={(event) => updateEditDraft(name, event.target.value)}
-      />
-    </label>
-  );
+
 
   return (
     <section className="listSection">
@@ -665,7 +671,7 @@ export default function BoardgameList({
             ) : (
               <>
                 <div className="editFormGrid">
-                  <EditField label="게임 이름" name="name" />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="게임 이름" name="name" />
                   <label><input type="checkbox" checked={editDraft.is_unowned === "true"} onChange={(e) => updateEditDraft("is_unowned", String(e.target.checked))} /> 미보유</label>
                   <label className="editField">
                     <span>결과 방식</span>
@@ -680,20 +686,20 @@ export default function BoardgameList({
                       <option value="COOP">협력형</option>
                     </select>
                   </label>
-                  <EditField label="최소 인원" name="min_players" type="number" />
-                  <EditField label="최대 인원" name="max_players" type="number" />
-                  <EditField label="베스트 인원" name="best_players" />
-                  <EditField label="플레이 시간(분)" name="play_time" type="number" />
-                  <EditField label="난이도(1~5)" name="difficulty" type="number" min={1} max={5} step={0.01} />
-                  <EditField label="장르" name="genre" />
-                  <EditField label="BGG 웨이트" name="weight" type="number" min={0} max={5} step={0.01} />
-                  <EditField label="출판사" name="publisher" />
-                  <EditField label="아이콘" name="icon" />
-                  <EditField label="권장 나이" name="min_age" type="number" />
-                  <EditField label="출시 연도" name="year_published" type="number" />
-                  <EditField label="BGG 주소" name="bgg_url" />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="최소 인원" name="min_players" type="number" />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="최대 인원" name="max_players" type="number" />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="베스트 인원" name="best_players" />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="플레이 시간(분)" name="play_time" type="number" />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="난이도(1~5)" name="difficulty" type="number" min={1} max={5} step={0.01} />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="장르" name="genre" />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="BGG 웨이트" name="weight" type="number" min={0} max={5} step={0.01} />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="출판사" name="publisher" />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="아이콘" name="icon" />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="권장 나이" name="min_age" type="number" />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="출시 연도" name="year_published" type="number" />
+                  <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="BGG 주소" name="bgg_url" />
                   <div className="editWideField">
-                    <EditField label="표지 이미지 주소" name="thumbnail" />
+                    <EditField editDraft={editDraft} updateEditDraft={updateEditDraft} label="표지 이미지 주소" name="thumbnail" />
                   </div>
                   <label className="editField editWideField">
                     <span>게임 설명</span>
