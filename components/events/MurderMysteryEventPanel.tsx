@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import MurderPreferenceGate from "@/components/mypage/MurderPreferenceGate";
 import MurderPreferenceRoster from "./MurderPreferenceRoster";
 import { createClient } from "@/lib/supabase/client";
 
@@ -38,6 +39,6 @@ export default function MurderMysteryEventPanel({ eventId, mysteryId, canManage,
       <label className="flex items-center gap-2 rounded-xl border border-white/10 px-3 text-sm"><input type="checkbox" checked={allowRepeat} onChange={e=>setAllowRepeat(e.target.checked)}/>재참가 허용</label>
       <button type="button" disabled={busy||!selected} onClick={assign} className="rounded-xl bg-red-400 px-4 font-bold text-zinc-950 disabled:opacity-40">배정</button>
     </div>}
-    {canViewPreferences && <MurderPreferenceRoster key={eventId} eventId={eventId} />}
+    {canViewPreferences && <MurderPreferenceGate><MurderPreferenceRoster key={eventId} eventId={eventId} /></MurderPreferenceGate>}
   </section>;
 }

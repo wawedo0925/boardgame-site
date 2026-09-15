@@ -1,3 +1,4 @@
+import MurderPreferenceToggle from "@/components/admin/MurderPreferenceToggle";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "../../lib/supabase/server";
@@ -45,6 +46,7 @@ export default async function AdminPage() {
           ))}
         </div>
 
+        <MurderPreferenceToggle />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <Link href="/admin/clocktower-missions" className="rounded-2xl border border-violet-900 bg-violet-950/30 p-6 transition hover:border-violet-400">
             <h2 className="text-xl font-black">시계탑 미션 수정</h2>

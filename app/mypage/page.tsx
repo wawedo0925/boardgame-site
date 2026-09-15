@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import EventPlayHistory from "@/components/mypage/EventPlayHistory";
 import Achievements from "@/components/mypage/Achievements";
+import MurderPreferenceGate from "@/components/mypage/MurderPreferenceGate";
 import MurderPlayPreferences from "@/components/mypage/MurderPlayPreferences";
 import MurderMysteryHistory from "@/components/mypage/MurderMysteryHistory";
 
@@ -962,7 +963,7 @@ export default function MyPage() {
         </div>
 
         <EventPlayHistory />
-        <MurderPlayPreferences key={user.id} userId={user.id} />
+        <MurderPreferenceGate><MurderPlayPreferences key={user.id} userId={user.id} /></MurderPreferenceGate>
         <MurderMysteryHistory />
         <Achievements userId={user.id} />
 
