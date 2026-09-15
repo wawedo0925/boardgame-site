@@ -18,6 +18,7 @@ type NotificationRow = {
 
 const ICONS: Record<string, string> = {
   EVENT_JOINED: "🙋",
+  EVENT_REFUND: "💸",
   EVENT_LEFT: "↩️",
   GROUP_ASSIGNED: "👥",
   ROUND_RESULT: "🎲",

@@ -16,6 +16,7 @@ import EventCapacityCard, {
   type WaitlistMember,
 } from "@/components/events/EventCapacityCard";
 import EventCancellationCard from "@/components/events/EventCancellationCard";
+import EventLeaveRefundDialog from "@/components/events/EventLeaveRefundDialog";
 import EventJoinPaymentDialog from "@/components/events/EventJoinPaymentDialog";
 import EventCommentSection from "@/components/events/EventCommentSection";
 import BoardgamePreferenceCard from "@/components/events/BoardgamePreferenceCard";
@@ -148,6 +149,7 @@ export default function EventDetailPage() {
   const [canOperate, setCanOperate] = useState(false);
   const [siteRole, setSiteRole] = useState("MEMBER");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [preferencePromptOpen, setPreferencePromptOpen] = useState(false);
 
@@ -420,28 +422,7 @@ export default function EventDetailPage() {
       return;
     }
 
-    if (!window.confirm("이 이벤트 참가를 취소할까요?")) {
-      return;
-    }
-
-    setIsActionLoading(true);
-
-    const { error } = await supabase.rpc(
-      "cancel_event_join_or_waitlist",
-      {
-        p_event_id: eventId,
-      },
-    );
-
-    if (error) {
-      console.error("이벤트 참가 취소 오류:", error);
-      alert(`참가 취소에 실패했습니다: ${error.message}`);
-      setIsActionLoading(false);
-      return;
-    }
-
-    await reloadParticipation();
-    setIsActionLoading(false);
+    setLeaveDialogOpen(true);
   }
 
   async function handleRemoveMember(targetUserId: string, memberName: string) {
@@ -1003,7 +984,8 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {joinDialogOpen && <EventJoinPaymentDialog eventTitle={event.title} participationFee={participationFee} eventKind={event.event_kind} waitlisted={isAtCapacity} busy={isActionLoading} onClose={() => setJoinDialogOpen(false)} onConfirm={handleJoin} />}
+          {leaveDialogOpen && user && <EventLeaveRefundDialog eventId={eventId} userId={user.id} onClose={() => setLeaveDialogOpen(false)} onLeft={reloadParticipation} />}
+      {joinDialogOpen && <EventJoinPaymentDialog eventTitle={event.title} participationFee={participationFee} eventKind={event.event_kind} waitlisted={isAtCapacity} busy={isActionLoading} onClose={() => setJoinDialogOpen(false)} onConfirm={handleJoin} />}
         </>
       )}
     </main>
