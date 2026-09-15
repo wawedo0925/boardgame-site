@@ -833,6 +833,7 @@ export default function EventDetailPage() {
                 <MurderMysteryEventPanel
                   eventId={eventId}
                   mysteryId={event.murder_mystery_id}
+                  canViewPreferences={participants.some(p => p.user_id === user?.id && p.participation_role === "GM" && !p.gm_pending && p.attendance_status !== "ABSENT")}
                   canManage={["MAIN_ADMIN", "ADMIN", "RULE_MASTER"].includes(siteRole)}
                   isClosed={isLocked}
                 />

@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import EventPlayHistory from "@/components/mypage/EventPlayHistory";
 import Achievements from "@/components/mypage/Achievements";
+import MurderPlayPreferences from "@/components/mypage/MurderPlayPreferences";
 import MurderMysteryHistory from "@/components/mypage/MurderMysteryHistory";
 
 type Profile = {
@@ -961,6 +962,7 @@ export default function MyPage() {
         </div>
 
         <EventPlayHistory />
+        <MurderPlayPreferences key={user.id} userId={user.id} />
         <MurderMysteryHistory />
         <Achievements userId={user.id} />
 

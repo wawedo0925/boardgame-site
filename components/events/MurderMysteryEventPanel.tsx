@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import MurderPreferenceRoster from "./MurderPreferenceRoster";
 import { createClient } from "@/lib/supabase/client";
 
-type Props = { eventId: string; mysteryId: string; canManage: boolean; isClosed: boolean };
+type Props = { eventId: string; mysteryId: string; canManage: boolean; canViewPreferences: boolean; isClosed: boolean };
 type Work = { title: string; cover_url: string | null; min_players: number | null; max_players: number | null; play_time: number | null; host_requirement: string | null };
 type Person = { id: string; activity_name: string | null; site_role?: string; played_before?: boolean };
 
-export default function MurderMysteryEventPanel({ eventId, mysteryId, canManage, isClosed }: Props) {
+export default function MurderMysteryEventPanel({ eventId, mysteryId, canManage, canViewPreferences, isClosed }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const [work,setWork]=useState<Work|null>(null); const [people,setPeople]=useState<Person[]>([]);
   const [selected,setSelected]=useState(""); const [role,setRole]=useState<"PLAYER"|"GM">("PLAYER");
@@ -37,5 +38,6 @@ export default function MurderMysteryEventPanel({ eventId, mysteryId, canManage,
       <label className="flex items-center gap-2 rounded-xl border border-white/10 px-3 text-sm"><input type="checkbox" checked={allowRepeat} onChange={e=>setAllowRepeat(e.target.checked)}/>재참가 허용</label>
       <button type="button" disabled={busy||!selected} onClick={assign} className="rounded-xl bg-red-400 px-4 font-bold text-zinc-950 disabled:opacity-40">배정</button>
     </div>}
+    {canViewPreferences && <MurderPreferenceRoster key={eventId} eventId={eventId} />}
   </section>;
 }
