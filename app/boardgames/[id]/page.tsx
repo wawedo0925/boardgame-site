@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import BoardgameLearning from "@/components/boardgames/BoardgameLearning";
 import GameGuideSection from "@/components/boardgames/GameGuideSection";
 import GameReviewAction from "@/components/boardgames/GameReviewAction";
 import ClocktowerCharacterTips from "@/components/boardgames/ClocktowerCharacterTips";
@@ -308,6 +309,7 @@ export default function BoardGameDetailPage() {
           </div>
         </section>)}
 
+        <BoardgameLearning key={gameId} gameId={gameId} />
         <GameGuideSection gameId={gameId} />
 
         {game.name.includes("시계탑에 흐른 피") && <ClocktowerCharacterTips gameId={gameId} />}

@@ -1,5 +1,6 @@
 "use client";
 
+import BoardgameLearning from "@/components/boardgames/BoardgameLearning";
 import { KOREAN_INITIALS } from "@/lib/korean-initial";
 import Link from "next/link";
 import {
@@ -487,6 +488,7 @@ export default function BoardgameList({
       </form>
 
       {initial && <input form="boardgame-search" type="hidden" name="initial" value={initial}/>}
+      <div className="mb-5 flex justify-end"><BoardgameLearning /></div>
       <div className="listSummary">
         <p>
           총 <strong>{total}</strong>개의 게임

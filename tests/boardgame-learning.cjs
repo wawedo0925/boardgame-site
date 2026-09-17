@@ -1,0 +1,28 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
+(async()=>{
+ const db=new PGlite();const [a,b,g,h]=[1,2,3,4].map(i=>`00000000-0000-0000-0000-${String(i).padStart(12,'0')}`);
+ await db.exec(`create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated;
+ create table games(id uuid primary key,name text);create table profiles(id uuid primary key,activity_name text);
+ insert into auth.users values('${a}'),('${b}');insert into profiles values('${a}','우영'),('${b}','아라');insert into games values('${g}','게임 가'),('${h}','게임 나');`);
+ await db.exec(fs.readFileSync('supabase/migrations/20260918010000_boardgame_learning_interests.sql','utf8'));
+ const as=async(user,sql)=>{await db.exec(`set request.jwt.claim.sub='${user}';set role authenticated`);try{return(await db.query(sql)).rows;}finally{await db.exec('reset role');}};
+ const read=id=>`select boardgame_learning_overview(${id?`'${id}'`:'null'}) as result`;
+ assert.deepEqual((await as(a,read()))[0].result,[]);
+ assert.equal((await as(a,read(g)))[0].result[0].count,0);
+ await assert.rejects(as(a,`insert into boardgame_learning_interests(game_id,user_id) values('${g}','${b}')`));
+ for(const [user,game] of [[a,g],[b,g],[a,h]])await as(user,`insert into boardgame_learning_interests(game_id,user_id) values('${game}','${user}')`);
+ await assert.rejects(as(a,`insert into boardgame_learning_interests(game_id,user_id) values('${g}','${a}')`));
+ const list=(await as(a,read()))[0].result;assert.equal(list.length,2);assert.equal(list[0].game_id,g);assert.equal(list[0].count,2);assert.equal(list[0].registered,true);assert.equal(list[0].members.length,2);
+ await as(b,`delete from boardgame_learning_interests where user_id='${a}'`);
+ assert.equal((await as(a,read(g)))[0].result[0].count,2);
+ await as(a,`delete from boardgame_learning_interests where user_id='${a}' and game_id='${g}'`);
+ const single=(await as(a,read(g)))[0].result[0];assert.equal(single.count,1);assert.equal(single.registered,false);assert.equal(single.members[0].name,'아라');
+ await as(a,`insert into boardgame_learning_interests(game_id,user_id) values('${g}','${a}')`);
+ assert.equal((await as(a,read(g)))[0].result[0].count,2);
+ assert.equal((await db.query("select has_function_privilege('anon','public.boardgame_learning_overview(uuid)','EXECUTE') as allowed")).rows[0].allowed,false);
+ await db.exec(`delete from games where id='${g}'`);
+ assert.equal((await as(a,read()))[0].result.length,1);
+ console.log('PASS: empty/detail/global overview, count ranking, member names, own registration/cancel only, duplicate guard, re-register, anonymous denied, game deletion cascade');await db.close();
+})().catch(e=>{console.error(e);process.exitCode=1;});
