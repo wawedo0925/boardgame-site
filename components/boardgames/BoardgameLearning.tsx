@@ -55,7 +55,7 @@ export default function BoardgameLearning({ gameId }: { gameId?: string }) {
   </div>;
   if (gameId) return <section className="mt-8 rounded-3xl border border-amber-400/20 bg-amber-400/5 p-5 sm:p-7">
     <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-xl font-bold">이 게임을 배우고 싶어요</h2><button disabled={loading || Boolean(saving)} onClick={() => void refresh()} className="min-h-11 px-3 text-sm text-zinc-400">새로고침</button></div>
-    <p className="mb-4 text-sm leading-6 text-zinc-400">배움 희망을 등록하면 다른 멤버들이 현황을 볼 수 있어요. 해본 게임도 다시 배우고 싶다면 등록할 수 있고, 언제든 취소할 수 있어요.</p>{content}
+    <p className="mb-4 text-sm leading-6 text-zinc-400">배움 희망을 등록하면 다른 멤버들이 현황을 볼 수 있어요. 이후 새로 플레이한 결과가 저장되면 자동으로 해제돼요. 해본 게임도 언제든 다시 등록하거나 취소할 수 있어요.</p>{content}
   </section>;
   return <>
     <button onClick={() => { dialog.current?.showModal(); void refresh(); }} className="min-h-11 rounded-xl bg-amber-400 px-5 py-3 text-sm font-bold text-black">배움 희망 현황</button>
