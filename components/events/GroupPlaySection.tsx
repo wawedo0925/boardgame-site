@@ -211,7 +211,6 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
         <div className="flex flex-wrap items-center gap-2" onClick={event => event.stopPropagation()}>
           <input aria-label="조 이름" disabled={!editable} value={group.name} onChange={event => setDrafts(current => current.map(item => item.id === group.id ? { ...item, name: event.target.value } : item))} className="h-11 min-w-24 flex-1 rounded-xl bg-white/10 px-3 font-bold disabled:opacity-80 sm:max-w-48"/>
           {editable && <button onClick={() => openMemberPicker(group.id)} className="min-h-11 rounded-xl bg-sky-400/15 px-3 text-sm font-bold text-sky-300">인원 추가</button>}
-          {groupEditable && <button disabled={busy} onClick={() => group.id.startsWith("draft-") ? alert("먼저 조 편성을 저장해 주세요.") : setAdding(group)} className="min-h-11 rounded-xl bg-amber-400 px-3 text-sm font-bold text-zinc-950">게임 추가</button>}
           {editable && <button disabled={busy} onClick={() => void save()} className="min-h-11 rounded-xl border border-amber-400 px-3 text-sm font-bold text-amber-300 disabled:opacity-50">{busy ? "처리 중…" : "조 편성 확정"}</button>}
           <button aria-expanded={!collapsed.includes(group.id)} onClick={() => setCollapsed(current => current.includes(group.id) ? current.filter(id => id !== group.id) : [...current, group.id])} className="min-h-11 shrink-0 px-2 text-sm text-amber-300">{collapsed.includes(group.id) ? "더보기" : "접기"}</button>
           {editable && <button onClick={() => setDrafts(current => current.filter(item => item.id !== group.id))} className="min-h-11 text-sm text-red-300">삭제</button>}
@@ -219,7 +218,13 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
         {!collapsed.includes(group.id)&&<>
         <div className="mt-3 flex flex-wrap gap-2">{group.userIds.map(userId => { const participant = participants.find(item => item.user_id === userId); const active=selected.includes(userId); return <button disabled={!editable} key={userId} title={preferenceLabel(participant)} onClick={event => { event.stopPropagation(); toggleSelected(userId); }} className={`rounded-xl border px-3 py-2 transition disabled:cursor-default ${active?`${preferenceClass(participant)} outline-2 outline-sky-300`:preferenceClass(participant)}`}>{participant ? <ParticipantName participant={participant}/> : "회원"}</button>; })}</div>
         {editable&&<label className="mt-3 block text-sm text-zinc-400">조 룰마스터<select value={group.ruleMasterUserId??""} onChange={event=>setDrafts(current=>current.map(item=>item.id===group.id?{...item,ruleMasterUserId:event.target.value||null}:item))} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 text-white"><option value="">룰마스터 미지정</option>{group.userIds.map(userId=>{const participant=participants.find(item=>item.user_id===userId);return <option key={userId} value={userId}>{participant?`${participantLabel(participant)} · ${participantBirthLabel(participant)}`.replace(/ · $/,""):"회원"}</option>})}</select></label>}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-4"><h3 className="font-bold">플레이 기록</h3>{groupEditable && <button disabled={busy || savedGroups[group.id] !== groupSignature(group)} title="조 편성 확정 후 확인할 수 있습니다." onClick={event => { event.stopPropagation(); setRecommending(group); }} className="rounded-xl bg-emerald-400/15 px-4 py-2 font-bold text-emerald-300 disabled:opacity-40">게임 비추천</button>}</div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-4">
+          <h3 className="font-bold">플레이 기록</h3>
+          {groupEditable && <div className="flex flex-wrap gap-2" onClick={event => event.stopPropagation()}>
+            <button disabled={busy} onClick={() => group.id.startsWith("draft-") ? alert("먼저 조 편성을 저장해 주세요.") : setAdding(group)} className="min-h-11 rounded-xl bg-amber-400 px-3 text-sm font-bold text-zinc-950">게임 추가</button>
+            <button disabled={busy || savedGroups[group.id] !== groupSignature(group)} title="조 편성 확정 후 확인할 수 있습니다." onClick={() => setRecommending(group)} className="min-h-11 rounded-xl bg-emerald-400/15 px-4 py-2 font-bold text-emerald-300 disabled:opacity-40">게임 비추천</button>
+          </div>}
+        </div>
         <GroupRoundHistory games={groupGames} canManage={groupEditable} onChanged={load} onRepeat={game => repeatGame(group, game)} repeatDisabled={busy || savedGroups[group.id] !== groupSignature(group)} /></>}
       </article>;
     })}</div>
