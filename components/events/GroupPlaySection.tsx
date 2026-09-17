@@ -207,7 +207,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
     <div className="mt-5 space-y-5">{drafts.map(group => {
       const groupGames = games.map(game => ({ ...game, rounds: game.rounds.filter(round => round.group_id === group.id) })).filter(game => game.rounds.length);
       const groupEditable=Boolean(!isClosed&&(editable||group.ruleMasterUserId===currentUserId));
-      return <article key={group.id} ref={node => {if(node)groupRefs.current.set(group.id,node);else groupRefs.current.delete(group.id)}} onClick={() => selected.length && move(selected, group.id)} className={`rounded-2xl border p-4 transition ${selected.length && editable ? "cursor-pointer border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.2)]" : "border-white/10"}`}>
+      return <article key={group.id} ref={node => {if(node)groupRefs.current.set(group.id,node);else groupRefs.current.delete(group.id)}} onClick={() => selected.length && move(selected, group.id)} className={`rounded-2xl border-2 p-4 transition ${selected.length && editable ? "cursor-pointer border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.2)]" : "border-white"}`}>
         <div className="flex flex-wrap items-center gap-2" onClick={event => event.stopPropagation()}>
           <input aria-label="조 이름" disabled={!editable} value={group.name} onChange={event => setDrafts(current => current.map(item => item.id === group.id ? { ...item, name: event.target.value } : item))} className="h-11 min-w-24 flex-1 rounded-xl bg-white/10 px-3 font-bold disabled:opacity-80 sm:max-w-48"/>
           {editable && <button onClick={() => openMemberPicker(group.id)} className="min-h-11 rounded-xl bg-sky-400/15 px-3 text-sm font-bold text-sky-300">인원 추가</button>}
