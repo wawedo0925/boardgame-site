@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getEventGroups, saveGroups, clearGroups, clearEventPlayRecords } from "@/lib/services/groups";
+import { createRound } from "@/lib/services/rounds";
 import { getEventGames } from "@/lib/services/events";
 import type { GroupDraft, GroupParticipant } from "@/types/group";
 import type { BoardgamePreference, EventGame } from "@/types/event";
@@ -51,6 +52,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [savedGroups, setSavedGroups] = useState<Record<string,string>>({});
   const [busy, setBusy] = useState(false);
+  const repeatLock = useRef(false);
   const groupRefs = useRef(new Map<string, HTMLElement>());
   const editable = Boolean(canManage && !isClosed);
 
@@ -99,6 +101,30 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
       }))
       .map(group => group.id === groupId ? { ...group, userIds: [...group.userIds, ...userIds.filter(id => !group.userIds.includes(id))] } : group));
     setSelected([]);
+  }
+
+  function unassign(userId: string) {
+    if (!editable) return;
+    setDrafts(current => current.map(group => ({ ...group,
+      userIds: group.userIds.filter(id => id !== userId),
+      ruleMasterUserId: group.ruleMasterUserId === userId ? null : group.ruleMasterUserId,
+    })));
+    setSelected(current => current.filter(id => id !== userId));
+    setPickerSelected(current => current.filter(id => id !== userId));
+  }
+
+  async function repeatGame(group: GroupDraft, game: EventGame) {
+    if (repeatLock.current || isClosed || !(editable || group.ruleMasterUserId === currentUserId)) return;
+    if (savedGroups[group.id] !== groupSignature(group)) { alert("먼저 조 편성을 확정해 주세요."); return; }
+    repeatLock.current = true; setBusy(true);
+    try {
+      const confirmed = (await getEventGroups(supabase, eventId)).find(item => item.id === group.id);
+      if (!confirmed) throw new Error("조를 찾을 수 없습니다. 새로고침해 주세요.");
+      await createRound(supabase, game.id, confirmed.members.map(member => member.user_id), group.id);
+      const latestGames = await getEventGames(supabase, eventId);
+      setGames(latestGames);
+    } catch (error) { alert(error && typeof error === "object" && "message" in error ? String(error.message) : "게임을 추가하지 못했습니다."); }
+    finally { repeatLock.current = false; setBusy(false); }
   }
 
   function addGroup() {
@@ -182,17 +208,24 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
       const groupGames = games.map(game => ({ ...game, rounds: game.rounds.filter(round => round.group_id === group.id) })).filter(game => game.rounds.length);
       const groupEditable=Boolean(!isClosed&&(editable||group.ruleMasterUserId===currentUserId));
       return <article key={group.id} ref={node => {if(node)groupRefs.current.set(group.id,node);else groupRefs.current.delete(group.id)}} onClick={() => selected.length && move(selected, group.id)} className={`rounded-2xl border p-4 transition ${selected.length && editable ? "cursor-pointer border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.2)]" : "border-white/10"}`}>
-        <div className="flex gap-2"><input disabled={!editable} value={group.name} onChange={event => setDrafts(current => current.map(item => item.id === group.id ? { ...item, name: event.target.value } : item))} className="h-11 min-w-0 flex-1 rounded-xl bg-white/10 px-3 font-bold disabled:opacity-80"/><button aria-expanded={!collapsed.includes(group.id)} onClick={event=>{event.stopPropagation();setCollapsed(current=>current.includes(group.id)?current.filter(id=>id!==group.id):[...current,group.id]);}} className="min-h-11 shrink-0 px-2 text-sm text-amber-300">{collapsed.includes(group.id)?"더보기":"접기"}</button>{editable && <button onClick={event => { event.stopPropagation(); setDrafts(current => current.filter(item => item.id !== group.id)); }} className="text-red-300">삭제</button>}</div>
+        <div className="flex flex-wrap items-center gap-2" onClick={event => event.stopPropagation()}>
+          <input aria-label="조 이름" disabled={!editable} value={group.name} onChange={event => setDrafts(current => current.map(item => item.id === group.id ? { ...item, name: event.target.value } : item))} className="h-11 min-w-24 flex-1 rounded-xl bg-white/10 px-3 font-bold disabled:opacity-80 sm:max-w-48"/>
+          {editable && <button onClick={() => openMemberPicker(group.id)} className="min-h-11 rounded-xl bg-sky-400/15 px-3 text-sm font-bold text-sky-300">인원 추가</button>}
+          {groupEditable && <button disabled={busy} onClick={() => group.id.startsWith("draft-") ? alert("먼저 조 편성을 저장해 주세요.") : setAdding(group)} className="min-h-11 rounded-xl bg-amber-400 px-3 text-sm font-bold text-zinc-950">게임 추가</button>}
+          {editable && <button disabled={busy} onClick={() => void save()} className="min-h-11 rounded-xl border border-amber-400 px-3 text-sm font-bold text-amber-300 disabled:opacity-50">{busy ? "처리 중…" : "조 편성 확정"}</button>}
+          <button aria-expanded={!collapsed.includes(group.id)} onClick={() => setCollapsed(current => current.includes(group.id) ? current.filter(id => id !== group.id) : [...current, group.id])} className="min-h-11 shrink-0 px-2 text-sm text-amber-300">{collapsed.includes(group.id) ? "더보기" : "접기"}</button>
+          {editable && <button onClick={() => setDrafts(current => current.filter(item => item.id !== group.id))} className="min-h-11 text-sm text-red-300">삭제</button>}
+        </div>
         {!collapsed.includes(group.id)&&<>
         <div className="mt-3 flex flex-wrap gap-2">{group.userIds.map(userId => { const participant = participants.find(item => item.user_id === userId); const active=selected.includes(userId); return <button disabled={!editable} key={userId} title={preferenceLabel(participant)} onClick={event => { event.stopPropagation(); toggleSelected(userId); }} className={`rounded-xl border px-3 py-2 transition disabled:cursor-default ${active?`${preferenceClass(participant)} outline-2 outline-sky-300`:preferenceClass(participant)}`}>{participant ? <ParticipantName participant={participant}/> : "회원"}</button>; })}</div>
         {editable&&<label className="mt-3 block text-sm text-zinc-400">조 룰마스터<select value={group.ruleMasterUserId??""} onChange={event=>setDrafts(current=>current.map(item=>item.id===group.id?{...item,ruleMasterUserId:event.target.value||null}:item))} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 text-white"><option value="">룰마스터 미지정</option>{group.userIds.map(userId=>{const participant=participants.find(item=>item.user_id===userId);return <option key={userId} value={userId}>{participant?`${participantLabel(participant)} · ${participantBirthLabel(participant)}`.replace(/ · $/,""):"회원"}</option>})}</select></label>}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-4"><h3 className="font-bold">플레이 기록</h3>{groupEditable && <div className="flex flex-wrap gap-2"><button onClick={event => { event.stopPropagation(); openMemberPicker(group.id); }} className="rounded-xl bg-sky-400/15 px-4 py-2 font-bold text-sky-300">인원 추가</button><button disabled={busy||savedGroups[group.id]!==groupSignature(group)} title="조 편성 확정 후 확인할 수 있습니다." onClick={event => { event.stopPropagation(); setRecommending(group); }} className="rounded-xl bg-emerald-400/15 px-4 py-2 font-bold text-emerald-300 disabled:opacity-40">게임 비추천</button><button onClick={event => { event.stopPropagation(); group.id.startsWith("draft-") ? alert("먼저 조 편성을 저장해 주세요.") : setAdding(group); }} className="rounded-xl bg-amber-400 px-4 py-2 font-bold text-zinc-950">게임 추가</button>{editable && <button disabled={busy} onClick={event => { event.stopPropagation(); void save(); }} className="rounded-xl border border-amber-400 px-4 py-2 font-bold text-amber-300 disabled:opacity-50">{busy ? "저장 중…" : "조 편성 확정"}</button>}</div>}</div>
-        <GroupRoundHistory games={groupGames} canManage={groupEditable} onChanged={load}/></>}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-4"><h3 className="font-bold">플레이 기록</h3>{groupEditable && <button disabled={busy || savedGroups[group.id] !== groupSignature(group)} title="조 편성 확정 후 확인할 수 있습니다." onClick={event => { event.stopPropagation(); setRecommending(group); }} className="rounded-xl bg-emerald-400/15 px-4 py-2 font-bold text-emerald-300 disabled:opacity-40">게임 비추천</button>}</div>
+        <GroupRoundHistory games={groupGames} canManage={groupEditable} onChanged={load} onRepeat={game => repeatGame(group, game)} repeatDisabled={busy || savedGroups[group.id] !== groupSignature(group)} /></>}
       </article>;
     })}</div>
     {editable && <div className="mt-5 grid gap-3 sm:grid-cols-3"><button disabled={busy} onClick={reset} className="h-12 rounded-xl border border-white/15 text-zinc-300 disabled:opacity-50">조 편성 초기화</button><button disabled={busy} onClick={resetPlayRecords} className="h-12 rounded-xl border border-red-400/40 text-red-300 disabled:opacity-50">플레이 기록 전체 초기화</button><button disabled={busy} onClick={save} className="h-12 rounded-xl bg-amber-400 font-bold text-zinc-950 disabled:opacity-50">조 편성 확정</button></div>}
     {adding && <AddGroupRoundDialog eventId={eventId} groupId={adding.id} userIds={adding.userIds} onClose={() => setAdding(null)} onSaved={load}/>}
     {recommending && <GameAvoidanceDialog group={recommending} participants={participants} onClose={() => setRecommending(null)}/>}
-    {memberPickerGroupId && <div className="fixed inset-0 z-[130] flex items-end bg-black/75 sm:items-center sm:justify-center" onClick={() => setMemberPickerGroupId(null)}><section className="flex max-h-[88dvh] w-full flex-col rounded-t-3xl border border-white/10 bg-zinc-950 p-5 sm:max-w-xl sm:rounded-3xl sm:p-6" onClick={event => event.stopPropagation()}><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-sky-300">MEMBER MOVE</p><h3 className="mt-1 text-xl font-bold">{drafts.find(group=>group.id===memberPickerGroupId)?.name}에 인원 추가</h3><p className="mt-1 text-sm text-zinc-400">여러 명을 선택하면 기존 조에서 이 조로 이동합니다.</p></div><button onClick={() => setMemberPickerGroupId(null)} className="h-11 w-11 shrink-0 rounded-full bg-white/10 text-xl">×</button></div><div className="mt-5 overflow-y-auto pr-1">{[{label:"미배정",ids:unassigned.map(item=>item.user_id)},...drafts.filter(group=>group.id!==memberPickerGroupId).map(group=>({label:group.name,ids:group.userIds}))].map(source=><div key={source.label} className="mb-5"><p className="mb-2 text-sm font-bold text-zinc-300">{source.label} {source.ids.length}명</p>{source.ids.length?<div className="flex flex-wrap gap-2">{source.ids.map(userId=>{const participant=participants.find(item=>item.user_id===userId);const active=pickerSelected.includes(userId);return <button key={userId} title={preferenceLabel(participant)} onClick={()=>setPickerSelected(current=>current.includes(userId)?current.filter(id=>id!==userId):[...current,userId])} className={`rounded-xl border px-3 py-2 transition ${active?`${preferenceClass(participant)} outline-2 outline-sky-300`:preferenceClass(participant)}`}>{participant?<ParticipantName participant={participant}/>:"회원"}</button>})}</div>:<p className="text-sm text-zinc-600">선택할 멤버가 없습니다.</p>}</div>)}</div><button disabled={!pickerSelected.length} onClick={applyMemberPicker} className="mt-2 min-h-12 rounded-xl bg-amber-400 font-bold text-zinc-950 disabled:opacity-40">선택한 {pickerSelected.length}명 추가</button></section></div>}
+    {memberPickerGroupId && <div className="fixed inset-0 z-[130] flex items-end bg-black/75 sm:items-center sm:justify-center" onClick={() => setMemberPickerGroupId(null)}><section className="flex max-h-[88dvh] w-full flex-col rounded-t-3xl border border-white/10 bg-zinc-950 p-5 sm:max-w-xl sm:rounded-3xl sm:p-6" onClick={event => event.stopPropagation()}><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-sky-300">MEMBER MOVE</p><h3 className="mt-1 text-xl font-bold">{drafts.find(group=>group.id===memberPickerGroupId)?.name}에 인원 추가</h3><p className="mt-1 text-sm text-zinc-400">여러 명을 선택하면 기존 조에서 이 조로 이동합니다.</p></div><button onClick={() => setMemberPickerGroupId(null)} className="h-11 w-11 shrink-0 rounded-full bg-white/10 text-xl">×</button></div><div className="mt-5 overflow-y-auto pr-1">{[{label:"미배정",ids:unassigned.map(item=>item.user_id)},...drafts.filter(group=>group.id!==memberPickerGroupId).map(group=>({label:group.name,ids:group.userIds}))].map(source=><div key={source.label} className="mb-5"><p className="mb-2 text-sm font-bold text-zinc-300">{source.label} {source.ids.length}명</p>{source.ids.length?<div className="flex flex-wrap gap-2">{source.ids.map(userId=>{const participant=participants.find(item=>item.user_id===userId);const active=pickerSelected.includes(userId);return <button key={userId} title={preferenceLabel(participant)} onClick={()=>setPickerSelected(current=>current.includes(userId)?current.filter(id=>id!==userId):[...current,userId])} className={`rounded-xl border px-3 py-2 transition ${active?`${preferenceClass(participant)} outline-2 outline-sky-300`:preferenceClass(participant)}`}>{participant?<ParticipantName participant={participant}/>:"회원"}</button>})}</div>:<p className="text-sm text-zinc-600">선택할 멤버가 없습니다.</p>}</div>)}<div className="mb-4 border-t border-white/15 pt-4"><p className="font-bold">현재 조원 · 누르면 조에서 제외</p><p className="mt-1 text-xs text-zinc-400">제외한 멤버는 미배정으로 이동합니다. 조 편성 확정을 누르면 저장됩니다. 기존 플레이 기록은 유지됩니다.</p><div className="mt-3 flex flex-wrap gap-2">{drafts.find(group => group.id === memberPickerGroupId)?.userIds.map(userId => { const participant = participants.find(item => item.user_id === userId); return <button key={userId} onClick={() => unassign(userId)} className={`min-h-11 rounded-xl border px-3 py-2 ${preferenceClass(participant)}`} title="눌러서 미배정으로 이동">{participant ? <ParticipantName participant={participant}/> : "회원"}<span className="ml-2 text-red-300" aria-hidden="true">×</span></button>; })}</div></div></div><button disabled={!pickerSelected.length} onClick={applyMemberPicker} className="mt-2 min-h-12 rounded-xl bg-amber-400 font-bold text-zinc-950 disabled:opacity-40">선택한 {pickerSelected.length}명 추가</button></section></div>}
   </section>;
 }
