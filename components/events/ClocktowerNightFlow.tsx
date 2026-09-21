@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { approveEffects, beginNight, emptyEngine, evil, nextTask, propose, taskRequest, type NightEngine, type NightTask } from '@/lib/clocktower/night';
 import type { LiveMember, LiveRequest, LiveState } from '@/lib/clocktower/live';
+import { canAdvanceNight } from '@/lib/clocktower/request-progress';
 import ClocktowerNightTimeline from './ClocktowerNightTimeline';
 import ClocktowerPopup from './ClocktowerPopup';
 import { ClocktowerName } from './ClocktowerSeating';
@@ -16,7 +17,8 @@ export default function ClocktowerNightFlow({state,run,busy,allowPopup,error}:{s
   const [settings,setSettings]=useState(false);
   const attempted=useRef('');
   const current=state.requests?.find(q=>q.id===engine.active);
-  const ready=!current||current.status==='CANCELLED'||(current.status==='RESOLVED'&&current.acknowledged);
+  const ready=canAdvanceNight(current);
+  const unread=(state.requests??[]).filter(q=>q.night===room.night&&q.status==='RESOLVED'&&!q.acknowledged);
   useEffect(()=>{
     if(room.phase!=='NIGHT'||busy||paused||settings)return;
     const key=`${room.night}:${version}`;
@@ -36,17 +38,18 @@ export default function ClocktowerNightFlow({state,run,busy,allowPopup,error}:{s
   const task=engine.tasks[engine.cursor];
   return <section className="space-y-4 rounded-3xl border border-violet-400/30 bg-violet-400/5 p-5">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold">밤 시트 자동 진행</h2><button disabled={busy} className={button} onClick={()=>setSettings(!settings)}>{settings?'설정 닫기':'허상·취함·중독 설정'}</button></div>
-    <p className="text-sm leading-6 text-zinc-400">밤을 시작하면 시트 순서로 요청합니다. 제안은 이야기꾼에게만 보이며, 전달을 승인한 뒤 멤버가 확인하면 다음 차례로 넘어갑니다. 자동 진행 중에는 이야기꾼 화면을 켜 두세요.</p>
+    <p className="text-sm leading-6 text-zinc-400">밤을 시작하면 시트 순서로 요청합니다. 제안은 이야기꾼에게만 보이며, 전달을 승인하면 다음 차례로 넘어갑니다. 멤버의 결과는 확인할 때까지 남습니다. 낮으로 넘어가기 전에는 모두 확인해 주세요. 자동 진행 중에는 이야기꾼 화면을 켜 두세요.</p>
     {settings&&<NightSettings key={version} engine={engine} members={members} locked={room.phase!=='SETUP'&&!!engine.red_herring} busy={busy} save={async updated=>{if(await run('engine_settings',{version,state:updated}))setSettings(false);}}/>}
     {room.phase==='NIGHT'&&<>
       {engine.night===room.night&&<ClocktowerNightTimeline engine={engine} members={members} current={current}/>}
       <div className="flex flex-wrap gap-2"><button className={button} onClick={()=>setPaused(!paused)}>{paused?'자동 진행 재개':'자동 진행 일시정지'}</button><button disabled={busy} className={button} onClick={()=>{attempted.current='';setPaused(false);void run('engine_settings',{version,state:engine});}}>연결 후 진행 재시도</button></div>
+      {!!unread.length&&<details className="rounded-xl border border-white/15 p-3"><summary className="cursor-pointer text-sm">결과 확인 대기 {unread.length}건</summary><div className="mt-3 space-y-3">{unread.map(q=><div key={q.id} className="flex flex-wrap items-center justify-between gap-2 text-sm"><span>{members.find(m=>m.user_id===q.user_id)?.name??'참가자'} · {q.prompt}</span><button disabled={busy} className={button} onClick={()=>{if(confirm('멤버가 현장에서 결과를 확인했나요?'))void run('ack_offline',{request_id:q.id});}}>현장에서 확인 완료</button></div>)}</div></details>}
       {paused&&<p className="text-amber-200">자동 요청을 일시정지했습니다.</p>}
       {engine.night!==room.night?<p>밤 순서를 준비하고 있습니다.</p>:engine.finished?<p className="text-emerald-300">밤 시트 완료 · 낮 시작 버튼으로 사망을 공개하세요.</p>:<>
         <p className="font-bold">{engine.cursor+1} / {engine.tasks.length} · {task?.role} · {members.find(m=>m.user_id===task?.user_id)?.name}</p>
         {current?.status==='OPEN'&&<p>멤버가 대상을 선택하고 있습니다.</p>}
         {task&&current?.status==='SUBMITTED'&&<ProposalReview key={`${current.id}:${version}`} task={task} request={current} engine={engine} members={members} busy={busy} allowPopup={allowPopup} error={error} approve={(result,proposal)=>{const effects=approveEffects(task,current.targets,engine,members,{...proposal,result});return run('engine_approve',{version,request_id:current.id,result,...effects});}}/>}
-        {current?.status==='RESOLVED'&&!current.acknowledged&&<><p className="text-violet-200">결과 전달 완료 · 멤버의 확인을 기다립니다.</p><button disabled={busy} className={button} onClick={()=>{if(confirm('멤버가 현장에서 결과를 확인했나요?'))void run('ack_offline',{request_id:current.id});}}>현장에서 확인 완료</button></>}
+        {current?.status==='RESOLVED'&&!current.acknowledged&&<><p className="text-violet-200">결과 전달 완료 · 다음 차례로 진행합니다.</p><button disabled={busy} className={button} onClick={()=>{if(confirm('멤버가 현장에서 결과를 확인했나요?'))void run('ack_offline',{request_id:current.id});}}>현장에서 확인 완료</button></>}
         {current&&['OPEN','SUBMITTED'].includes(current.status)&&<button disabled={busy} className={button} onClick={()=>{if(confirm('이 차례를 건너뛰나요? 능력 효과는 적용하지 않습니다.'))void run('cancel',{request_id:current.id});}}>예외 처리 · 이 차례 건너뛰기</button>}
       </>}
     </>}

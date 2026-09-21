@@ -14,7 +14,7 @@ export default function ClocktowerNightTimeline({engine,members,current}:{engine
         const active=!engine.finished&&i===engine.cursor;
         const passed=engine.finished||i<engine.cursor;
         const actor=saved?.actor??`${member?.actual_role||role}(${member?.name??'참가자'})`;
-        const status=active?(current?.status==='CANCELLED'?'건너뜀':current?.status==='RESOLVED'?(current.acknowledged?'확인 완료':role==='첩자'?'마도서 확인 중':'전달한 결과 확인 중'):current?.status==='SUBMITTED'?'이야기꾼 검토 중':current?.status==='OPEN'?(current.target_count?'멤버 선택 중':'정보 요청 중'):'요청 준비 중'):saved?'확인 완료':passed?'건너뜀 또는 이전 처리 완료':eligible(task,engine,members)?'진행 전':'진행 전 · 발동 조건 충족 시 진행';
+        const status=active?(current?.status==='CANCELLED'?'건너뜀':current?.status==='RESOLVED'?(current.acknowledged?'확인 완료':role==='첩자'?'마도서 확인 중':'전달한 결과 확인 중'):current?.status==='SUBMITTED'?'이야기꾼 검토 중':current?.status==='OPEN'?(current.target_count?'멤버 선택 중':'정보 요청 중'):'요청 준비 중'):saved?'전달 완료':passed?'건너뜀 또는 이전 처리 완료':eligible(task,engine,members)?'진행 전':'진행 전 · 발동 조건 충족 시 진행';
         return <div key={task.key} aria-current={active?'step':undefined} className={`rounded-xl p-3 text-sm leading-6 ${active?'border-2 border-violet-300 bg-violet-400/15 font-bold text-white':'bg-white/5 text-zinc-300'}`}>
           <p>{actor}{member?.actual_role==='주정뱅이'?` · ${role}로 진행`:''} · {status}</p>
           {saved&&<div className="mt-1 whitespace-pre-wrap">

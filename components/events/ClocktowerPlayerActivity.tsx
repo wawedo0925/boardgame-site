@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import type { LiveState } from '@/lib/clocktower/live';
+import { playerRequestQueue } from '@/lib/clocktower/request-progress';
 import ClocktowerPopup from './ClocktowerPopup';
 import { ClocktowerName } from './ClocktowerSeating';
 import ClocktowerNightActivity from './ClocktowerNightActivity';
@@ -11,7 +12,7 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
   const [dismissed,setDismissed]=useState<string[]>([]);
   const members=state.members??[];
   const requests=(state.requests??[]).filter(q=>q.night===state.room?.night);
-  const actionable=requests.filter(q=>q.status==='OPEN'||(q.status==='RESOLVED'&&!q.acknowledged&&!confirmedPrivate.includes(q.id)));
+  const actionable=playerRequestQueue(state.requests??[],state.room?.night??0,confirmedPrivate);
   const missions=(state.missions??[]).filter(m=>!m.completed);
   const activeNight=state.room?.phase==='NIGHT';
   const q=activeNight?actionable.find(q=>!dismissed.includes(`request:${q.id}:${q.status}`)):undefined;
@@ -39,7 +40,7 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
             if(await run('ack',{request_id:q.id})&&privateResult)setConfirmedPrivate(ids=>[...ids,q.id]);
           }else await run('reply',{request_id:q.id,targets});
         }}>
-        {q.status==='RESOLVED'&&privateResult&&<p className="text-sm text-amber-200">메모하지 말고 기억해 주세요. 아래 확인 버튼을 눌러야 다음 차례로 넘어갑니다. 확인 후 이 내용은 다시 볼 수 없고, 다음 밤 능력 차례에 새 정보를 받습니다.</p>}
+        {q.status==='RESOLVED'&&privateResult&&<p className="text-sm text-amber-200">메모하지 말고 기억해 주세요. 다른 멤버의 차례는 계속 진행됩니다. 내용을 확인한 뒤 아래 확인 버튼을 눌러 주세요. 확인 후 이 내용은 다시 볼 수 없고, 다음 밤 능력 차례에 새 정보를 받습니다.</p>}
       </ClocktowerNightActivity>}
       {mission&&<ClocktowerNightActivity key={key} id={key} seconds={mission.challenge.delay_seconds}
         prompt={mission.kind==='SELECT'?(mission.challenge.text??'참가자 한 명을 선택해 주세요.'):'도착한 안내를 확인해 주세요.'}
