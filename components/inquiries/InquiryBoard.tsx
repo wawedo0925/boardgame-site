@@ -66,6 +66,7 @@ export default function InquiryBoard({userId,admin=false}:{userId:string;admin?:
      </>:<form onSubmit={e=>{e.preventDefault();void send();}}>
        <fieldset disabled={busy} className="mt-5"><legend className="text-sm font-semibold">제보 방식</legend><div className="mt-3 grid grid-cols-2 gap-3">{[true,false].map(value=><label key={String(value)} className={`${button} flex cursor-pointer items-center justify-center gap-2 ${anonymous===value?"border-amber-400 bg-amber-400/10 text-amber-300":""}`}><input type="radio" name="inquiry-mode" checked={anonymous===value} onChange={()=>setAnonymous(value)} />{value?"익명":"활동명 제보"}</label>)}</div></fieldset>
        <p className="mt-4 text-sm leading-6 text-zinc-400">다른 멤버에게는 공개되지 않으며, 익명으로 보내도 메인 관리자는 작성자를 확인할 수 있습니다.</p>
+       <p className="mt-2 text-sm text-amber-300">문의/제보는 하루 최대 2건까지 보낼 수 있어요. 한국 시간 자정에 초기화됩니다.</p>
        {!anonymous&&<p className="mt-3 text-sm text-amber-300">카톡 1대1 문의가 더 빠른 답변을 받을 수 있습니다.</p>}
        <label className="mt-5 block font-semibold">문의/제보 내용<textarea autoFocus className={input} rows={7} required maxLength={5000} value={body} disabled={busy} onChange={e=>setBody(e.target.value)} placeholder="문의하거나 제보할 내용을 적어 주세요." /></label><p className="text-right text-xs text-zinc-500">{body.length.toLocaleString()} / 5,000</p>
        <button disabled={busy||!body.trim()} className={`${button} mt-5 w-full bg-amber-400 text-black`}>{busy?"보내는 중...":"보내기"}</button>

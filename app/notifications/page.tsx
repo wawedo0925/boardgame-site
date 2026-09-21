@@ -17,6 +17,7 @@ type NotificationRow = {
 };
 
 const ICONS: Record<string, string> = {
+  MEMBER_INQUIRY: "📩",
   EVENT_JOINED: "🙋",
   EVENT_REFUND: "💸",
   EVENT_LEFT: "↩️",

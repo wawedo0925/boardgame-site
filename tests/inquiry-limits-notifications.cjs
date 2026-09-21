@@ -1,0 +1,28 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
+(async()=>{
+ const db=new PGlite();const id=i=>`00000000-0000-0000-0000-${String(i).padStart(12,'0')}`;const [u,admin,other]=[1,2,3].map(id);
+ await db.exec(`create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ create function is_main_admin() returns boolean language sql as $$select auth.uid()='${admin}'::uuid$$;
+ create table profiles(id uuid primary key,activity_name text);create table site_roles(user_id uuid,role text);
+ create table notifications(id uuid primary key default gen_random_uuid(),recipient_id uuid,type text,title text,message text,link text,dedupe_key text,unique(recipient_id,dedupe_key));
+ create function create_member_notification(uuid,text,text,text,text,text) returns uuid language plpgsql as $$declare n uuid;begin insert into notifications(recipient_id,type,title,message,link,dedupe_key) values($1,$2,$3,$4,$5,$6) returning id into n;return n;end$$;
+ create table push_subscriptions(id uuid primary key,user_id uuid);create table push_settings(id boolean,recipient_id uuid);
+ create table push_deliveries(subscription_id uuid,notification_id uuid,title text,message text,link text,unique(subscription_id,notification_id));
+ create function dispatch_participant_push() returns void language sql as $$select$$;
+ insert into auth.users values('${u}'),('${admin}'),('${other}');insert into profiles values('${u}','비공개작성자');
+ insert into site_roles values('${admin}','MAIN_ADMIN'),('${other}','ADMIN');insert into push_settings values(true,'${admin}');insert into push_subscriptions values('${id(4)}','${admin}');
+ set request.jwt.claim.sub='${u}';`);
+ for(const path of ['20260921030000_member_inquiries.sql','20260921040000_inquiry_limits_notifications.sql'])await db.exec(fs.readFileSync('supabase/migrations/'+path,'utf8'));
+ await db.exec('create trigger enqueue after insert on notifications for each row execute function enqueue_participant_push()');
+ const submit=(n,anon=true)=>db.query('select submit_member_inquiry($1,$2,$3)',[id(n),'민감한 제보 내용',anon]);
+ await submit(10);await submit(11,false);await submit(10);await assert.rejects(submit(12),/하루 최대 2건/);
+ let rows=(await db.query('select * from notifications')).rows;assert.equal(rows.length,2);assert.ok(rows.every(n=>n.recipient_id===admin&&n.type==='MEMBER_INQUIRY'&&n.link==='/admin/inquiries'));assert.ok(rows.every(n=>!n.message.includes('민감한')&&!n.message.includes('비공개작성자')));
+ assert.equal((await db.query('select * from push_deliveries')).rows.length,2,'one push per new submission, no retry duplicate');
+ await db.exec("update member_inquiries set status='CHECKED'");await assert.rejects(submit(12),/하루 최대 2건/);
+ await db.exec("update member_inquiries set created_at=(date_trunc('day',clock_timestamp() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul')-interval '1 second'");
+ await submit(12);await submit(13);await assert.rejects(submit(14),/하루 최대 2건/);
+ await db.exec(`set request.jwt.claim.sub='${other}'`);await submit(14);assert.equal((await db.query('select * from notifications')).rows.length,5);
+ console.log('PASS: anonymous/named combined 2-per-KST-day cap, idempotent retry, checked rows counted, midnight boundary, separate members, admin inbox and push, no report content in notifications');await db.close();
+})().catch(e=>{console.error(e);process.exitCode=1;});
