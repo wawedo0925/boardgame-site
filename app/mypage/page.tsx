@@ -715,6 +715,7 @@ export default function MyPage() {
             </div>
 
             {profile && !isEditing && (
+              <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -726,6 +727,8 @@ export default function MyPage() {
               >
                 프로필 수정
               </button>
+              <Link href="/mypage/inquiries" className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-5 py-3 text-sm font-semibold text-amber-300">문의/제보</Link>
+              </div>
             )}
           </div>
         </div>
