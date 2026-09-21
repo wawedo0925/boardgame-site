@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict'),fs=require('fs');const {PGlite}=require(process.env.PGLITE_MODULE);
+(async()=>{const db=new PGlite();const e='00000000-0000-0000-0000-000000000010',u='00000000-0000-0000-0000-000000000001';
+await db.exec(`create role anon;create role authenticated;create schema auth;create function auth.uid() returns uuid language sql as $$select nullif(current_setting('test.uid',true),'')::uuid$$;create function current_site_role() returns text language sql as $$select nullif(current_setting('test.role',true),'')$$;create function can_operate_event(uuid) returns boolean language sql as $$select nullif(current_setting('test.operator',true),'')::boolean$$;create table event_participants(event_id uuid,user_id uuid,attendance_status text,attendance_checked_at timestamptz);insert into event_participants values('${e}','${u}','REGISTERED',null),('${e}','00000000-0000-0000-0000-000000000002','ABSENT',null);grant usage on schema public,auth to authenticated;`);
+await db.exec(fs.readFileSync('supabase/migrations/20260922010000_rule_master_attendance.sql','utf8'));
+await db.exec(`set role authenticated;set test.uid='${u}';set test.operator='false';set test.role='RULE_MASTER'`);
+await db.query('select set_event_attendance($1,$2,$3)',[e,u,'PRESENT']);await db.query('select set_event_attendance($1,$2,$3)',[e,u,'REGISTERED']);await db.query('select mark_all_event_participants_present($1)',[e]);
+await assert.rejects(db.query('select set_event_attendance($1,$2,$3)',[e,u,null]),/유효하지/);
+for(const role of ['MEMBER','MURDER_GM','']){await db.exec(`set test.role='${role}'`);await assert.rejects(db.query('select set_event_attendance($1,$2,$3)',[e,u,'ABSENT']),/권한/);await assert.rejects(db.query('select mark_all_event_participants_present($1)',[e]),/권한/);}
+await db.exec("set test.operator='true'");await db.query('select set_event_attendance($1,$2,$3)',[e,u,'PRESENT']);
+await db.exec("set test.uid='';set test.role='RULE_MASTER'");await assert.rejects(db.query('select mark_all_event_participants_present($1)',[e]),/로그인/);
+await db.exec('reset role');const rows=(await db.query('select attendance_status from event_participants order by user_id')).rows;assert.deepEqual(rows.map(r=>r.attendance_status),['PRESENT','ABSENT']);
+console.log('PASS: rule master single/bulk attendance, existing operators, member/GM/anonymous denied, invalid status, absent preserved');await db.close();})().catch(e=>{console.error(e);process.exitCode=1});

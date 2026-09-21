@@ -348,6 +348,7 @@ export default function EventDetailPage() {
   );
 
   const canManage = isCreator || canOperate;
+  const canManageAttendance = canManage || siteRole === "RULE_MASTER";
 
   const canEditEvent =
     siteRole === "MAIN_ADMIN" ||
@@ -823,6 +824,13 @@ export default function EventDetailPage() {
                     onMemberRemove={handleRemoveMember}
                   />
 
+
+                </>
+              )}
+
+
+
+              {canManageAttendance && (
                   <AttendanceManager
                     eventId={eventId}
                     participants={participants}
@@ -830,10 +838,7 @@ export default function EventDetailPage() {
                     isClosed={isLocked}
                     onChanged={loadParticipants}
                   />
-                </>
               )}
-
-
 
               {event.event_kind === "MURDER_MYSTERY" &&
               event.murder_mystery_id ? (
