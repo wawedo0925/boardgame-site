@@ -23,14 +23,23 @@ export default function NewNoticeForm({ action, initialIsUpdate }: Props) {
     setContent(`보드라운지가 이렇게 달라졌어요!
 
 ✨ 새로 생긴 기능
-• 기능 이름: 어떤 기능인지 적어 주세요.
-  이용 방법: 어느 화면에서 어떤 버튼을 누르면 되는지 안내해 주세요.
+1. 기능 이름
+    a. 어느 화면에서 어떤 버튼을 누르면 되는지 적어 주세요.
+        - 이용 방법이나 참고할 내용을 적어 주세요.
+2. 기능 이름
+    a. 멤버가 사용할 수 있는 기능을 짧게 설명해 주세요.
+3. 기능 이름
+    a. 이용 방법을 적어 주세요.
+        - 제한 사항이나 주의할 점이 있다면 적어 주세요.
+
 
 🔧 달라진 기능
-• 변경된 기능과 달라진 사용 방법을 적어 주세요.
+• 개선된 기능 이름
+    a. 첫 번째로 달라진 점을 적어 주세요.
+    b. 두 번째로 달라진 점을 적어 주세요.
+        - 필요한 설명을 덧붙여 주세요.
+    c. 추가로 달라진 점을 적어 주세요.
 
-👑 운영진 안내
-• 운영진이 알아야 할 변경 사항을 적어 주세요.
 
 💬 의견을 들려주세요
 사용 중 불편한 점이나 원하는 기능이 있다면 운영진에게 알려 주세요.
@@ -47,7 +56,7 @@ export default function NewNoticeForm({ action, initialIsUpdate }: Props) {
           <fieldset disabled={pending} className="disabled:opacity-60">
           <div className="mb-7 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4">
             <button type="button" onClick={loadTemplate} className="rounded-xl border border-amber-400/40 px-4 py-3 font-semibold text-amber-300 transition hover:bg-amber-400/10">업데이트 노트 양식 불러오기</button>
-            <p className="mt-3 text-sm leading-6 text-zinc-400">새 기능과 변경 사항을 알리는 공지 양식입니다. 제목과 모든 내용은 자유롭게 고치거나 지울 수 있으며, 등록 후에도 수정할 수 있습니다.</p>
+            <p className="mt-3 text-sm leading-6 text-zinc-400">새로 생긴 기능 → 달라진 기능 → 의견 안내 순서의 양식입니다. 기능 이름 아래에 a, b, c로 사용 방법을 적고, 추가 설명은 들여써 주세요. 필요 없는 항목은 지우고 자유롭게 수정할 수 있습니다.</p>
             {templateLoaded && <p role="status" className="mt-2 text-sm text-amber-300">양식을 불러왔습니다. 예시를 이번 업데이트 내용으로 바꿔 주세요.</p>}
           </div>
           <label className="mb-6 flex items-center gap-3 rounded-2xl border border-white/10 p-4"><input type="checkbox" name="is_update" checked={isUpdate} onChange={event => setIsUpdate(event.target.checked)} className="h-5 w-5 accent-amber-400" /><span>업데이트 글로 등록 <span className="block text-sm text-zinc-400">최신업데이트 확인하기 안에 모아서 표시됩니다.</span></span></label>
@@ -78,7 +87,7 @@ export default function NewNoticeForm({ action, initialIsUpdate }: Props) {
               value={content}
               onChange={event => setContent(event.target.value)}
               required
-              rows={14}
+              rows={24}
               maxLength={10000}
               placeholder="공지사항 내용을 입력하세요."
               className="w-full resize-y rounded-2xl border border-white/10 bg-zinc-900 px-4 py-4 leading-7 text-white outline-none placeholder:text-zinc-600 focus:border-amber-400/60"
