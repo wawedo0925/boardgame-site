@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { AttendanceStatus, EventParticipant } from "@/types/event";
+import { arrivalTimeLabel } from "@/lib/event-arrival";
 
 const STATUS: Record<
   AttendanceStatus,
@@ -229,6 +230,7 @@ export default function AttendanceManager({
                         title={name}
                       >
                         {name}
+                        {participant.arrival_at && <small className="block text-[10px] leading-3 text-sky-300">{arrivalTimeLabel(participant.arrival_at)}</small>}
                       </p>
 
                       <span

@@ -1,0 +1,35 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const {PGlite}=require(process.env.PGLITE_MODULE||'@electric-sql/pglite');
+(async()=>{
+ const db=new PGlite(); const [u,e]=[1,2].map(i=>`00000000-0000-0000-0000-${String(i).padStart(12,'0')}`);
+ await db.exec(`create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ create table events(id uuid primary key,started_at timestamptz,ended_at timestamptz,event_kind text);
+ create table event_participants(event_id uuid,user_id uuid);create table event_waitlist(event_id uuid,user_id uuid);
+ create function join_event_with_capacity(p_event_id uuid) returns text language plpgsql as $$begin
+ if current_setting('test.fail',true)='yes' then raise exception 'join failed';end if;
+ if current_setting('test.wait',true)='yes' then insert into event_waitlist values(p_event_id,auth.uid());return 'WAITLISTED';end if;
+ insert into event_participants values(p_event_id,auth.uid());return 'JOINED';end$$;
+ insert into auth.users values('${u}');insert into events values('${e}','2026-09-21 18:00+09','2026-09-21 23:00+09','BOARDGAME');
+ set request.jwt.claim.sub='${u}';grant usage on schema auth to authenticated;grant select on event_participants,event_waitlist to authenticated;`);
+ await db.exec(fs.readFileSync('supabase/migrations/20260921010000_event_arrival.sql','utf8'));
+ const join=async(time,mode='NORMAL')=>{await db.exec('set role authenticated');try{return await db.query(`select join_event_with_arrival('${e}',${time?`'${time}'`:'null'},'${mode}') as result`);}finally{await db.exec('reset role');}};
+ const count=async()=>Number((await db.query('select count(*) as n from event_participants')).rows[0].n);
+ await assert.rejects(join('2026-09-21 17:59+09'));await assert.rejects(join('2026-09-21 23:01+09'));assert.equal(await count(),0);
+ await join('2026-09-21 20:00+09');assert.equal(await count(),1);
+ await db.exec("update events set event_kind='MURDER_MYSTERY'");
+ await join('2026-09-21 18:10+09');await assert.rejects(join('2026-09-21 18:11+09'));
+ await assert.rejects(join('2026-09-21 18:20+09','CLOCKTOWER_EXPERIENCED'));
+ await db.exec("update events set event_kind='CLOCKTOWER'");
+ await join('2026-09-21 18:05+09','CLOCKTOWER_NEW');await assert.rejects(join('2026-09-21 18:06+09','CLOCKTOWER_NEW'));
+ await assert.rejects(join('2026-09-21 18:01+09'));
+ await join('2026-09-21 18:40+09','CLOCKTOWER_EXPERIENCED');await join('2026-09-21 19:00+09','CLOCKTOWER_EXPERIENCED');
+ await join(null);assert.equal((await db.query('select arrival_at from event_arrival_plans')).rows[0].arrival_at,null);
+ await db.exec("update events set event_kind='GENERAL',ended_at=null");await assert.rejects(join('2026-09-21 19:00+09'));await join(null);
+ await db.exec("update events set started_at='2026-09-21 23:00+09',ended_at='2026-09-22 02:00+09'");await join('2026-09-22 01:00+09');
+ await db.exec("set test.wait='yes'");assert.equal((await join('2026-09-22 01:30+09')).rows[0].result,'WAITLISTED');
+ await db.exec("set test.fail='yes'");await assert.rejects(join(null));assert.ok((await db.query('select arrival_at from event_arrival_plans')).rows[0].arrival_at,'join failure must retain previous plan');
+ await db.exec('set role authenticated');await assert.rejects(db.exec('delete from event_arrival_plans'));await db.exec('reset role');
+ assert.equal((await db.query("select has_function_privilege('anon','join_event_with_arrival(uuid,timestamptz,text)','execute') as allowed")).rows[0].allowed,false);
+ console.log('PASS arrival: bounds, midnight, murder 10m, clocktower 5m/experienced, normal reset, missing end, waiting, transaction failure, access');await db.close();
+})().catch(e=>{console.error(e);process.exitCode=1;});

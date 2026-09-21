@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { arrivalLimits, seoulDateTime, type ArrivalChoice, type ArrivalMode } from "@/lib/event-arrival";
 
 const BANK_NAME = "국민은행";
 const ACCOUNT_NUMBER = "94849203451";
@@ -10,6 +11,8 @@ export default function EventJoinPaymentDialog({
   eventTitle,
   participationFee,
   eventKind,
+  startedAt,
+  endedAt,
   waitlisted,
   busy,
   onClose,
@@ -18,13 +21,21 @@ export default function EventJoinPaymentDialog({
   eventTitle: string;
   participationFee: number;
   eventKind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "HOLDEM" | "GENERAL";
+  startedAt: string;
+  endedAt: string | null;
   waitlisted: boolean;
   busy: boolean;
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: (choice: ArrivalChoice) => Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
   const [showMurderNotice, setShowMurderNotice] = useState(false);
+  const [step, setStep] = useState<"payment" | "murderLate" | "clocktower" | "clocktowerNew" | "time">("payment");
+  const [mode, setMode] = useState<ArrivalMode>("NORMAL");
+  const [time, setTime] = useState("");
+  const [arrival, setArrival] = useState<string | null>(null);
+  const [timeError, setTimeError] = useState("");
+  const limits = arrivalLimits(startedAt, endedAt, eventKind, mode);
   const isFree = participationFee === 0;
   const isMurderMystery = eventKind === "MURDER_MYSTERY";
 
@@ -38,14 +49,43 @@ export default function EventJoinPaymentDialog({
     }
   }
 
-  function handlePaymentConfirm() {
+  function handlePaymentConfirm(arrivalAt: string | null = null) {
+    setArrival(arrivalAt);
     if (isMurderMystery) {
       setShowMurderNotice(true);
       return;
     }
 
-    void onConfirm();
+    void onConfirm({ arrivalAt, mode: arrivalAt ? mode : "NORMAL" });
   }
+
+  function chooseTime(nextMode: ArrivalMode) {
+    setMode(nextMode); setTimeError("");
+    const bounds = arrivalLimits(startedAt, endedAt, eventKind, nextMode);
+    setTime(seoulDateTime(bounds.initial)); setStep("time");
+  }
+
+  if (!showMurderNotice && step !== "payment") return <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="late-arrival-title">
+    <section className="max-h-[94dvh] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-zinc-950 p-6 text-white sm:max-w-lg sm:rounded-3xl">
+      <h2 id="late-arrival-title" className="text-2xl font-bold">{step === "time" ? "몇 시에 도착하시나요?" : "늦참 안내"}</h2>
+      {step === "murderLate" && <p className="mt-5 leading-7">이 이벤트는 늦게 참여가 불가능합니다. 단 5~10분은 가능하니 꼭 GM이나 운영진에게 언급해 주세요.</p>}
+      {step === "clocktower" && <p className="mt-5 leading-7">이 이벤트는 늦참이 불가합니다. 혹시 룰 숙지자이신가요?</p>}
+      {step === "clocktowerNew" && <p className="mt-5 leading-7">첫플이시면 늦참이 불가하오나 5분은 가능하니 꼭 GM이나 운영진에게 언급해 주세요.</p>}
+      {step === "time" && <form onSubmit={event => {
+        event.preventDefault();
+        const value = new Date(`${time}:00+09:00`).getTime();
+        if (!Number.isFinite(limits.end) || !Number.isFinite(value) || value < limits.start || value > limits.end) { setTimeError("허용된 시간 안에서 도착 시간을 선택해 주세요."); return; }
+        handlePaymentConfirm(new Date(value).toISOString());
+      }}>
+        {Number.isFinite(limits.end) ? <><p className="mt-4 text-sm leading-6 text-zinc-400">한국 시간 기준 {seoulDateTime(limits.start).replace("T", " ")} ~ {seoulDateTime(limits.end).replace("T", " ")} 사이로 입력해 주세요.</p>
+          {mode === "CLOCKTOWER_EXPERIENCED" && <p className="mt-2 text-sm text-amber-300">시작 40분 뒤를 기본으로 설정했어요. 행사 종료 전까지 변경할 수 있어요.</p>}
+          <label className="mt-5 block text-sm">도착 예정 시간<input required type="datetime-local" min={seoulDateTime(limits.start)} max={seoulDateTime(limits.end)} value={time} onChange={e => {setTime(e.target.value);setTimeError("");}} className="mt-2 min-h-12 w-full min-w-0 rounded-xl border border-white/20 bg-zinc-900 px-3 text-white [color-scheme:dark]" /></label></> : <p className="mt-5 text-amber-300">종료 시간이 설정되어야 늦참을 신청할 수 있어요. 운영진에게 종료 시간 설정을 요청해 주세요.</p>}
+        {timeError && <p role="alert" className="mt-3 text-red-300">{timeError}</p>}
+        <div className="mt-6 grid grid-cols-2 gap-3"><button type="button" disabled={busy} onClick={() => setStep(eventKind === "CLOCKTOWER" ? "clocktower" : eventKind === "MURDER_MYSTERY" ? "murderLate" : "payment")} className="min-h-12 rounded-xl border border-white/15">뒤로가기</button><button disabled={busy || !Number.isFinite(limits.end)} className="min-h-12 rounded-xl bg-amber-400 font-bold text-black disabled:opacity-40">{busy ? "처리 중..." : "확인"}</button></div>
+      </form>}
+      {step === "clocktower" ? <><div className="mt-6 grid grid-cols-2 gap-3"><button onClick={() => chooseTime("CLOCKTOWER_EXPERIENCED")} className="min-h-12 rounded-xl bg-amber-400 font-bold text-black">예</button><button onClick={() => setStep("clocktowerNew")} className="min-h-12 rounded-xl border border-white/15">아니요</button></div><button onClick={() => setStep("payment")} className="mt-3 min-h-11 w-full text-zinc-400">뒤로가기</button></> : step !== "time" && <div className="mt-6 grid grid-cols-2 gap-3"><button onClick={() => setStep(step === "clocktowerNew" ? "clocktower" : "payment")} className="min-h-12 rounded-xl border border-white/15">뒤로가기</button><button onClick={() => chooseTime(step === "clocktowerNew" ? "CLOCKTOWER_NEW" : "NORMAL")} className="min-h-12 rounded-xl bg-amber-400 font-bold text-black">확인</button></div>}
+    </section>
+  </div>;
 
   if (showMurderNotice) {
     return (
@@ -62,7 +102,7 @@ export default function EventJoinPaymentDialog({
 
           <div className="mt-6 grid grid-cols-2 gap-3">
             <button type="button" onClick={() => setShowMurderNotice(false)} disabled={busy} className="min-h-12 rounded-xl border border-white/15 font-semibold text-zinc-300 disabled:opacity-50">이전으로</button>
-            <button type="button" onClick={() => void onConfirm()} disabled={busy} className="min-h-12 rounded-xl bg-red-400 font-black text-zinc-950 disabled:opacity-50">{busy ? "처리 중..." : "인지했습니다"}</button>
+            <button type="button" onClick={() => void onConfirm({ arrivalAt: arrival, mode: "NORMAL" })} disabled={busy} className="min-h-12 rounded-xl bg-red-400 font-black text-zinc-950 disabled:opacity-50">{busy ? "처리 중..." : "인지했습니다"}</button>
           </div>
         </section>
       </div>
@@ -100,7 +140,8 @@ export default function EventJoinPaymentDialog({
 
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button type="button" onClick={onClose} disabled={busy} className="min-h-12 rounded-xl border border-white/15 font-semibold text-zinc-300 disabled:opacity-50">나중에 하기</button>
-          <button type="button" onClick={handlePaymentConfirm} disabled={busy} className="min-h-12 rounded-xl bg-amber-400 font-black text-zinc-950 disabled:opacity-50">{busy ? "처리 중..." : "완료! 참가"}</button>
+          <button type="button" onClick={() => { if (eventKind === "MURDER_MYSTERY") setStep("murderLate"); else if (eventKind === "CLOCKTOWER") setStep("clocktower"); else chooseTime("NORMAL"); }} disabled={busy} className="min-h-12 rounded-xl border border-amber-400/50 font-black text-amber-300 disabled:opacity-50">입완! 늦참</button>
+          <button type="button" onClick={() => handlePaymentConfirm()} disabled={busy} className="col-span-2 min-h-12 rounded-xl bg-amber-400 font-black text-zinc-950 disabled:opacity-50">{busy ? "처리 중..." : "입완! 정참"}</button>
         </div>
       </section>
     </div>

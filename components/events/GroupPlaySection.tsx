@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getEventGroups, saveGroups, clearGroups, clearEventPlayRecords } from "@/lib/services/groups";
 import { createRound } from "@/lib/services/rounds";
 import { getEventGames } from "@/lib/services/events";
+import { arrivalTimeLabel } from "@/lib/event-arrival";
 import type { GroupDraft, GroupParticipant } from "@/types/group";
 import type { BoardgamePreference, EventGame } from "@/types/event";
 import AddGroupRoundDialog from "./AddGroupRoundDialog";
@@ -23,7 +24,14 @@ const participantBirthLabel = (participant?: GroupParticipant) => {
   const shortYear = numeric >= 1900 ? numeric % 100 : numeric;
   return String(shortYear).padStart(2, "0");
 };
-const ParticipantName = ({ participant }: { participant: GroupParticipant }) => <span className="inline-flex items-start gap-1.5"><span>{participantLabel(participant)}</span>{participantBirthLabel(participant) && <small className="mt-0.5 text-[10px] font-medium leading-none text-white">{participantBirthLabel(participant)}</small>}</span>;
+const ParticipantName = ({ participant }: { participant: GroupParticipant }) => {
+  const name = <span className="inline-flex items-start gap-1.5"><span>{participantLabel(participant)}</span>{participantBirthLabel(participant) && <small className="mt-0.5 text-[10px] font-medium leading-none text-white">{participantBirthLabel(participant)}</small>}</span>;
+  if (!participant.arrival_at) return name;
+  return <span className="relative inline-flex h-6 items-center align-middle">
+    <span className="invisible" aria-hidden="true">{name}</span>
+    <span className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-xs leading-3">{name}</span><small className="mt-0.5 text-[10px] leading-none text-sky-300" title="도착 예정 시간">{arrivalTimeLabel(participant.arrival_at)}</small></span>
+  </span>;
+};
 const PREFERENCE_META: Record<BoardgamePreference, { label: string; className: string }> = {
   PARTY: { label: "파티", className: "border-amber-400 bg-amber-400/10" },
   NON_PARTY: { label: "파티 X", className: "border-red-400 bg-red-400/10" },

@@ -4,6 +4,7 @@ export type AttendanceStatus = "REGISTERED" | "PRESENT" | "ABSENT";
 export type BoardgamePreference = "PARTY" | "NON_PARTY" | "ANY" | "PREMADE_PARTY";
 
 export type EventParticipant = {
+  arrival_at?: string | null;
   id: string;
   user_id: string;
   attendance_status?: AttendanceStatus;

@@ -18,6 +18,7 @@ import EventCapacityCard, {
 import EventCancellationCard from "@/components/events/EventCancellationCard";
 import EventLeaveRefundDialog from "@/components/events/EventLeaveRefundDialog";
 import EventJoinPaymentDialog from "@/components/events/EventJoinPaymentDialog";
+import { arrivalTimeLabel, type ArrivalChoice } from "@/lib/event-arrival";
 import EventCommentSection from "@/components/events/EventCommentSection";
 import BoardgamePreferenceCard from "@/components/events/BoardgamePreferenceCard";
 import type { AttendanceStatus, BoardgamePreference } from "@/types/event";
@@ -64,6 +65,7 @@ type ProfileRow = {
 };
 
 type ParticipantView = ParticipantRow & {
+  arrival_at?: string | null;
   profile: ProfileRow | null;
 };
 
@@ -192,9 +194,12 @@ export default function EventDetailPage() {
       profiles.map((profile) => [profile.id, profile]),
     );
 
+    const { data: arrivalData } = await supabase.from("event_arrival_plans").select("user_id,arrival_at").eq("event_id", eventId);
+    const arrivalMap = new Map((arrivalData ?? []).map(row => [row.user_id, row.arrival_at]));
     setParticipants(
       participantRows.map((participant) => ({
         ...participant,
+        arrival_at: arrivalMap.get(participant.user_id) ?? null,
         profile: profileMap.get(participant.user_id) ?? null,
       })),
     );
@@ -371,7 +376,7 @@ export default function EventDetailPage() {
     }
   }
 
-  async function handleJoin() {
+  async function handleJoin(choice: ArrivalChoice) {
     if (!user) {
       alert("이벤트에 참가하려면 먼저 로그인해 주세요.");
       return;
@@ -380,9 +385,11 @@ export default function EventDetailPage() {
     setIsActionLoading(true);
 
     const { data, error } = await supabase.rpc(
-      "join_event_with_capacity",
+      "join_event_with_arrival",
       {
         p_event_id: eventId,
+        p_arrival_at: choice.arrivalAt,
+        p_arrival_mode: choice.mode,
       },
     );
 
@@ -905,6 +912,7 @@ export default function EventDetailPage() {
                           >
                             {participantName}
                           </p>
+                          {participant.arrival_at && <p className="text-xs text-sky-300">{arrivalTimeLabel(participant.arrival_at)} 도착 예정</p>}
 
                           {participantIsCreator && (
                             <p className="mt-1 text-xs text-amber-400">
@@ -986,7 +994,7 @@ export default function EventDetailPage() {
           )}
 
           {leaveDialogOpen && user && <EventLeaveRefundDialog eventId={eventId} userId={user.id} onClose={() => setLeaveDialogOpen(false)} onLeft={reloadParticipation} />}
-      {joinDialogOpen && <EventJoinPaymentDialog eventTitle={event.title} participationFee={participationFee} eventKind={event.event_kind} waitlisted={isAtCapacity} busy={isActionLoading} onClose={() => setJoinDialogOpen(false)} onConfirm={handleJoin} />}
+      {joinDialogOpen && <EventJoinPaymentDialog eventTitle={event.title} participationFee={participationFee} eventKind={event.event_kind} startedAt={event.started_at} endedAt={event.ended_at} waitlisted={isAtCapacity} busy={isActionLoading} onClose={() => setJoinDialogOpen(false)} onConfirm={handleJoin} />}
         </>
       )}
     </main>
