@@ -180,10 +180,10 @@ export default function NotificationsPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
-                      <h2 className={`font-bold ${item.is_read ? "text-zinc-400" : "text-white"}`}>{item.title}</h2>
+                      <h2 className={`font-bold ${item.is_read ? "text-zinc-400" : "text-white"}`}>{item.type === "EVENT_JOINED" && item.title.startsWith("늦참 · ") ? <><span className="text-red-400">늦참</span>{item.title.slice(2)}</> : item.title}</h2>
                       <time className="shrink-0 text-xs text-zinc-600">{timeLabel(item.created_at)}</time>
                     </div>
-                    <p className="mt-1 text-sm leading-6 text-zinc-500">{item.message}</p>
+                    <p className="mt-1 text-sm leading-6 text-zinc-500">{item.type === "EVENT_JOINED" && item.title.startsWith("늦참 · ") && item.message.includes("(늦참 · ") ? <>{item.message.slice(0, item.message.lastIndexOf("(늦참 · "))}(<span className="font-semibold text-red-400">늦참</span>{item.message.slice(item.message.lastIndexOf("(늦참 · ") + 3)}</> : item.message}</p>
                   </div>
                   {!item.is_read && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-amber-400" />}
                 </div>
