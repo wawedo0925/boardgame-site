@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import MurderEventWorks from "./MurderEventWorks";
+import type { EventParticipant } from "@/types/event";
 import MurderPreferenceGate from "@/components/mypage/MurderPreferenceGate";
 import MurderPreferenceRoster from "./MurderPreferenceRoster";
 import { createClient } from "@/lib/supabase/client";
 
-type Props = { eventId: string; mysteryId: string; canManage: boolean; canViewPreferences: boolean; isClosed: boolean };
+type Props = { participants: EventParticipant[]; eventId: string; mysteryId: string; canManage: boolean; canViewPreferences: boolean; isClosed: boolean };
 type Work = { title: string; cover_url: string | null; min_players: number | null; max_players: number | null; play_time: number | null; host_requirement: string | null };
 type Person = { id: string; activity_name: string | null; site_role?: string; played_before?: boolean };
 
-export default function MurderMysteryEventPanel({ eventId, mysteryId, canManage, canViewPreferences, isClosed }: Props) {
+export default function MurderMysteryEventPanel({ participants, eventId, mysteryId, canManage, canViewPreferences, isClosed }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const [work,setWork]=useState<Work|null>(null); const [people,setPeople]=useState<Person[]>([]);
   const [selected,setSelected]=useState(""); const [role,setRole]=useState<"PLAYER"|"GM">("PLAYER");
@@ -33,6 +35,7 @@ export default function MurderMysteryEventPanel({ eventId, mysteryId, canManage,
   return <section className="rounded-3xl border border-red-400/25 bg-red-400/[0.04] p-5 sm:p-7">
     <p className="text-sm font-semibold text-red-300">MURDER MYSTERY EVENT</p>
     <div className="mt-3 flex gap-4">{work.cover_url&&<img src={work.cover_url} alt="" className="h-28 w-20 rounded-xl object-cover"/>}<div><h2 className="text-2xl font-bold">{work.title}</h2><p className="mt-2 text-sm text-zinc-400">{work.min_players??"?"}~{work.max_players??"?"}명 · 약 {work.play_time??"?"}분</p><p className="mt-1 text-sm text-red-200">진행자 {work.host_requirement==="REQUIRED"?"필요":work.host_requirement==="RECOMMENDED"?"권장":"불필요"}</p></div></div>
+    <MurderEventWorks eventId={eventId} mysteryId={mysteryId} participants={participants} canManage={canManage} isClosed={isClosed} />
     {canManage&&!isClosed&&<div className="mt-5 grid gap-2 border-t border-white/10 pt-5 sm:grid-cols-[1fr_130px_auto_auto]">
       <select value={selected} onChange={e=>setSelected(e.target.value)} className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-3"><option value="">멤버 선택</option>{people.filter(p=>role==="PLAYER"||["MAIN_ADMIN","ADMIN","RULE_MASTER","MURDER_GM"].includes(p.site_role??"")).map(p=><option key={p.id} value={p.id}>{p.activity_name??"이름 미정"}{p.site_role==="MURDER_GM"?" · 머미 GM":""}{p.played_before?" · 플레이 이력 있음":""}</option>)}</select>
       <select value={role} onChange={e=>setRole(e.target.value as "PLAYER"|"GM")} className="rounded-xl border border-white/10 bg-zinc-900 px-3"><option value="PLAYER">플레이어</option><option value="GM">GM</option></select>

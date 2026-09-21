@@ -843,6 +843,7 @@ export default function EventDetailPage() {
               {event.event_kind === "MURDER_MYSTERY" &&
               event.murder_mystery_id ? (
                 <MurderMysteryEventPanel
+                  participants={participants}
                   eventId={eventId}
                   mysteryId={event.murder_mystery_id}
                   canViewPreferences={participants.some(p => p.user_id === user?.id && p.participation_role === "GM" && !p.gm_pending && p.attendance_status !== "ABSENT")}
