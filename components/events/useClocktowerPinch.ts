@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 
 // Keep the world point under the fingers fixed while the board changes size.
-export default function useClocktowerPinch(viewport: RefObject<HTMLDivElement | null>, scale: number, setZoom: (value: number) => void, editing: boolean, cancelDrag: () => void) {
+export default function useClocktowerPinch(viewport: RefObject<HTMLDivElement | null>, scale: number, setZoom: (value: number) => void, editing: boolean, cancelDrag: () => void, minimumZoom = 0.25) {
   const fingers = useRef(new Map<number, { x: number; y: number }>());
   const gesture = useRef<{ distance: number; scale: number; x: number; y: number } | null>(null);
   const single = useRef<{ x: number; y: number; left: number; top: number; card: boolean } | null>(null);
@@ -44,7 +44,7 @@ export default function useClocktowerPinch(viewport: RefObject<HTMLDivElement | 
     if (fingers.current.size >= 2 && gesture.current) {
       e.preventDefault();e.stopPropagation();cancelDrag();
       const p=pair(), g=gesture.current, rect=element.getBoundingClientRect();
-      const next=Math.max(0.25,Math.min(2.5,g.scale*p.distance/g.distance));
+      const next=Math.max(minimumZoom,Math.min(2.5,g.scale*p.distance/g.distance));
       const offset={left:g.x*next-(p.x-rect.left),top:g.y*next-(p.y-rect.top)};
       pendingScroll.current=next === scale ? null : offset;
       element.scrollTo({...offset, behavior: 'instant'});
