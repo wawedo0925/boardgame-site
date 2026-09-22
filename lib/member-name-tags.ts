@@ -13,5 +13,5 @@ export async function loadNameTags(supabase: SupabaseClient, userIds: string[]) 
 export function attendanceBirthYear(value: string | null | undefined) {
   const year = value?.trim().replace(/년생$/, "").trim();
   if (!year || !/^(\d{2}|\d{4})$/.test(year)) return "";
-  return `${year.slice(-2)}년생`;
+  return year.slice(-2);
 }

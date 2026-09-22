@@ -248,11 +248,11 @@ export default function AttendanceManager({
                   >
                     <div className="flex min-h-10 items-center justify-center gap-2 sm:justify-between">
                       <p
-                        className="min-w-0 break-all text-center text-sm font-semibold text-zinc-200 sm:text-left sm:text-base"
+                        className="min-w-0 break-all text-center text-base font-semibold text-zinc-200 sm:text-left sm:text-lg"
                         title={name}
                       >
                         {name}
-                        {attendanceBirthYear(participant.profile?.birth_year) && <span className="ml-1 text-xs text-zinc-400">{attendanceBirthYear(participant.profile?.birth_year)}</span>}
+                        {attendanceBirthYear(participant.profile?.birth_year) && <span className="ml-1 text-sm text-zinc-400 sm:text-base">{attendanceBirthYear(participant.profile?.birth_year)}</span>}
                         {nameTags.get(participant.user_id) && <span className="ml-1" role="img" aria-label="이름표 있음" title="이름표 있음">❤️</span>}
                         {participant.arrival_at && <small className="block text-[10px] leading-3 text-sky-300">{arrivalTimeLabel(participant.arrival_at)}</small>}
                       </p>
