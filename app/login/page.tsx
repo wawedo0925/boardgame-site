@@ -1,13 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  return <Suspense fallback={<p className="p-6">로그인 화면을 불러오는 중...</p>}><LoginForm /></Suspense>;
+}
+
+function LoginForm() {
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [localError, setErrorMessage] = useState<string | null>(null);
+  const errorMessage = localError ?? (!isLoading ? searchParams.get("error") : null);
 
   async function handleKakaoLogin() {
     setIsLoading(true);
@@ -71,7 +78,7 @@ export default function LoginPage() {
         </button>
 
         {errorMessage && (
-          <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-300">
+          <div role="alert" className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-300">
             {errorMessage}
           </div>
         )}

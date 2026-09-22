@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { AttendanceStatus, EventParticipant } from "@/types/event";
 import { arrivalTimeLabel } from "@/lib/event-arrival";
+
+import { attendanceBirthYear, loadNameTags, NAME_TAG_LOAD_ERROR } from "@/lib/member-name-tags";
 
 const STATUS: Record<
   AttendanceStatus,
@@ -44,6 +46,25 @@ export default function AttendanceManager({
   const [expanded, setExpanded] = useState(false);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
   const [allBusy, setAllBusy] = useState(false);
+  const [nameTags, setNameTags] = useState<Map<string, boolean>>(new Map());
+  const [nameTagError, setNameTagError] = useState("");
+  const participantIds = JSON.stringify(participants.map(p => p.user_id).sort());
+
+  useEffect(() => {
+    if (!canManage) return;
+    let active = true;
+    async function refresh() {
+      try {
+        const tags = await loadNameTags(supabase, JSON.parse(participantIds));
+        if (active) { setNameTags(tags); setNameTagError(""); }
+      } catch {
+        if (active) { setNameTags(new Map()); setNameTagError(NAME_TAG_LOAD_ERROR); }
+      }
+    }
+    void refresh();
+    window.addEventListener("focus", refresh);
+    return () => { active = false; window.removeEventListener("focus", refresh); };
+  }, [supabase, participantIds, canManage]);
 
   const counts = OPTIONS.reduce<Record<AttendanceStatus, number>>(
     (result, status) => {
@@ -173,6 +194,7 @@ export default function AttendanceManager({
         </div>
       </div>
 
+      {nameTagError && <p role="alert" className="mt-4 text-sm text-amber-300">{nameTagError}</p>}
       <div className="mt-5 grid grid-cols-3 gap-2">
         {OPTIONS.map((status) => (
           <div
@@ -230,6 +252,8 @@ export default function AttendanceManager({
                         title={name}
                       >
                         {name}
+                        {attendanceBirthYear(participant.profile?.birth_year) && <span className="ml-1 text-xs text-zinc-400">{attendanceBirthYear(participant.profile?.birth_year)}</span>}
+                        {nameTags.get(participant.user_id) && <span className="ml-1" role="img" aria-label="이름표 있음" title="이름표 있음">❤️</span>}
                         {participant.arrival_at && <small className="block text-[10px] leading-3 text-sky-300">{arrivalTimeLabel(participant.arrival_at)}</small>}
                       </p>
 

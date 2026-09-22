@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import { isAuthSessionMissingError, type User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
 import NotificationBell from "@/components/notifications/NotificationBell";
@@ -185,7 +185,7 @@ export default function Header() {
 
       if (!isMounted) return;
 
-      if (error) {
+      if (error && !isAuthSessionMissingError(error)) {
         console.error("Header 사용자 조회 오류:", error);
       }
 
@@ -285,7 +285,7 @@ export default function Header() {
               {siteRole === "MAIN_ADMIN" && (
                 <Link
                   href="/admin"
-                  className="hidden h-10 items-center justify-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-3 text-sm font-semibold text-amber-300 transition hover:border-amber-300 hover:bg-amber-400 hover:text-zinc-950 lg:flex"
+                  className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 text-sm font-semibold text-amber-300 transition hover:border-amber-300 hover:bg-amber-400 hover:text-zinc-950 lg:h-10 lg:px-3"
                   title="관리자 페이지"
                   aria-label="관리자 페이지"
                 >

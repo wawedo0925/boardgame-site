@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { loadNameTags, NAME_TAG_LOAD_ERROR } from "@/lib/member-name-tags";
 import { createClient } from "../../../lib/supabase/client";
 
 type Member = { user_id: string; activity_name: string; birth_year: string | null; region: string | null; gender: string | null; site_role: string; total_attendance: number; last_attended_at: string | null; inactive_days: number | null };
@@ -47,7 +48,27 @@ export default function MemberStatusManager() {
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteOnly, setNoteOnly] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [nameTags, setNameTags] = useState<Map<string, boolean>>(new Map());
+  const [nameTagsReady, setNameTagsReady] = useState(false);
+  const [nameTagError, setNameTagError] = useState("");
+  const [savingTags, setSavingTags] = useState<Set<string>>(new Set());
   const pageSize = 20;
+
+  async function saveNameTag(member: Member, checked: boolean) {
+    setSavingTags(current => new Set(current).add(member.user_id));
+    setNameTagError("");
+    try {
+      const { data, error } = await supabase.from("member_name_tags")
+        .upsert({ user_id: member.user_id, has_name_tag: checked }, { onConflict: "user_id" })
+        .select("has_name_tag").single();
+      if (error) throw error;
+      setNameTags(current => new Map(current).set(member.user_id, data.has_name_tag));
+    } catch {
+      setNameTagError("이름표 상태를 저장하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      setSavingTags(current => { const next = new Set(current); next.delete(member.user_id); return next; });
+    }
+  }
 
   useEffect(() => {
     supabase.rpc("admin_list_member_status").then(async ({ data, error }) => {
@@ -55,6 +76,10 @@ export default function MemberStatusManager() {
       else {
         const rows = (data ?? []) as Omit<Member, "birth_year" | "region" | "gender">[];
         const userIds = rows.map((member) => member.user_id);
+        try {
+          setNameTags(await loadNameTags(supabase, userIds));
+          setNameTagsReady(true);
+        } catch { setNameTagError(NAME_TAG_LOAD_ERROR); }
         const profileResult = userIds.length
           ? await supabase.from("profiles").select("id, birth_year, region, gender").in("id", userIds)
           : { data: [], error: null };
@@ -147,15 +172,23 @@ export default function MemberStatusManager() {
         <div className="flex flex-wrap gap-2">{(["ALL", "ATTENDED", "NEW", "INACTIVE_30", "INACTIVE_90"] as Filter[]).map(value => <button key={value} onClick={() => { setFilter(value); setPage(1); }} className={`rounded-xl px-4 py-2.5 text-sm font-bold ${filter === value ? "bg-emerald-500 text-black" : "bg-zinc-800"}`}>{filterName[value]}</button>)}</div>
       </div>
 
+      {nameTagError && <p role="alert" className="mt-5 rounded-xl border border-red-900 p-3 text-sm text-red-300">{nameTagError}</p>}
       {loading ? <p className="py-16 text-center text-zinc-500">멤버 정보를 불러오는 중입니다.</p> : error && !selected ? <p className="mt-5 rounded-xl border border-red-900 bg-red-950/30 p-4 text-red-300">{error}</p> : (
         <div className="mt-5 overflow-hidden rounded-2xl border border-zinc-800">
-          <div className="hidden bg-zinc-900 px-5 py-3 text-xs text-zinc-500 md:grid md:grid-cols-[minmax(0,1.15fr)_minmax(0,.72fr)_minmax(0,.58fr)_minmax(0,.9fr)_minmax(0,.62fr)_104px] md:gap-3"><span>멤버</span><span>직위</span><span>총 참여</span><span>마지막 참석</span><span>미참여 일수</span><span /></div>
-          {visible.map(member => <div key={member.user_id} className="grid gap-3 border-t border-zinc-800 px-5 py-4 md:grid-cols-[minmax(0,1.15fr)_minmax(0,.72fr)_minmax(0,.58fr)_minmax(0,.9fr)_minmax(0,.62fr)_104px] md:items-center">
+          <div className="hidden bg-zinc-900 px-5 py-3 text-xs text-zinc-500 md:grid md:grid-cols-[minmax(0,1.15fr)_minmax(0,.72fr)_minmax(0,.58fr)_minmax(0,.9fr)_minmax(0,.62fr)_64px_104px] md:gap-3"><span>멤버</span><span>직위</span><span>총 참여</span><span>마지막 참석</span><span>미참여 일수</span><span className="text-center">이름표</span><span /></div>
+          {visible.map(member => <div key={member.user_id} className="grid gap-3 border-t border-zinc-800 px-5 py-4 md:grid-cols-[minmax(0,1.15fr)_minmax(0,.72fr)_minmax(0,.58fr)_minmax(0,.9fr)_minmax(0,.62fr)_64px_104px] md:items-center">
             <div className="flex min-w-0 items-center gap-2" title={memberDisplayName(member)}><span className="truncate font-bold">{memberDisplayName(member)}</span>{member.total_attendance === 0 && <span className="shrink-0 text-[10px] font-black tracking-wider text-red-400">NEW</span>}</div>
             <span className="text-sm text-zinc-400">{roleName[member.site_role] ?? member.site_role}</span>
             <span className="font-black text-emerald-400">{member.total_attendance}회</span>
             <span className="text-sm text-zinc-300">{dateText(member.last_attended_at)}</span>
             <span className="text-sm text-zinc-400">{member.inactive_days === null ? "첫 출석 전" : `${member.inactive_days}일`}</span>
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 md:justify-center">
+              <span className="text-sm text-zinc-400 md:hidden">이름표</span>
+              <input type="checkbox" aria-label={`${memberDisplayName(member)} 이름표`} checked={nameTags.get(member.user_id) ?? false}
+                disabled={!nameTagsReady || savingTags.has(member.user_id)}
+                onChange={e => void saveNameTag(member, e.target.checked)}
+                className="h-5 w-5 accent-pink-500 disabled:cursor-wait disabled:opacity-40" />
+            </label>
             <div className="flex w-[104px] justify-end gap-2"><button onClick={() => openNote(member)} className="w-fit rounded-lg border border-violet-900 px-3 py-2 text-xs font-bold text-violet-300 hover:border-violet-500">메모</button><button onClick={() => openDetail(member)} className="w-fit rounded-lg border border-zinc-700 px-3 py-2 text-xs font-bold hover:border-emerald-500 hover:text-emerald-400">상세</button></div>
           </div>)}
           {!visible.length && <p className="p-12 text-center text-zinc-500">조건에 맞는 멤버가 없습니다.</p>}
