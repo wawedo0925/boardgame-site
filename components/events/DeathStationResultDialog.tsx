@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/client";
 import { DEATH_HOST, deathStationResults } from "@/lib/death-station";
 import { clearRoundResults } from "@/lib/services/rounds";
 import type { EventGameRound } from "@/types/event";
-import SignedScoreInput from "./SignedScoreInput";
 
 type Props = { round: EventGameRound; onClose: () => void; onSaved: () => Promise<void> | void };
 
@@ -47,10 +46,11 @@ export default function DeathStationResultDialog({ round, onClose, onSaved }: Pr
     <section role="dialog" aria-modal="true" aria-label="데스스테이션 점수 기록" className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-zinc-950 p-5 text-white sm:max-w-lg sm:rounded-3xl">
       <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">데스스테이션 · {round.round_number}판</h2><button disabled={busy} onClick={onClose} aria-label="닫기" className="h-11 w-11">×</button></div>
       <p className="mt-2 text-sm text-zinc-400">진행자도 점수 경쟁에 참여합니다. 모든 참가자의 최종 점수로 함께 순위를 계산합니다.</p>
+      <p className="mt-1 text-sm text-zinc-400">점수는 0~99 사이의 정수로 입력해 주세요.</p>
       <label className="mt-5 block font-bold">진행자 1명<select value={hostId} disabled={busy} onChange={e => setHostId(e.target.value)} className="mt-2 h-12 w-full rounded-xl border border-white/10 bg-zinc-900 px-3"><option value="">진행자 선택</option>{round.players.map(p => <option key={p.user_id} value={p.user_id}>{name(p.user_id)}</option>)}</select></label>
       {[true, false].map(host => <div key={String(host)} className="mt-5"><h3 className={host ? "font-bold text-violet-300" : "font-bold text-amber-300"}>{host ? "진행자 점수" : "일반 플레이어 점수"}</h3>
         {host && !hostId && <p className="mt-2 text-sm text-zinc-500">위에서 진행자를 선택해 주세요.</p>}
-        {round.players.filter(p => (p.user_id === hostId) === host).map(p => <div key={p.user_id} className="mt-3 rounded-xl border border-white/10 p-3"><p className="font-semibold">{name(p.user_id)}</p><SignedScoreInput name={name(p.user_id)} value={scores[p.user_id] ?? ""} disabled={busy} onChange={value => setScores(current => ({ ...current, [p.user_id]: value }))}/></div>)}
+        {round.players.filter(p => (p.user_id === hostId) === host).map(p => <div key={p.user_id} className="mt-3 rounded-xl border border-white/10 p-3"><p className="font-semibold">{name(p.user_id)}</p><input type="text" inputMode="numeric" pattern="[0-9]{1,2}" aria-label={`${name(p.user_id)} 점수 (0~99)`} placeholder="0~99" value={scores[p.user_id] ?? ""} disabled={busy} onChange={e => { const value = e.target.value; if (/^[0-9]{0,2}$/.test(value)) setScores(current => ({ ...current, [p.user_id]: value })); }} className="mt-2 h-14 w-full rounded-xl border border-white/10 bg-zinc-900 px-4 text-right text-2xl font-bold"/></div>)}
       </div>)}
       {results.length > 0 && <div className="mt-5 rounded-xl bg-amber-400/10 p-3"><h3 className="font-bold">전체 순위</h3>{[...results].sort((a,b) => a.rank-b.rank).map(p => <p key={p.userId} className="mt-2 text-sm">{results.filter(other => other.rank === p.rank).length > 1 ? "공동 " : ""}{p.rank}등 · {name(p.userId)} ({p.userId === hostId ? "진행자" : "플레이어"}) · {p.score}점</p>)}</div>}
       {validation && <p className="mt-4 text-sm text-amber-200">{validation}</p>}{error && <p role="alert" className="mt-4 text-red-300">{error}</p>}

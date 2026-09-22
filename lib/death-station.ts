@@ -13,6 +13,7 @@ export function deathStationResults(players: { userId: string; score: number | n
   if (players.length < 2) throw new Error("진행자와 일반 플레이어를 포함해 2명 이상 선택해 주세요.");
   if (!players.some(p => p.userId === hostId)) throw new Error("진행자 1명을 선택해 주세요.");
   if (players.some(p => p.score === null || !Number.isFinite(p.score))) throw new Error("진행자와 일반 플레이어의 최종 점수를 모두 입력해 주세요.");
+  if (players.some(p => !Number.isInteger(p.score) || p.score! < 0 || p.score! > 99)) throw new Error("점수는 0~99 사이의 정수만 입력해 주세요.");
   return players.map(p => ({ ...p, roleName: p.userId === hostId ? DEATH_HOST : DEATH_PLAYER,
     rank: 1 + players.filter(other => other.score! > p.score!).length }));
 }
