@@ -10,11 +10,11 @@ type MonthRow = { month_start: string; attendance_count: number };
 type HistoryRow = { event_id: string; event_title: string; started_at: string };
 type OperationRow = { activity_type: "GM" | "RULE_MASTER"; event_id: string; event_title: string; started_at: string; detail: string };
 type Detail = { user_id: string; activity_name: string; birth_year: string | null; region: string | null; gender: string | null; site_role: string; attendance_count: number; gm_count: number; rule_master_count: number; admin_note: string; note_updated_at: string | null };
-type Filter = "ALL" | "NEW" | "ATTENDED" | "INACTIVE_30" | "INACTIVE_90";
+type Filter = "ALL" | "MOST_ATTENDED" | "NEW" | "ATTENDED" | "INACTIVE_30" | "INACTIVE_90";
 
 const roleName: Record<string, string> = { MAIN_ADMIN: "메인 관리자", ADMIN: "관리자", RULE_MASTER: "룰마", MURDER_GM: "머미 GM", MEMBER: "일반 회원" };
 const dateText = (value: string | null) => value ? new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "short", day: "numeric" }).format(new Date(value)) : "아직 없음";
-const filterName: Record<Filter, string> = { ALL: "전체", ATTENDED: "참여 경험", NEW: "첫 출석 전", INACTIVE_30: "30일+ 미참여", INACTIVE_90: "90일+ 미참여" };
+const filterName: Record<Filter, string> = { ALL: "전체", MOST_ATTENDED: "최다참여", ATTENDED: "참여 경험", NEW: "첫 출석 전", INACTIVE_30: "30일+ 미참여", INACTIVE_90: "90일+ 미참여" };
 const shortBirthYear = (value: string | null) => {
   const trimmed = value?.trim();
   if (!trimmed) return null;
@@ -105,13 +105,18 @@ export default function MemberStatusManager() {
 
   const filtered = useMemo(() => members.filter((member) => {
     const matchesName = member.activity_name.toLocaleLowerCase("ko").includes(query.trim().toLocaleLowerCase("ko"));
-    const matchesFilter = filter === "ALL"
+    const matchesFilter = filter === "ALL" || filter === "MOST_ATTENDED"
       || (filter === "NEW" && member.total_attendance === 0)
       || (filter === "ATTENDED" && member.total_attendance > 0)
       || (filter === "INACTIVE_30" && member.inactive_days !== null && member.inactive_days >= 30)
       || (filter === "INACTIVE_90" && member.inactive_days !== null && member.inactive_days >= 90);
     return matchesName && matchesFilter;
-  }).sort((a, b) => a.activity_name.localeCompare(b.activity_name, "ko")), [members, query, filter]);
+  }).sort((a, b) => {
+    if (filter === "MOST_ATTENDED" && a.total_attendance !== b.total_attendance) {
+      return b.total_attendance - a.total_attendance;
+    }
+    return a.activity_name.localeCompare(b.activity_name, "ko");
+  }), [members, query, filter]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
 
@@ -169,7 +174,7 @@ export default function MemberStatusManager() {
 
       <div className="mt-7 grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
         <input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} placeholder="활동명 검색" className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-emerald-500" />
-        <div className="flex flex-wrap gap-2">{(["ALL", "ATTENDED", "NEW", "INACTIVE_30", "INACTIVE_90"] as Filter[]).map(value => <button key={value} onClick={() => { setFilter(value); setPage(1); }} className={`rounded-xl px-4 py-2.5 text-sm font-bold ${filter === value ? "bg-emerald-500 text-black" : "bg-zinc-800"}`}>{filterName[value]}</button>)}</div>
+        <div className="flex flex-wrap gap-2">{(["ALL", "MOST_ATTENDED", "ATTENDED", "NEW", "INACTIVE_30", "INACTIVE_90"] as Filter[]).map(value => <button key={value} aria-pressed={filter === value} onClick={() => { setFilter(value); setPage(1); }} className={`rounded-xl px-4 py-2.5 text-sm font-bold ${filter === value ? "bg-emerald-500 text-black" : "bg-zinc-800"}`}>{filterName[value]}</button>)}</div>
       </div>
 
       {nameTagError && <p role="alert" className="mt-5 rounded-xl border border-red-900 p-3 text-sm text-red-300">{nameTagError}</p>}
