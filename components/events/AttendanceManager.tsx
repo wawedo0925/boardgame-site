@@ -140,7 +140,7 @@ export default function AttendanceManager({
           <h2 className="mt-1 text-2xl font-bold">이벤트 출석</h2>
 
           <p className="mt-2 text-sm text-zinc-500">
-            출석이 확인된 멤버만 조 편성 대상에 포함됩니다.
+            참가자는 기본으로 출석 처리됩니다. 오지 않는 멤버만 불참으로 변경해 주세요.
           </p>
         </div>
 
