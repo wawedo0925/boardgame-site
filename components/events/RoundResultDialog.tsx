@@ -7,6 +7,8 @@ import type { EventGameRound, ResultType } from "@/types/event";
 import { isTichu, TICHU_TEAMS, tichuResult } from "@/lib/tichu";
 
 import {isWolfStreet} from "@/lib/wolfstreet";
+import { isDeathStation } from "@/lib/death-station";
+import DeathStationResultDialog from "./DeathStationResultDialog";
 import WolfStreetResultDialog from "./WolfStreetResultDialog";
 
 import { scoreRanks, scoreRankLabel } from "@/lib/score-rank";
@@ -19,7 +21,7 @@ function playerName(player: EventGameRound["players"][number]) {
   return player.profile?.activity_name?.trim() || "회원";
 }
 
-export default function RoundResultDialog(props:Props) { return props.cooperative?<CooperativeResultDialog round={props.round} onClose={props.onClose} onSaved={props.onSaved}/>:isWolfStreet(props.gameName)?<WolfStreetResultDialog round={props.round} onClose={props.onClose} onSaved={props.onSaved}/>:<DefaultRoundResultDialog {...props}/>; }
+export default function RoundResultDialog(props:Props) { return isDeathStation(props.gameName)?<DeathStationResultDialog round={props.round} onClose={props.onClose} onSaved={props.onSaved}/>:props.cooperative?<CooperativeResultDialog round={props.round} onClose={props.onClose} onSaved={props.onSaved}/>:isWolfStreet(props.gameName)?<WolfStreetResultDialog round={props.round} onClose={props.onClose} onSaved={props.onSaved}/>:<DefaultRoundResultDialog {...props}/>; }
 function DefaultRoundResultDialog({ round, resultType, gameName, onClose, onSaved }: Props) {
   const teamScore = isTichu(gameName);
   const supabase = useMemo(() => createClient(), []);

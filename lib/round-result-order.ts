@@ -1,3 +1,4 @@
+import { deathStationRole } from "./death-station";
 import type { ResultType, RoundPlayer } from '@/types/event';
 import { WOLF_BUCKETS } from './wolfstreet';
 
@@ -9,7 +10,7 @@ export function orderRoundResults(players: RoundPlayer[], resultType: ResultType
     if (gm) return gm;
     const winner = Number(b.is_winner === true) - Number(a.is_winner === true);
     if (winner) return winner;
-    if (wolf || resultType === 'SIMPLE_SCORE' || (resultType === 'SCORE' && players.some(p=>p.rank!==null))) {
+    if (players.some(p => deathStationRole(p.role_name)) || wolf || resultType === 'SIMPLE_SCORE' || (resultType === 'SCORE' && players.some(p=>p.rank!==null))) {
       if (a.rank === null) return b.rank === null ? 0 : 1;
       if (b.rank === null) return -1;
       return a.rank - b.rank;
