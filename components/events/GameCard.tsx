@@ -1,4 +1,5 @@
 "use client";
+import GameResultStats, { useGameResultStats } from "./GameResultStats";
 import { isDeathStation } from "@/lib/death-station";
 import { scoreRankLabel } from "@/lib/score-rank";
 import { cooperativeResultLabel } from "@/lib/cooperative";
@@ -20,6 +21,7 @@ type Props = { eventGame: EventGame; canManage: boolean; onChanged: () => Promis
 const name = (player: EventGameRound["players"][number]) => player.profile?.activity_name?.trim() || "회원";
 
 export default function GameCard({ eventGame, canManage, onChanged, onAddRound }: Props) {
+  const stats = useGameResultStats([eventGame]);
   const supabase = useMemo(() => createClient(), []);
   const [editing, setEditing] = useState<EventGameRound | null>(null);
   const [editingRole,setEditingRole]=useState<EventGameRound|null>(null);
@@ -33,7 +35,7 @@ export default function GameCard({ eventGame, canManage, onChanged, onAddRound }
 
   const typeLabel=eventGame.game?.type==="COOP"?"협력형":eventGame.result_type==="ROLE"?"역할형":eventGame.result_type==="SIMPLE_SCORE"?"점수/등수형":"점수/등수형";
   return <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
-    <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-amber-300">{typeLabel}</p><h3 className="mt-1 text-xl font-bold text-white">{eventGame.game?.name ?? "게임"}</h3><p className="mt-1 text-sm text-zinc-500">{eventGame.game?.publisher ?? "출판사 정보 없음"}</p></div>{canManage&&<div className="flex gap-2"><button onClick={removeGame} className="min-h-11 rounded-xl border border-red-400/20 px-3 text-sm text-red-300">게임 삭제</button>{onAddRound&&<button onClick={()=>onAddRound(eventGame)} className="min-h-11 shrink-0 rounded-xl bg-amber-400 px-4 font-bold text-zinc-950">+ 1판 추가</button>}</div>}</div>
+    <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-amber-300">{typeLabel}<GameResultStats game={eventGame} stats={stats[eventGame.game_id]}/></p><h3 className="mt-1 text-xl font-bold text-white">{eventGame.game?.name ?? "게임"}</h3><p className="mt-1 text-sm text-zinc-500">{eventGame.game?.publisher ?? "출판사 정보 없음"}</p></div>{canManage&&<div className="flex gap-2"><button onClick={removeGame} className="min-h-11 rounded-xl border border-red-400/20 px-3 text-sm text-red-300">게임 삭제</button>{onAddRound&&<button onClick={()=>onAddRound(eventGame)} className="min-h-11 shrink-0 rounded-xl bg-amber-400 px-4 font-bold text-zinc-950">+ 1판 추가</button>}</div>}</div>
     <div className="mt-5 space-y-3">{eventGame.rounds.length === 0 ? <p className="rounded-2xl border border-dashed border-white/10 px-4 py-7 text-center text-sm text-zinc-500">아직 생성된 판이 없습니다.</p> : eventGame.rounds.map((round) => {
       const hasResult=round.players.some((player)=>player.is_gm||player.score!==null||player.rank!==null||player.role_name!==null||player.is_winner!==null);
       const sorted=orderRoundResults(round.players,eventGame.result_type);

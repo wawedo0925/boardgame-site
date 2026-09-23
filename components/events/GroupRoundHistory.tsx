@@ -1,4 +1,5 @@
 "use client";
+import GameResultStats, { useGameResultStats } from "./GameResultStats";
 import { isDeathStation } from "@/lib/death-station";
 import { useMemo, useState } from "react";
 import { scoreRankLabel } from "@/lib/score-rank";
@@ -15,6 +16,7 @@ import RoleResultDialog from "./RoleResultDialog";
 type Props = { games: EventGame[]; canManage: boolean; onChanged: () => Promise<void> | void; onRepeat?: (game: EventGame) => Promise<void>; repeatDisabled?: boolean };
 const pname = (p: EventGameRound["players"][number]) => p.profile?.activity_name || "회원";
 export default function GroupRoundHistory({ games, canManage, onChanged, onRepeat, repeatDisabled }: Props) {
+  const stats = useGameResultStats(games);
   const supabase = useMemo(() => createClient(), []);
   const [scoreRound, setScoreRound] = useState<{ game: EventGame; round: EventGameRound } | null>(null);
   const [roleRound, setRoleRound] = useState<{ game: EventGame; round: EventGameRound } | null>(null);
@@ -30,7 +32,7 @@ export default function GroupRoundHistory({ games, canManage, onChanged, onRepea
       const folded = collapsed.includes(round.id);
       return <article key={round.id} className="rounded-xl border border-white/10 bg-zinc-950/60 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0"><p className="text-xs text-amber-300">{index + 1}판 · {game.game?.type === "COOP" ? "협력형" : game.result_type === "ROLE" ? "역할형" : "점수/등수형"}</p><h4 className="break-words font-bold">{game.game?.name}</h4></div>
+          <div className="min-w-0 max-w-full"><p className="truncate text-xs text-amber-300">{index + 1}판 · {game.game?.type === "COOP" ? "협력형" : game.result_type === "ROLE" ? "역할형" : "점수/등수형"}<GameResultStats game={game} stats={stats[game.game_id]}/></p><h4 className="break-words font-bold">{game.game?.name}</h4></div>
           <div className="flex flex-wrap gap-2">
             {canManage && <>
               <button onClick={() => game.game?.type !== "COOP" && game.result_type === "ROLE" && !isWolfStreet(game.game?.name) && !isDeathStation(game.game?.name) ? setRoleRound({ game, round }) : setScoreRound({ game, round })} className="min-h-11 rounded-lg bg-white/10 px-3 py-2 text-sm">결과 입력/수정</button>
