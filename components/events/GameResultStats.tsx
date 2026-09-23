@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { EventGame } from "@/types/event";
+import { isDeathStation } from "@/lib/death-station";
+import { isWolfStreet } from "@/lib/wolfstreet";
 
 type Stats = {
   game_id: string; average_score: number | null; high_score: number | null;
@@ -31,7 +33,8 @@ const number = (value: number | null) => value === null ? "—" : Number(value).
 export default function GameResultStats({ game, stats }: { game: EventGame; stats?: Stats }) {
   if (!stats) return null;
   const cooperative = game.game?.type === "COOP";
-  const role = game.result_type === "ROLE";
+  // These games retain role labels but determine their results by scores.
+  const role = game.result_type === "ROLE" && !isDeathStation(game.game?.name) && !isWolfStreet(game.game?.name);
   const text = cooperative ? `성공 ${number(stats.success_rate)}%` : role
     ? `선 ${number(stats.good_rate)}% · 악 ${number(stats.evil_rate)}%`
     : `평균 ${number(stats.average_score)} · 최고 ${number(stats.high_score)}`;
