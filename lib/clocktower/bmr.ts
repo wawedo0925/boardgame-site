@@ -1,14 +1,15 @@
 import { CLOCKTOWER_CHARACTERS } from './characters';
 import { composition, shuffle } from './setup';
 import type { LiveMember, LiveVote } from './live';
+import type { BmrAuto } from './bmr-engine';
 
 export const BMR_ROLES = CLOCKTOWER_CHARACTERS['피로 물든 달'].filter(r => r.type !== '이야기꾼' && r.name !== '건달(악)').map(r => ({...r, name:r.name === '좀버얼' ? '좀비얼' : r.name}));
 export const BMR_FIRST = ['황혼','하수인 정보','미치광이','악마 정보','선원','궁정대신','대부','악마의 변호사','푸카','할머니','객실 청소부','새벽'];
 export const BMR_OTHER = ['황혼','선원','여관 주인','궁정대신','도박사','악마의 변호사','미치광이','구마사제','좀비얼','푸카','샤발로스','포','암살자','대부','교수','험담꾼','땜장이','달의 자손','할머니','객실 청소부','새벽'];
 export const bmrOrder = (night:number) => night === 1 ? BMR_FIRST : BMR_OTHER;
 export type BmrMemberState = { life:'ALIVE'|'DEAD'|'ZOMBIE'; faction:'GOOD'|'EVIL'; drunk:boolean; poisoned:boolean; protected:boolean; spent:boolean };
-export type BmrState = { cursor:number; notes:string; completed:boolean; history?:{night:number;step:string;note:string}[] };
-export type BmrRequestOptions = { character?:boolean; pass?:boolean; living?:boolean; dead?:boolean };
+export type BmrState = { cursor:number; notes:string; completed:boolean; automated?:boolean; auto?:BmrAuto; history?:{night:number;step:string;note:string}[] };
+export type BmrRequestOptions = { character?:boolean; pass?:boolean; living?:boolean; dead?:boolean; engine_key?:string };
 export const BMR_HINTS:Record<string,string> = {
  '황혼':'확인: 지난 효과의 만료, 원인 캐릭터의 사망·취함·중독, 낮의 사망·처형, 지속 효과를 마도서에서 갱신하세요. 표시는 자동 해제되지 않습니다.',
  '하수인 정보':'7명 이상: 각 하수인에게 악마가 누구인지 전달하세요. 미치광이는 실제 악마가 아닙니다.',
