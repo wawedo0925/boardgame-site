@@ -8,6 +8,7 @@ type Task = { actor:string; role:string; key:string };
 export type Decision = { key:string; title:string; description:string; options:{value:string;label:string}[]; text?:boolean; initial?:string };
 type Operation = { kind:'task'; task:Task; targets:string[]; answer:{character?:string;pass?:boolean}; requestId?:string } | {kind:'execution';target:string|null} | {kind:'tinker';target:string};
 export type BmrAuto = {
+ moonBluffs?:Record<string,boolean>; executionPending?:boolean;
  version:1; night:number; phase:'NIGHT'|'DAY'|'ENDED'; players:Player[]; effects:Effect[];
  tasks:Task[]; cursor:number; serial:number; finished:boolean; awake:string[];
  pending?:{op:Operation; answers:Record<string,string>; decision:Decision};
@@ -23,7 +24,7 @@ export type RequestSpec = {user_id:string;target_count:number;allow_self:boolean
 type Out = { request?:RequestSpec; resolved?:{id:string;result:string}; notices:{user_id:string;result:string}[]; retry?:string };
 export type BmrInput = {type:'tick'} | {type:'answer';id:string;targets:string[];answer?:{character?:string;pass?:boolean}}
  | {type:'choice';key:string;value:string} | {type:'dawn'} | {type:'execution';target:string|null}
- | {type:'gossip';text:string;truth:boolean} | {type:'moon';actor:string;target:string} | {type:'tinker';target:string};
+ | {type:'moon_night'} | {type:'gossip';text:string;truth:boolean} | {type:'moon';actor:string;target:string} | {type:'tinker';target:string};
 const kind=(role:string)=>BMR_ROLES.find(r=>r.name===role)?.type;
 const actualAlive=(p:Player)=>p.life!=='DEAD';
 const publicAlive=(p:Player)=>p.life==='ALIVE';
@@ -91,13 +92,13 @@ function kill(e:BmrAuto,id:string,cause:string,answers:Record<string,string>,exe
  }
  if(!pierce&&p.role==='어릿광대'&&!p.spent&&works(e,p)){p.spent=true;note(e,`${p.name}: 어릿광대 능력 소모·생존`);return;}
  if(!pierce&&p.role==='좀비얼'&&p.life==='ALIVE'&&works(e,p)){
-  p.life='ZOMBIE';e.deaths.push({id,role:p.role,night:e.night,phase:e.phase,demon});note(e,`${p.name}: 사망 위장`);checkWin(e);return;
+  p.life='ZOMBIE';if(e.moonBluffs?.[id])e.moon[id]={due:e.night+1};e.deaths.push({id,role:p.role,night:e.night,phase:e.phase,demon});note(e,`${p.name}: 사망 위장`);checkWin(e);return;
  }
  const healthy=!bmrImpaired(e,id);
  const minstrel=execution&&kind(p.role)==='하수인'?e.players.find(x=>x.role==='음유시인'&&works(e,x)):undefined;
  const mastermind=execution&&kind(p.role)==='악마'?e.players.find(x=>x.role==='주모자'&&works(e,x)):undefined;
  p.life='DEAD';e.deaths.push({id,role:p.role,night:e.night,phase:e.phase,demon});note(e,`${p.name}: 사망 (${cause})`);
- if(p.role==='달의 자손')e.moon[id]={due:e.night+1};
+ if(p.role==='달의 자손'||e.moonBluffs?.[id])e.moon[id]={due:e.night+1};
  if(minstrel)for(const x of e.players)if(x.id!==minstrel.id)effect(e,minstrel,x.id,'drunk',e.night+2);
  if(mastermind)e.mastermind={source:mastermind.id,day:e.night+1};
  if(!healthy&&p.role==='좀비얼')note(e,'능력이 무효인 좀비얼은 실제로 사망합니다.');
@@ -245,7 +246,7 @@ function execute(e:BmrAuto,op:Operation,answers:Record<string,string>):BmrAuto {
   }else if(op.kind==='execution'){
    if(draft.mastermind?.day===draft.night&&works(draft,player(draft,draft.mastermind.source))){draft.winner=op.target&&player(draft,op.target).faction==='GOOD'?'EVIL':'GOOD';draft.reason='주모자의 추가 낮 판정';draft.phase='ENDED';}
    else if(op.target)kill(draft,op.target,'처형',answers,true);
-   if(!draft.winner)beginNextNight(draft);
+   if(!draft.winner){if(Object.values(draft.moon).some(m=>!m.target))draft.executionPending=true;else beginNextNight(draft);}
   }else kill(draft,op.target,'땜장이',answers);
   return draft;
  }catch(error){
@@ -254,7 +255,7 @@ function execute(e:BmrAuto,op:Operation,answers:Record<string,string>):BmrAuto {
  }
 }
 function beginNextNight(e:BmrAuto){
- e.night++;e.phase='NIGHT';e.effects=e.effects.filter(f=>f.until>e.night);e.awake=[];e.tasks=tasks(e);e.cursor=0;e.finished=false;
+ delete e.executionPending;e.night++;e.phase='NIGHT';e.effects=e.effects.filter(f=>f.until>e.night);e.awake=[];e.tasks=tasks(e);e.cursor=0;e.finished=false;
 }
 export function advanceBmr(previous:BmrAuto,input:BmrInput):BmrAuto {
  const e=structuredClone(previous);e.out=emptyOut();
@@ -276,7 +277,12 @@ export function advanceBmr(previous:BmrAuto,input:BmrInput):BmrAuto {
   const p=player(e,input.target);if(p.role!=='땜장이'||!works(e,p))throw Error('현재 땜장이 능력을 사용할 수 없습니다.');
   return execute(e,{kind:'tinker',target:p.id},{});
  }
+ if(input.type==='moon_night'){
+  if(e.phase!=='DAY'||!e.executionPending||Object.values(e.moon).some(m=>!m.target))throw Error('달의 자손 선택을 먼저 완료하세요.');
+  beginNextNight(e);return e;
+ }
  if(input.type==='execution'){
+  if(e.executionPending)throw Error('이미 처형을 마쳤습니다. 달의 자손 선택을 기다려 주세요.');
   if(e.phase!=='DAY')throw Error('낮에만 처형할 수 있습니다.');
   if(Object.values(e.moon).some(m=>!m.target))throw Error('달의 자손의 공개 선택을 먼저 기록해 주세요.');
   return execute(e,{kind:'execution',target:input.target},{});

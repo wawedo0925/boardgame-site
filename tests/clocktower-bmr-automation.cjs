@@ -55,6 +55,7 @@ for(let game=0;game<120;game++){
   transitions++;
   if(x.pending){const d=x.pending.decision;assert.ok(d.text||d.options.length,`empty decision ${d.title}`);x=decide(x,d.text?(d.initial||'이야기꾼 정보'):pick(d.options).value);continue;}
   if(x.phase==='DAY'){
+   if(x.executionPending&&!Object.values(x.moon).some(m=>!m.target)){x=advanceBmr(x,{type:'moon_night'});continue;}
    const moon=Object.keys(x.moon).find(id=>!x.moon[id].target);
    if(moon){x=advanceBmr(x,{type:'moon',actor:moon,target:pick(x.players.filter(p=>p.life==='ALIVE')).id});continue;}
    if(x.players.some(p=>p.role==='험담꾼'&&p.life!=='DEAD')&&x.gossip?.day!==x.night){x=advanceBmr(x,{type:'gossip',text:'오늘의 공개 발언',truth:random()<.5});continue;}

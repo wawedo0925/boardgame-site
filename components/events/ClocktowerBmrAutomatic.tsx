@@ -50,9 +50,8 @@ export default function ClocktowerBmrAutomatic({state,busy,error,run}:Props){
    {engine?.finished&&pending&&<p className="text-sm text-amber-200">참가자들이 받은 결과와 공통 미션을 확인하면 낮을 시작할 수 있습니다.</p>}
   </>}
   {room.phase==='DAY'&&engine&&<>
-   {Object.entries(engine.moon).filter(([,m])=>!m.target).map(([id])=><MoonChoice key={id} engine={engine} actor={id} busy={busy} choose={target=>dispatch({type:'moon',actor:id,target})}/>)}
    {engine.players.filter(p=>p.role==='땜장이'&&p.life!=='DEAD').map(p=><button key={p.id} className={button} disabled={busy||voting} onClick={()=>{if(confirm(`${p.name}의 땜장이 능력으로 사망을 시도할까요?`))void dispatch({type:'tinker',target:p.id});}}>땜장이 · 사망 판정</button>)}
-   {room.day_stage==='PRIVATE'?<button className={button} disabled={busy||!!engine.pending} onClick={()=>void run('flow_next',{revision:room.flow_revision??0})}>전체 토론·지목 시작</button>:<button className={button} disabled={busy||voting||!!engine.pending} onClick={()=>setExecutionOpen(true)}>처형 확정 · 다음 단계</button>}
+   {engine.executionPending?<button className={button} disabled={busy||!!engine.pending||(state.moon_choices??[]).some(c=>c.status==='OPEN')} onClick={()=>void dispatch({type:'moon_night'})}>달의 자손 선택 완료 · 다음 밤 시작</button>:room.day_stage==='PRIVATE'?<button className={button} disabled={busy||!!engine.pending} onClick={()=>void run('flow_next',{revision:room.flow_revision??0})}>전체 토론·지목 시작</button>:<button className={button} disabled={busy||voting||!!engine.pending} onClick={()=>setExecutionOpen(true)}>처형 확정 · 다음 단계</button>}
   </>}
   {engine&&<details><summary>자동 판정 기록</summary>{engine.log.map((line,i)=><p className="mt-2 text-sm text-zinc-300" key={i}>{line}</p>)}</details>}
   {engine?.pending&&hiddenDecision===`${state.bmr_revision}:${engine.pending.decision.key}`&&<button className={button} onClick={()=>setHiddenDecision('')}>이야기꾼 판정 계속하기</button>}
@@ -63,7 +62,4 @@ export default function ClocktowerBmrAutomatic({state,busy,error,run}:Props){
 function DecisionPopup({decision,busy,error,decide,close}:{decision:Decision;busy:boolean;error:string;decide:(value:string)=>Promise<void>;close:()=>void}){
  const [value,setValue]=useState(decision.initial??'');
  return <ClocktowerPopup title={decision.title} busy={busy} onClose={close}><p className="my-4 whitespace-pre-wrap text-sm text-zinc-300">{decision.description}</p>{decision.text?<form onSubmit={e=>{e.preventDefault();void decide(value);}}><textarea required maxLength={2000} className={field} rows={5} value={value} onChange={e=>setValue(e.target.value)}/><button disabled={busy||!value.trim()} className={`${button} mt-3`}>확정 · 비공개 전달</button></form>:<div className="grid gap-3">{decision.options.map(o=><button key={o.value} disabled={busy} className={button} onClick={()=>void decide(o.value)}>{o.label}</button>)}</div>}{error&&<p className="mt-3 text-red-300" role="alert">{error}</p>}<p className="mt-3 text-xs text-zinc-400">이 판정은 이야기꾼에게만 보입니다. 확정하면 상태를 반영하고 다음 차례로 이어집니다. 잠시 닫아도 판정은 유지됩니다.</p></ClocktowerPopup>;
-}
-function MoonChoice({engine,actor,busy,choose}:{engine:BmrAuto;actor:string;busy:boolean;choose:(id:string)=>Promise<void>}){
- const [id,setId]=useState('');return <div className="space-y-2 rounded-xl border border-amber-300/30 p-3"><p>{engine.players.find(p=>p.id===actor)?.name} · 달의 자손 공개 선택을 기록하세요.</p><select value={id} onChange={e=>setId(e.target.value)} className={field}><option value="">현장에서 선택한 생존자</option>{engine.players.filter(p=>p.life==='ALIVE').map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select><button disabled={busy||!id} className={button} onClick={()=>void choose(id)}>공개 선택 확인</button></div>;
 }
