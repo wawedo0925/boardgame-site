@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm'),ts=
 let values=[],cursor=0,effects=[],now=0,tick,submitted;
 const react={useState:initial=>{const i=cursor++;if(!(i in values))values[i]=typeof initial==='function'?initial():initial;return [values[i],v=>values[i]=typeof v==='function'?v(values[i]):v];},useEffect:fn=>effects.push(fn)};
 const mod={exports:{}};
-vm.runInNewContext(ts.transpileModule(fs.readFileSync('components/events/ClocktowerNightActivity.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020}}).outputText,{module:mod,exports:mod.exports,require:n=>n==='react'?react:n==='./ClocktowerSeating'?{ClocktowerName:()=>null}:require(n),Date:{now:()=>now},setInterval:fn=>(tick=fn,1),clearInterval:()=>{}});
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('components/events/ClocktowerNightActivity.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020}}).outputText,{module:mod,exports:mod.exports,require:n=>n==='react'?react:n==='@/lib/clocktower/bmr'?{BMR_ROLES:[{name:'선원'},{name:'포'}]}:n==='./ClocktowerSeating'?{ClocktowerName:()=>null}:require(n),Date:{now:()=>now},setInterval:fn=>(tick=fn,1),clearInterval:()=>{}});
 const props={id:'test',prompt:'선택',members:[{user_id:'a',seat:1,name:'A'},{user_id:'b',seat:2,name:'B'}],count:1,busy:false,seconds:3,onConfirm:p=>submitted=p};
 function render(p=props){cursor=0;effects=[];return mod.exports.default(p);}
 function nodes(x){if(!x||typeof x!=='object')return [];if(Array.isArray(x))return x.flatMap(nodes);return [x,...nodes(x.props?.children)];}
@@ -28,3 +28,18 @@ all=buttons(render({...props,count:2}));assert.equal(all.at(-1).props.disabled,t
 all[1].props.onClick();all=buttons(render({...props,count:2}));assert.equal(all.at(-1).props.disabled,false);
 all.at(-1).props.onClick();assert.equal(submitted.join(','),'a,b');
 console.log('PASS: two distinct targets required before confirmation');
+// Character selection and passing share the same delayed controls for real and cover activities.
+values=[];now=0;const characterProps={...props,count:0,options:{character:true,pass:true}};
+tree=render(characterProps);effects[0]();
+assert.equal(nodes(tree).find(n=>n.type==='select').props.disabled,true);
+now=3000;tick();tree=render(characterProps);
+assert.equal(buttons(tree).at(-1).props.disabled,true);
+nodes(tree).find(n=>n.type==='select').props.onChange({target:{value:'포'}});
+assert.equal(buttons(render(characterProps)).at(-1).props.disabled,false);
+nodes(render(characterProps)).find(n=>n.type==='input').props.onChange({target:{checked:true}});
+assert.equal(buttons(render(characterProps)).at(-1).props.disabled,false);
+assert.equal(nodes(render(characterProps)).some(n=>n.type==='select'),false);
+values=[];now=0;const three={...props,count:3,members:[...props.members,{user_id:'c',seat:3,name:'C'}]};tree=render(three);effects[0]();now=3000;tick();
+for(let i=0;i<3;i++){const all=buttons(render(three));assert.equal(all.at(-1).props.disabled,true);all[i].props.onClick();}
+buttons(render(three)).at(-1).props.onClick();assert.equal(submitted.join(','),'a,b,c');
+console.log('PASS: delayed character/pass controls and three distinct targets');

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {flowLabel,nextFlowLabel} from '@/lib/clocktower/flow';
+import ClocktowerBmrHost from './ClocktowerBmrHost';
 import ClocktowerVoting from './ClocktowerVoting';
 import ClocktowerRecap from './ClocktowerRecap';
 import ClocktowerSlayer from './ClocktowerSlayer';
@@ -59,7 +60,7 @@ export default function ClocktowerLive({ eventId, expectedRoomId }: { eventId: s
     if (busy) return false;
     setBusy(true); setError('');
     try {
-      const { error } = action === 'save_layout' ? await supabase.rpc('clocktower_save_layout', { p_event_id: eventId, p_room_id: state?.room?.id, p_revision: data.revision, p_layout: data.layout }) : await supabase.rpc('clocktower_live_command', { p_event_id: eventId, p_action: action, p_data: { room_id: state?.room?.id, ...data } });
+      const { error } = action === 'save_layout' ? await supabase.rpc('clocktower_save_layout', { p_event_id: eventId, p_room_id: state?.room?.id, p_revision: data.revision, p_layout: data.layout }) : await supabase.rpc('clocktower_live_command', { p_event_id: eventId, p_action: action, p_data: { room_id: state?.room?.id, bmr_revision:state?.bmr_revision??0, ...data } });
       if (error) throw error;
       await refresh(); return true;
     } catch (e) { setError(typeof e === 'object' && e !== null && 'message' in e ? String(e.message) : '저장하지 못했습니다. 다시 확인해 주세요.'); return false; }
@@ -80,8 +81,9 @@ export default function ClocktowerLive({ eventId, expectedRoomId }: { eventId: s
     </div> : <>
       <div className="mb-6 rounded-2xl border border-violet-400/30 bg-violet-400/5 p-5"><h2 className="text-xl font-bold text-violet-200">{flowLabel(state)}</h2><p className="mt-2 text-sm text-zinc-400">{state.is_host ? '이야기꾼 화면 · 역할과 메모는 본인만 볼 수 있습니다.' : '참가자 화면 · 요청이 오면 선택하고 결과를 확인해 주세요.'}</p></div>
       {room.phase==='ENDED'&&room.end_reason&&<p className="my-4 text-xl text-amber-200">{room.end_reason}</p>}
-      {room.phase==='DAY'&&<><ClocktowerVoting allowPopup={allowPopup} state={state} run={run} busy={busy} error={error}/><ClocktowerSlayer allowPopup={allowPopup} error={error} state={state} run={run} busy={busy}/></>}
-      {state.is_host ? <Host key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} /> : <Player key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} />}
+      {room.phase==='SETUP'&&state.is_host&&!room.roles_released&&<label className="mb-5 block text-sm">시나리오<select className={`${field} mt-2`} disabled={busy} value={room.script??'TB'} onChange={e=>{if(confirm('시나리오를 바꾸면 배정한 역할과 준비 정보가 초기화됩니다. 변경할까요?'))void run('script_set',{script:e.target.value});}}><option value="TB">점철되는 혼란</option><option value="BMR">피로 물든 달</option></select></label>}
+      {room.phase==='DAY'&&<><ClocktowerVoting allowPopup={allowPopup} state={state} run={run} busy={busy} error={error}/>{room.script!=='BMR'&&<ClocktowerSlayer allowPopup={allowPopup} error={error} state={state} run={run} busy={busy}/>}</>}
+      {state.is_host ? room.script==='BMR' ? <ClocktowerBmrHost key={room.id} state={state} run={run} busy={busy} error={error}/> : <Host key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} /> : <Player key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} />}
       <ClocktowerRecap key={`recap:${room.id}`} roomId={room.id} />
     </>}
     {!hidden&&announcement&&!allowPopup&&<ClocktowerPopup title={announcement.title} onClose={()=>setSeenPhase(announcement.key)}><div className="space-y-6 text-center"><p aria-hidden="true" className="text-6xl">{announcement.icon}</p><p className="text-lg leading-8">{announcement.description}</p><button className={`${button} w-full`} onClick={()=>setSeenPhase(announcement.key)}>확인</button></div></ClocktowerPopup>}
@@ -170,7 +172,7 @@ function HostRequest({ request:q, members, run, busy, ended }: { request: LiveRe
 function Player({ state, run, busy, allowPopup, error }: { state: LiveState; run: Run; busy: boolean; allowPopup:boolean; error:string }) {
   const members=state.members ?? [];
   const me=members.find(m=>m.user_id===state.my_id);
-  return <div className="space-y-5">{state.room?.phase==='SETUP'&&state.room.roles_released&&!me?.role_confirmed&&<ClocktowerPopup title="내 역할을 확인해 주세요" busy={busy} onClose={()=>{}}><p className="my-6 text-center text-3xl font-bold">{me?.shown_role}</p><p>다른 사람에게 화면을 보여주지 마세요.</p>{error&&<p role="alert">{error}</p>}<button disabled={busy} className={button} onClick={()=>void run('role_ack')}>역할 확인 완료</button></ClocktowerPopup>}{state.room?.phase==='SETUP'&&me?.role_confirmed&&<p>역할 확인 완료 · 모두 확인하면 이야기꾼이 첫날 밤을 시작합니다.</p>}<div className="rounded-3xl border border-violet-400/30 p-6"><p className="text-zinc-400">내 역할</p><ClocktowerPrivateRole key={`${state.room?.id}:${state.room?.phase}:${me?.shown_role}`} role={me?.shown_role}/><p className="mt-2 text-xs text-zinc-400">손을 떼면 다시 가려집니다.</p><p className="mt-3 text-sm text-zinc-400">{me?.seat}번 자리 · {me && <ClocktowerName member={me} />}</p></div>
+  return <div className="space-y-5">{state.room?.phase==='SETUP'&&state.room.roles_released&&!me?.role_confirmed&&<ClocktowerPopup title="내 역할을 확인해 주세요" busy={busy} onClose={()=>{}}><p className="my-6 text-center text-3xl font-bold">{me?.shown_role}</p><p>다른 사람에게 화면을 보여주지 마세요.</p>{error&&<p role="alert">{error}</p>}<button disabled={busy} className={button} onClick={()=>void run('role_ack')}>역할 확인 완료</button></ClocktowerPopup>}{state.room?.phase==='SETUP'&&me?.role_confirmed&&<p>역할 확인 완료 · 모두 확인하면 이야기꾼이 첫날 밤을 시작합니다.</p>}<div className="rounded-3xl border border-violet-400/30 p-6"><p className="text-zinc-400">내 역할</p><ClocktowerPrivateRole key={`${state.room?.id}:${state.room?.phase}:${me?.shown_role}`} role={me?.shown_role}/><p className="mt-2 text-xs text-zinc-400">손을 떼면 다시 가려집니다.</p>{state.room?.script==='BMR'&&me?.faction&&<details className="mt-3 text-sm"><summary>현재 소속 확인</summary>{me.faction==='EVIL'?'악한 팀':'선한 팀'}</details>}<p className="mt-3 text-sm text-zinc-400">{me?.seat}번 자리 · {me && <ClocktowerName member={me} />}</p></div>
     {state.room?.phase === 'NIGHT' ? <details className="rounded-2xl border border-white/10 p-4"><summary>마을 자리 배치 보기</summary><ClocktowerSeating roomId={state.room?.id} members={members} layout={state.room?.seating_layout} revision={state.room?.seating_revision} myId={state.my_id} /></details> : <ClocktowerSeating roomId={state.room?.id} members={members} layout={state.room?.seating_layout} revision={state.room?.seating_revision} myId={state.my_id} busy={busy} nominated={(state.votes??[]).map(v=>v.nominee)} onNominate={state.room?.phase==='DAY'&&state.room.day_stage==='NOMINATIONS'&&me?.alive&&!(state.votes??[]).some(v=>v.nominator===state.my_id||v.status==='WAITING'||v.status==='RUNNING') ? id=>run('vote_nominate',{nominee:id}) : undefined} />}
     {state.room?.phase==='NIGHT' && <p className="text-sm text-zinc-400">휴대폰 화면을 다른 사람에게 보여주지 말고, 이야기꾼의 안내에 따라 확인해 주세요.</p>}
     <ClocktowerPlayerActivity state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} />

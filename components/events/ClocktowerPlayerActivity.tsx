@@ -34,19 +34,21 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
         prompt={q.status==='RESOLVED'?'도착한 안내를 확인해 주세요.':q.prompt}
         message={q.status==='RESOLVED'?q.result:undefined}
         members={members.filter(m=>q.allow_self||m.user_id!==state.my_id)}
+        options={q.status==='RESOLVED'?undefined:q.bmr_options}
         count={q.status==='RESOLVED'?0:q.target_count} busy={busy}
-        onConfirm={async targets=>{
+        onConfirm={async (targets,answer)=>{
           if(q.status==='RESOLVED'){
             if(await run('ack',{request_id:q.id})&&privateResult)setConfirmedPrivate(ids=>[...ids,q.id]);
-          }else await run('reply',{request_id:q.id,targets});
+          }else await run('reply',{request_id:q.id,targets,answer});
         }}>
         {q.status==='RESOLVED'&&privateResult&&<p className="text-sm text-amber-200">메모하지 말고 기억해 주세요. 다른 멤버의 차례는 계속 진행됩니다. 내용을 확인한 뒤 아래 확인 버튼을 눌러 주세요. 확인 후 이 내용은 다시 볼 수 없고, 다음 밤 능력 차례에 새 정보를 받습니다.</p>}
       </ClocktowerNightActivity>}
       {mission&&<ClocktowerNightActivity key={key} id={key} seconds={mission.challenge.delay_seconds}
         prompt={mission.kind==='SELECT'?(mission.challenge.text??'참가자 한 명을 선택해 주세요.'):'도착한 안내를 확인해 주세요.'}
         message={mission.kind==='SELECT'?undefined:(mission.kind==='NOTICE'?mission.challenge.text:'화면을 계속 확인해 주세요.')}
+        options={mission.challenge.bmr_options}
         members={members} count={mission.kind==='SELECT'?(mission.challenge.target_count??1):0} busy={busy}
-        onConfirm={async targets=>{await run('mission_complete',{mission_id:mission.id,answer:mission.kind==='SELECT'?targets.join(','):mission.kind==='NOTICE'?'ACK':mission.kind==='NUMBERS'?[...(mission.challenge.tiles??[])].sort((a,b)=>a-b).join(','):mission.challenge.text});}}
+        onConfirm={async (targets,answer)=>{await run('mission_complete',{mission_id:mission.id,selection:answer,answer:mission.kind==='SELECT'?targets.join(','):mission.kind==='NOTICE'?'ACK':mission.kind==='NUMBERS'?[...(mission.challenge.tiles??[])].sort((a,b)=>a-b).join(','):mission.challenge.text});}}
       />}
       {!privateResult&&<p className="mt-4 text-center text-xs text-zinc-500">팝업을 닫아도 제출·확인 처리되지 않습니다.</p>}
     </ClocktowerPopup>}
