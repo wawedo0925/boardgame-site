@@ -6,6 +6,7 @@ import ClocktowerBmrHost from './ClocktowerBmrHost';
 import ClocktowerVoting from './ClocktowerVoting';
 import ClocktowerRecap from './ClocktowerRecap';
 import ClocktowerSlayer from './ClocktowerSlayer';
+import ClocktowerGossip from './ClocktowerGossip';
 import ClocktowerPrivateRole from './ClocktowerPrivateRole';
 import ClocktowerPopup from './ClocktowerPopup';
 import ClocktowerPlayerActivity from './ClocktowerPlayerActivity';
@@ -82,7 +83,8 @@ export default function ClocktowerLive({ eventId, expectedRoomId }: { eventId: s
       <div className="mb-6 rounded-2xl border border-violet-400/30 bg-violet-400/5 p-5"><h2 className="text-xl font-bold text-violet-200">{flowLabel(state)}</h2><p className="mt-2 text-sm text-zinc-400">{state.is_host ? '이야기꾼 화면 · 역할과 메모는 본인만 볼 수 있습니다.' : '참가자 화면 · 요청이 오면 선택하고 결과를 확인해 주세요.'}</p></div>
       {room.phase==='ENDED'&&room.end_reason&&<p className="my-4 text-xl text-amber-200">{room.end_reason}</p>}
       {room.phase==='SETUP'&&state.is_host&&!room.roles_released&&<label className="mb-5 block text-sm">시나리오<select className={`${field} mt-2`} disabled={busy} value={room.script??'TB'} onChange={e=>{if(confirm('시나리오를 바꾸면 배정한 역할과 준비 정보가 초기화됩니다. 변경할까요?'))void run('script_set',{script:e.target.value});}}><option value="TB">점철되는 혼란</option><option value="BMR">피로 물든 달</option></select></label>}
-      {room.phase==='DAY'&&<><ClocktowerVoting allowPopup={allowPopup} state={state} run={run} busy={busy} error={error}/>{room.script!=='BMR'&&<ClocktowerSlayer allowPopup={allowPopup} error={error} state={state} run={run} busy={busy}/>}</>}
+      {room.phase==='DAY'&&<><ClocktowerVoting allowPopup={allowPopup} state={state} run={run} busy={busy} error={error}/>{room.script==='BMR'&&<ClocktowerGossip key={room.id} allowPopup={allowPopup&&!state.bmr?.auto?.pending&&!(state.votes??[]).some(v=>v.status==='RUNNING'||v.status==='WAITING')} state={state} run={run} busy={busy} error={error}/>}
+{room.script!=='BMR'&&<ClocktowerSlayer allowPopup={allowPopup} error={error} state={state} run={run} busy={busy}/>}</>}
       {state.is_host ? room.script==='BMR' ? <ClocktowerBmrHost key={room.id} state={state} run={run} busy={busy} error={error}/> : <Host key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} /> : <Player key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} />}
       <ClocktowerRecap key={`recap:${room.id}`} roomId={room.id} />
     </>}

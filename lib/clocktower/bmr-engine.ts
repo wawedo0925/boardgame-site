@@ -15,7 +15,7 @@ export type BmrAuto = {
  previous:Record<string,{night:number;targets:string[]}>; charged:Record<string,boolean>; regurgitated?:Record<string,number>;
  grandchildren:Record<string,string>; goonNight:Record<string,number>;
  deaths:{id:string;role:string;night:number;phase:string;demon:boolean}[];
- gossip?:{day:number;text:string;truth:boolean}; moon:Record<string,{due:number;target?:string;good?:boolean}>;
+ gossip?:{day:number;text:string;truth:boolean;actor?:string;declaration_id?:string}; moon:Record<string,{due:number;target?:string;good?:boolean}>;
  mastermind?:{day:number;source:string}; winner?:'GOOD'|'EVIL'; reason?:string;
  log:string[]; out:Out;
 };
@@ -172,7 +172,7 @@ function resolveTask(e:BmrAuto,op:Extract<Operation,{kind:'task'}>,answers:Recor
   return '할머니 처리';
  }
  if(role==='험담꾼'){
-  if(e.gossip?.day===e.night-1&&e.gossip.truth&&works(e,p)){
+  if(e.gossip?.day===e.night-1&&e.gossip.truth&&(!e.gossip.actor||e.gossip.actor===p.id)&&works(e,p)){
    const id=choose(answers,{key:'gossip-victim',title:'험담꾼 · 사망 대상',description:`참인 공개 발언: ${e.gossip.text}`,options:options(e.players.filter(actualAlive))});kill(e,id,'험담꾼',answers);
   }return '험담 처리';
  }

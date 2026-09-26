@@ -10,7 +10,7 @@ const field='w-full rounded-xl border border-white/20 bg-zinc-900 p-3 text-white
 
 export default function ClocktowerBmrAutomatic({state,busy,error,run}:Props){
  const room=state.room!,engine=state.bmr?.auto;
- const [localError,setLocalError]=useState(''),[paused,setPaused]=useState(false),[gossip,setGossip]=useState(''),[truth,setTruth]=useState('');
+ const [localError,setLocalError]=useState(''),[paused,setPaused]=useState(false);
  const [executionOpen,setExecutionOpen]=useState(false);
  const [hiddenDecision,setHiddenDecision]=useState('');
  const attempted=useRef('');
@@ -50,7 +50,6 @@ export default function ClocktowerBmrAutomatic({state,busy,error,run}:Props){
    {engine?.finished&&pending&&<p className="text-sm text-amber-200">참가자들이 받은 결과와 공통 미션을 확인하면 낮을 시작할 수 있습니다.</p>}
   </>}
   {room.phase==='DAY'&&engine&&<>
-   {engine.players.some(p=>p.role==='험담꾼'&&p.life!=='DEAD')&&<details className="rounded-xl border border-white/15 p-3"><summary>험담꾼 공개 발언 기록</summary><p className="my-2 text-sm text-zinc-400">현장에서 공개한 발언만 기록하세요. 참거짓과 사망 대상은 참가자에게 공개되지 않습니다.</p><textarea className={field} value={gossip} onChange={e=>setGossip(e.target.value)} placeholder="오늘 낮의 공개 발언"/><select className={`${field} mt-2`} value={truth} onChange={e=>setTruth(e.target.value)}><option value="">참거짓 판정</option><option value="true">참</option><option value="false">거짓</option></select><button className={`${button} mt-2`} disabled={busy||!gossip.trim()||!truth} onClick={()=>void dispatch({type:'gossip',text:gossip,truth:truth==='true'})}>저장</button>{engine.gossip?.day===room.night&&<p className="mt-2">저장됨: {engine.gossip.text} · {engine.gossip.truth?'참':'거짓'}</p>}</details>}
    {Object.entries(engine.moon).filter(([,m])=>!m.target).map(([id])=><MoonChoice key={id} engine={engine} actor={id} busy={busy} choose={target=>dispatch({type:'moon',actor:id,target})}/>)}
    {engine.players.filter(p=>p.role==='땜장이'&&p.life!=='DEAD').map(p=><button key={p.id} className={button} disabled={busy||voting} onClick={()=>{if(confirm(`${p.name}의 땜장이 능력으로 사망을 시도할까요?`))void dispatch({type:'tinker',target:p.id});}}>땜장이 · 사망 판정</button>)}
    {room.day_stage==='PRIVATE'?<button className={button} disabled={busy||!!engine.pending} onClick={()=>void run('flow_next',{revision:room.flow_revision??0})}>전체 토론·지목 시작</button>:<button className={button} disabled={busy||voting||!!engine.pending} onClick={()=>setExecutionOpen(true)}>처형 확정 · 다음 단계</button>}
