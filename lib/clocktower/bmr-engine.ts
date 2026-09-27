@@ -87,7 +87,9 @@ function kill(e:BmrAuto,id:string,cause:string,answers:Record<string,string>,exe
  const p=player(e,id);if(!actualAlive(p)||e.winner)return;
  if(!pierce&&protectedFromDeath(e,p,execution)){note(e,`${p.name}: 사망 방지 (${cause})`);return;}
  if(!pierce&&execution&&p.faction==='GOOD'&&e.players.some(x=>x.role==='평화주의자'&&works(e,x))){
-  const save=choose(answers,{key:`pacifist:${id}`,title:`평화주의자 · ${p.name}을 살릴까요?`,description:'선한 참가자의 처형입니다. 살려도 오늘의 처형은 끝납니다.',options:[{value:'save',label:'살리기'},{value:'die',label:'구제하지 않기'}]});
+  const save=choose(answers,{key:`pacifist:${id}`,title:`평화주의자 · ${p.name}을 살릴까요?`,description:`처형 대상: ${p.name}
+평화주의자의 능력이 정상적으로 작동하고 있어 구제 여부를 결정할 수 있습니다.
+살리면 생존하고, 구제하지 않으면 다른 사망 방지 능력을 확인한 뒤 처리합니다. 어느 쪽이든 오늘의 처형은 끝납니다.`,options:[{value:'save',label:'살리기'},{value:'die',label:'구제하지 않기'}]});
   if(save==='save'){note(e,`${p.name}: 평화주의자로 생존`);return;}
  }
  if(!pierce&&p.role==='어릿광대'&&!p.spent&&works(e,p)){p.spent=true;note(e,`${p.name}: 어릿광대 능력 소모·생존`);return;}
@@ -140,7 +142,9 @@ function resolveTask(e:BmrAuto,op:Extract<Operation,{kind:'task'}>,answers:Recor
  if(role==='샤발로스 부활'){
   const candidates=(e.previous[p.id]?.targets??[]).map(id=>player(e,id)).filter(x=>x.life==='DEAD');
   if(works(e,p)&&candidates.length){
-   const id=choose(answers,{key:'regurgitate',title:'샤발로스 · 누구를 토해낼까요?',description:'지난 밤 선택한 사망자 한 명을 부활시키거나, 아무도 부활시키지 않을 수 있습니다.',options:[{value:'none',label:'토해내지 않기'},...options(candidates)]});
+   const id=choose(answers,{key:'regurgitate',title:'샤발로스 · 누구를 토해낼까요?',description:`샤발로스: ${p.name}
+지난 밤 선택했던 대상 중 현재 사망한 참가자입니다: ${candidates.map(x=>x.name).join(", ")}
+한 명을 고르면 부활하고, 토해내지 않기를 누르면 모두 그대로입니다.`,options:[{value:'none',label:'토해내지 않기'},...options(candidates)]});
    if(id!=='none')revive(e,id);
   }
   e.regurgitated={...e.regurgitated,[p.id]:e.night};return '샤발로스 부활 판정 완료';

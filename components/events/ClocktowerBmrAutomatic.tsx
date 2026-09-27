@@ -4,6 +4,7 @@ import { advanceBmr, bmrProjection, startBmr, type BmrAuto, type BmrInput, type 
 import { bmrExecutionCandidate } from '@/lib/clocktower/bmr';
 import type { LiveState } from '@/lib/clocktower/live';
 import ClocktowerPopup from './ClocktowerPopup';
+import { gossipJudgment } from './ClocktowerGossip';
 type Props={state:LiveState;busy:boolean;error:string;run:(action:string,data?:Record<string,unknown>)=>Promise<boolean>};
 const button='rounded-xl bg-violet-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40';
 const field='w-full rounded-xl border border-white/20 bg-zinc-900 p-3 text-white';
@@ -38,11 +39,13 @@ export default function ClocktowerBmrAutomatic({state,busy,error,run}:Props){
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[busy,paused,room.id,room.phase,state.bmr_revision,request?.id,request?.status]);
  const pending=(state.requests??[]).some(q=>q.status==='OPEN'||q.status==='SUBMITTED'||q.status==='RESOLVED'&&!q.acknowledged)||(state.mission_progress??[]).some(m=>m.completed<m.total);
+ const unjudged=(state.gossip_declarations??[]).filter(g=>g.day===room.night&&g.truth==null);
+ const unread=(state.requests??[]).filter(q=>q.status==='RESOLVED'&&!q.acknowledged);
  const voting=(state.votes??[]).some(v=>['WAITING','RUNNING'].includes(v.status));
  const candidate=bmrExecutionCandidate((state.votes??[]).filter(v=>v.day===room.night));
  return <section className="space-y-4 rounded-3xl border border-violet-300/30 p-5">
   <h3 className="text-xl font-bold">피로 물든 달 · 자동 진행</h3>
-  <p className="text-sm text-zinc-300">능력 선택 후 결과와 상태가 자동 반영됩니다. 이야기꾼의 선택이 필요한 순간에는 비공개 판정 창이 열립니다. 자동 진행 중에는 이 화면을 열어 두세요.</p>
+  <p className="text-sm text-zinc-300">능력 선택 후 결과와 상태가 자동 반영됩니다. 이야기꾼의 선택이 필요한 순간에는 비공개 판정 창이 열립니다. 결과를 전달하면 참가자의 확인을 기다리지 않고 다음 차례로 진행합니다. 참가자의 결과 창은 확인할 때까지 남습니다. 자동 진행 중에는 이 화면을 열어 두세요.</p>
   {(localError||error)&&<p role="alert" className="text-red-300">{localError||error}</p>}
   {paused&&<button className={button} disabled={busy} onClick={()=>{attempted.current='';setLocalError('');setPaused(false);}}>최신 상태로 다시 진행</button>}
   {room.phase==='NIGHT'&&<><p>{engine?.finished?'밤 판정 완료':engine?.pending?'이야기꾼 판정 대기':request?`${state.members?.find(m=>m.user_id===request.user_id)?.name} · 선택 대기`:'다음 차례 준비 중'}</p>
@@ -53,10 +56,11 @@ export default function ClocktowerBmrAutomatic({state,busy,error,run}:Props){
    {engine.players.filter(p=>p.role==='땜장이'&&p.life!=='DEAD').map(p=><button key={p.id} className={button} disabled={busy||voting} onClick={()=>{if(confirm(`${p.name}의 땜장이 능력으로 사망을 시도할까요?`))void dispatch({type:'tinker',target:p.id});}}>땜장이 · 사망 판정</button>)}
    {engine.executionPending?<button className={button} disabled={busy||!!engine.pending||(state.moon_choices??[]).some(c=>c.status==='OPEN')} onClick={()=>void dispatch({type:'moon_night'})}>달의 자손 선택 완료 · 다음 밤 시작</button>:room.day_stage==='PRIVATE'?<button className={button} disabled={busy||!!engine.pending} onClick={()=>void run('flow_next',{revision:room.flow_revision??0})}>전체 토론·지목 시작</button>:<button className={button} disabled={busy||voting||!!engine.pending} onClick={()=>setExecutionOpen(true)}>처형 확정 · 다음 단계</button>}
   </>}
+  {!!unread.length&&<details><summary>전달 완료 · 확인 대기 {unread.length}건</summary>{unread.map(q=><p className="mt-2 text-sm" key={q.id}>{state.members?.find(m=>m.user_id===q.user_id)?.name} · {q.prompt}</p>)}</details>}
   {engine&&<details><summary>자동 판정 기록</summary>{engine.log.map((line,i)=><p className="mt-2 text-sm text-zinc-300" key={i}>{line}</p>)}</details>}
   {engine?.pending&&hiddenDecision===`${state.bmr_revision}:${engine.pending.decision.key}`&&<button className={button} onClick={()=>setHiddenDecision('')}>이야기꾼 판정 계속하기</button>}
   {engine?.pending&&hiddenDecision!==`${state.bmr_revision}:${engine.pending.decision.key}`&&<DecisionPopup key={`${state.bmr_revision}:${engine.pending.decision.key}`} decision={engine.pending.decision} busy={busy} error={error||localError} close={()=>setHiddenDecision(`${state.bmr_revision}:${engine.pending!.decision.key}`)} decide={value=>dispatch({type:'choice',key:engine.pending!.decision.key,value})}/>}
-  {executionOpen&&<ClocktowerPopup title="처형 확정" busy={busy} onClose={()=>setExecutionOpen(false)}><p className="my-4">처형 대상: {state.members?.find(m=>m.user_id===candidate)?.name??'없음'}</p><p className="mb-4 text-sm text-zinc-300">보호·생존 능력과 후속 효과를 자동으로 확인합니다. 평화주의자의 구제가 가능하면 별도 판정 창이 열립니다.</p><button className={button} disabled={busy||voting} onClick={()=>void dispatch({type:'execution',target:candidate})}>확정</button></ClocktowerPopup>}
+  {executionOpen&&<ClocktowerPopup title="처형 확정" busy={busy} onClose={()=>setExecutionOpen(false)}><>{unjudged.length>0&&<div className="my-4 space-y-4"><p className="font-bold text-amber-200">보류하거나 아직 판단하지 않은 험담이 있습니다. 참·거짓을 정하면 진행할 수 있습니다.</p>{unjudged.map(g=><article key={g.id}><p>{state.members?.find(m=>m.user_id===g.actor)?.name}: {g.statement}</p>{gossipJudgment({g,state,busy,blocked:!!engine?.pending,run})}</article>)}</div>}</><p className="my-4">처형 대상: {state.members?.find(m=>m.user_id===candidate)?.name??'없음'}</p><p className="mb-4 text-sm text-zinc-300">보호·생존 능력과 후속 효과를 자동으로 확인합니다. 평화주의자의 구제가 가능하면 별도 판정 창이 열립니다.</p><button className={button} disabled={busy||voting||unjudged.length>0} onClick={()=>void dispatch({type:'execution',target:candidate})}>확정</button></ClocktowerPopup>}
  </section>;
 }
 function DecisionPopup({decision,busy,error,decide,close}:{decision:Decision;busy:boolean;error:string;decide:(value:string)=>Promise<void>;close:()=>void}){

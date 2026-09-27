@@ -4,7 +4,7 @@ require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f
 const {createTestDb}=require('./clocktower-bmr-db.cjs');
 const {startBmr,advanceBmr,bmrProjection}=require('../lib/clocktower/bmr-engine.ts');
 (async()=>{
- const db=await createTestDb();for(const file of ['20260927010000_clocktower_bmr_automation.sql','20260927020000_clocktower_gossip.sql'])await db.exec(fs.readFileSync('supabase/migrations/'+file,'utf8'));
+ const db=await createTestDb();for(const file of ['20260927010000_clocktower_bmr_automation.sql','20260927020000_clocktower_gossip.sql','20260927030000_clocktower_moonchild.sql','20260927040000_clocktower_public_actions.sql'])await db.exec(fs.readFileSync('supabase/migrations/'+file,'utf8'));
  const host='10000000-0000-0000-0000-000000000001', outsider='10000000-0000-0000-0000-000000000002',event='20000000-0000-0000-0000-000000000001';
  const ids=Array.from({length:7},(_,i)=>`30000000-0000-0000-0000-${String(i+1).padStart(12,'0')}`);
  await db.query('insert into auth.users(id) select unnest($1::uuid[])',[[host,outsider,...ids]]);
@@ -34,6 +34,9 @@ const {startBmr,advanceBmr,bmrProjection}=require('../lib/clocktower/bmr-engine.
  await assert.rejects(()=>act('bmr_auto_commit',stale),/참거짓/);
  await act('gossip_judge',{declaration_id:first.id,truth:true,previous_truth:null});
  s=await snapshot();assert.equal(s.bmr.auto.gossip.actor,ids[0]);assert.equal(s.bmr.auto.gossip.truth,true);
+ await act('gossip_defer',{declaration_id:first.id,previous_truth:true});s=await snapshot();assert.equal(s.bmr.auto.gossip,undefined);assert.equal(s.gossip_declarations[0].deferred,true);assert.equal(s.gossip_declarations[0].truth,null);assert.equal(s.gossip_declarations[0].acknowledged,true);
+ await login(ids[2]);s=await snapshot();assert.ok(!('deferred' in s.gossip_declarations[0]));await assert.rejects(()=>act('gossip_defer',{declaration_id:first.id,previous_truth:null}),/이야기꾼/);await login(host);s=await snapshot();await assert.rejects(()=>act('bmr_auto_commit',{auto:{...s.bmr.auto,phase:'NIGHT'},operation:'execution'}),/험담/);
+ await act('gossip_judge',{declaration_id:first.id,truth:true,previous_truth:null});s=await snapshot();assert.equal(s.gossip_declarations[0].deferred,false);
  const real=structuredClone(s.bmr.auto.gossip),bluff=s.gossip_declarations[1];
  await act('gossip_judge',{declaration_id:bluff.id,truth:true,previous_truth:null});assert.deepEqual((await snapshot()).bmr.auto.gossip,real,'bluff does not replace genuine statement');
  await assert.rejects(()=>act('gossip_judge',{declaration_id:first.id,truth:false,previous_truth:null}),/変更|변경/);

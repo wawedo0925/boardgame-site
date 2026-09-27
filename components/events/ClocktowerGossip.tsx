@@ -22,11 +22,7 @@ export default function ClocktowerGossip({ state, busy, error, allowPopup, run }
   const canDeclare = available.some(m => m.user_id === who);
   const name = (id: string) => state.members?.find(m => m.user_id === id)?.name ?? '참가자';
   const acknowledge = async (g: LiveGossip) => { await run('gossip_ack', { declaration_id: g.id }); };
-  const judgment = (g: LiveGossip) => state.is_host && g.day === room.night && <div className="mt-3 space-y-2">
-    <p className="text-sm text-amber-200">이야기꾼 전용 · 실제 역할: {state.members?.find(m => m.user_id === g.actor)?.actual_role} · 판정: {g.truth == null ? '미판정' : g.truth ? '참' : '거짓'}</p>
-    <div className="flex gap-3">{[true, false].map(truth => <button key={String(truth)} className={`${button} flex-1 ${g.truth === truth ? 'border-violet-300 bg-violet-400/20' : ''}`} aria-pressed={g.truth === truth} disabled={busy || blocked || g.truth === truth} onClick={() => void run('gossip_judge', { declaration_id: g.id, day: g.day, truth, previous_truth: g.truth ?? null })}>{truth ? '참' : '거짓'}</button>)}</div>
-    <p className="text-xs text-zinc-400">판정은 참가자에게 공개되지 않습니다. 진짜 험담꾼의 발언만 밤 능력에 반영되며, 취함·중독·생존 여부는 밤에 확인합니다.</p>
-  </div>;
+  const judgment = (g: LiveGossip) => gossipJudgment({g,state,busy,blocked,run});
 
   return <section className="my-5 space-y-3 rounded-2xl border border-violet-300/30 p-4">
     <h2 className="text-xl font-bold">험담 공개 선언</h2>
@@ -51,4 +47,12 @@ export default function ClocktowerGossip({ state, busy, error, allowPopup, run }
       <button className={`${button} mt-5 w-full`} disabled={busy} onClick={() => void acknowledge(unread)}>확인</button>
     </ClocktowerPopup>}
   </section>;
+}
+
+export function gossipJudgment({g,state,busy,blocked,run}: {g:LiveGossip; state:LiveState; busy:boolean; blocked:boolean; run:Props["run"]}) {
+  return state.is_host && g.day === state.room?.night && <div className="mt-3 space-y-2">
+    <p className="text-sm text-amber-200">이야기꾼 전용 · 실제 역할: {state.members?.find(m => m.user_id === g.actor)?.actual_role} · 판정: {g.truth == null ? (g.deferred ? '판정 보류' : '미판정') : g.truth ? '참' : '거짓'}</p>
+    <div className="flex flex-wrap gap-3">{[true, false].map(truth => <button key={String(truth)} className={`${button} flex-1 ${g.truth === truth ? 'border-violet-300 bg-violet-400/20' : ''}`} aria-pressed={g.truth === truth} disabled={busy || blocked || g.truth === truth} onClick={() => void run('gossip_judge', { declaration_id: g.id, day: g.day, truth, previous_truth: g.truth ?? null })}>{truth ? '참' : '거짓'}</button>)}<button className={button} disabled={busy || blocked || !!g.deferred && g.truth == null} onClick={() => void run('gossip_defer', { declaration_id:g.id, day:g.day, previous_truth:g.truth ?? null })}>나중에 판단</button></div>
+    <p className="text-xs text-zinc-400">판정은 참가자에게 공개되지 않습니다. 진짜 험담꾼의 발언만 밤 능력에 반영되며, 취함·중독·생존 여부는 밤에 확인합니다.</p>
+  </div>;
 }
