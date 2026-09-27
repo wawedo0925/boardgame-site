@@ -6,8 +6,9 @@ import { teamScoreLabel } from "@/lib/tichu";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { participationEventCount } from "@/lib/events/participation-count";
 
-type EventRow = { id: string; title: string; started_at: string; event_status: "OPEN" | "CLOSED" | null; attendance_status?: "REGISTERED" | "PRESENT" | "ABSENT" };
+type EventRow = { id: string; title: string; started_at: string; event_kind: string | null; event_status: "OPEN" | "CLOSED" | null; attendance_status?: "REGISTERED" | "PRESENT" | "ABSENT" };
 type JoinedRow = { event_id: string; attendance_status: EventRow["attendance_status"] };
 type SessionRow = { id: string; event_id: string; game_id: string; result_type: "SCORE" | "SIMPLE_SCORE" | "ROLE" | null; games: { id: string; name: string } | { id: string; name: string }[] | null };
 type RoundRow = { id: string; session_id: string; round_number: number; created_at: string };
@@ -64,7 +65,7 @@ export default function EventPlayHistory({ userId }: { userId?: string } = {}) {
         if (!eventIds.length) return;
 
         const [{ data: eventData, error: eventError }, { data: sessionData, error: sessionError }] = await Promise.all([
-          supabase.from("events").select("id, title, started_at, event_status").in("id", eventIds).order("started_at", { ascending: false }),
+          supabase.from("events").select("id, title, started_at, event_kind, event_status").in("id", eventIds).order("started_at", { ascending: false }),
           supabase.from("event_game_sessions").select("id, event_id, game_id, result_type, games(id, name)").in("event_id", eventIds),
         ]);
         if (eventError) throw eventError;
@@ -109,6 +110,7 @@ export default function EventPlayHistory({ userId }: { userId?: string } = {}) {
   }, [supabase, userId]);
 
   const playerPlays = plays.filter(play => !play.is_gm);
+  const participationCount = participationEventCount(events);
   const gmCount = plays.length - playerPlays.length;
   const uniqueGames = new Set(playerPlays.map(play => play.gameId)).size;
   const firstPlaces = playerPlays.filter(play => play.rank === 1).length;
@@ -122,7 +124,7 @@ export default function EventPlayHistory({ userId }: { userId?: string } = {}) {
   return <section className="mt-8 rounded-3xl border border-emerald-400/20 bg-emerald-400/[0.035] p-5 sm:p-8">
     <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-sm font-semibold tracking-[0.2em] text-emerald-300">EVENT PLAY HISTORY</p><h2 className="mt-2 text-2xl font-bold">이벤트 플레이 기록</h2><p className="mt-2 text-sm text-zinc-500">이벤트에서 입력된 게임 판과 결과를 자동으로 모았습니다.</p></div><Link href="/events" className="rounded-xl border border-white/10 px-4 py-2 text-sm text-zinc-300 hover:bg-white/5">이벤트 보기</Link></div>
     {loading ? <div className="mt-6 h-40 animate-pulse rounded-2xl bg-white/[0.04]"/> : error ? <p className="mt-6 rounded-2xl border border-red-400/20 bg-red-400/[0.06] p-4 text-sm text-red-300">{error}</p> : <>
-      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5"><Stat label="참여 이벤트" value={`${events.length}개`}/><Stat label="전체 플레이" value={`${playerPlays.length}판`}/><Stat label="플레이 게임" value={`${uniqueGames}종`}/><Stat label="점수/등수형 1등" value={`${firstPlaces}회`}/><Stat label="팀·역할 승률" value={roleResults.length ? `${Math.round(roleWins / roleResults.length * 100)}%` : "-"}/></div>
+      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5"><Stat label="참여 이벤트" value={`${participationCount}개`}/><Stat label="전체 플레이" value={`${playerPlays.length}판`}/><Stat label="플레이 게임" value={`${uniqueGames}종`}/><Stat label="점수/등수형 1등" value={`${firstPlaces}회`}/><Stat label="팀·역할 승률" value={roleResults.length ? `${Math.round(roleWins / roleResults.length * 100)}%` : "-"}/></div>
       {gmCount > 0 && <p className="mt-3 text-sm text-violet-300">GM 진행 {gmCount}회 · 플레이 통계에서 제외</p>}
       <div className="mt-6 grid gap-5 lg:grid-cols-[0.85fr_1.5fr]">
         <article className="rounded-2xl border border-white/10 bg-zinc-950/40 p-4"><h3 className="font-bold">자주 플레이한 게임</h3><div className="mt-3 space-y-2">{topGames.map((game, index) => <Link key={game.id} href={`/boardgames/${game.id}`} className="flex justify-between rounded-xl bg-white/[0.04] px-3 py-3 text-sm hover:bg-white/[0.08]"><span><b className="mr-2 text-emerald-300">{index + 1}</b>{game.name}</span><strong>{game.count}판</strong></Link>)}{!topGames.length && <p className="py-6 text-center text-sm text-zinc-600">아직 입력된 결과가 없습니다.</p>}</div></article>
