@@ -1,8 +1,11 @@
 import type { SeatLayout } from './live';
 
+export const SEATING_X_SCALE = 0.55;
+export const SEATING_Y_SCALE = 1.65;
+
 // Rotate coordinates only: labels stay upright and saved seats remain unchanged.
 export function seatingView(layout: SeatLayout, degrees: number) {
-  const entries = Object.entries(layout).map(([id, p]) => [id, { x: p.x * 0.6, y: p.y * 1.5 }] as const);
+  const entries = Object.entries(layout).map(([id, p]) => [id, { x: p.x * SEATING_X_SCALE, y: p.y * SEATING_Y_SCALE }] as const);
   if (!entries.length) return { positions: {} as SeatLayout, width: 600, height: 240 };
   const xs = entries.map(([, p]) => p.x), ys = entries.map(([, p]) => p.y);
   const cx = (Math.min(...xs) + Math.max(...xs)) / 2;

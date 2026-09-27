@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ClocktowerPopup from './ClocktowerPopup';
 import {clickedSeatOrder,seatOrderSwaps} from '@/lib/clocktower/seat-order';
-import { seatingView } from '@/lib/clocktower/seating-view';
+import { SEATING_X_SCALE, SEATING_Y_SCALE, seatingView } from '@/lib/clocktower/seating-view';
 import useClocktowerPinch from './useClocktowerPinch';
 import ClocktowerPersonalNotes from './ClocktowerPersonalNotes';
 import useClocktowerMemberNotes from './useClocktowerMemberNotes';
@@ -85,7 +85,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
 
   function point(clientX: number, clientY: number) {
     const rect = board.current!.getBoundingClientRect();
-    return { x: (clientX - rect.left) / scale / 0.6, y: (clientY - rect.top) / scale / 1.5 };
+    return { x: (clientX - rect.left) / scale / SEATING_X_SCALE, y: (clientY - rect.top) / scale / SEATING_Y_SCALE };
   }
   function move(id: string, x: number, y: number) {
     setDraft(current => ({ ...(current ?? positions), [id]: { x: clamp(x, 60, 940), y: clamp(y, 40, 660) } }));
@@ -177,7 +177,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
                 const active = drag.current;
                 if (!editing || busy || !active || active.id !== member.user_id || active.pointerId !== e.pointerId) return;
                 e.preventDefault();
-                move(member.user_id, active.x + (e.clientX - active.clientX) / scale / 0.6, active.y + (e.clientY - active.clientY) / scale / 1.5);
+                move(member.user_id, active.x + (e.clientX - active.clientX) / scale / SEATING_X_SCALE, active.y + (e.clientY - active.clientY) / scale / SEATING_Y_SCALE);
               }}
               onPointerUp={e => {
                 if (drag.current?.pointerId === e.pointerId) drag.current = null;

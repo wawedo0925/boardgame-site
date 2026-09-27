@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm'),ts=require('typescript');
+const m={exports:{}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/clocktower/popups.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:m.exports,module:m,require:id=>id==='./flow'?{flowLabel:()=> '진행 단계'}:{}});
+const base={room:{id:'room',script:'TB',phase:'DAY',night:2,day_stage:'PRIVATE'},members:[{user_id:'a',name:'우영',alive:false},{user_id:'b',name:'효원',alive:true}],engine:{deaths:{a:{night:2,role:'군인'}},execution:{night:1,user_id:'b',role:'성자'}}};
+assert.match(m.exports.phaseAnnouncement(base).description,/지난밤 우영님이 사망했습니다/);
+assert.match(m.exports.phaseAnnouncement({...base,engine:{deaths:{}}}).description,/아무 일도 일어나지 않았습니다/);
+assert.match(m.exports.phaseAnnouncement({...base,room:{...base.room,phase:'NIGHT',night:2}}).description,/효원님이 사망했습니다/);
+assert.match(m.exports.phaseAnnouncement({...base,room:{...base.room,phase:'NIGHT',night:1},engine:{deaths:{}}}).description,/첫날 밤/);
+const bmr={...base,room:{...base.room,script:'BMR'},bmr:{auto:{deaths:[{id:'a',role:'도박사',night:2,phase:'NIGHT',demon:false}]}},engine:undefined};
+assert.match(m.exports.phaseAnnouncement(bmr).description,/우영님이 사망했습니다/);
+assert.match(m.exports.phaseAnnouncement({...bmr,room:{...bmr.room,phase:'NIGHT',night:3},bmr:{auto:{deaths:[]}},votes:[{day:2,status:'DONE',threshold:1,nominee:'b',ballots:{a:true}}]}).description,/효원님이 처형되었지만 사망하지 않았습니다/);
+assert.equal(m.exports.phaseAnnouncement(base).key,'room:2:DAY:PRIVATE');
+console.log('PASS: phase announcements report public execution and night deaths');
