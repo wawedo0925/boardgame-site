@@ -64,8 +64,9 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
   const ordered = members.map(m=>({...m,seat:orderDraft?.[m.user_id]??m.seat})).sort((a, b) => a.seat - b.seat);
   const defaults = gridLayout(members);
   const positions = (editable ? draft : null) ?? Object.fromEntries(ordered.map(m => [m.user_id, layout[m.user_id] ?? defaults[m.user_id]]));
-  const minimumZoom = Math.max(0.7, fit);
-  const scale = Math.max(minimumZoom, zoom ?? minimumZoom);
+  const minimumZoom = 0.35;
+  const fittedZoom = Math.max(minimumZoom, fit);
+  const scale = Math.max(minimumZoom, zoom ?? fittedZoom);
   const geometry = seatingView(positions, rotation);
   const boardHeight = mode === 'move' ? 1050 : geometry.height;
   const editing = editable && mode === 'move';
@@ -75,7 +76,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
   useEffect(() => {
     const element = viewport.current;
     if (!element) return;
-    const observer = new ResizeObserver(() => {if(element.clientWidth>0)setFit(Math.min(1, Math.max(0.2, element.clientWidth / 760)));});
+    const observer = new ResizeObserver(() => {if(element.clientWidth>0)setFit(Math.min(1, Math.max(minimumZoom, element.clientWidth / 900)));});
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
@@ -143,9 +144,9 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
     {orderError&&<p role="alert" className="mt-3 text-red-300">{orderError}</p>}
     {editing && <p role="status" className="mt-3 text-sm text-violet-200">카드를 끌어 놓거나, 카드를 누른 뒤 빈 곳을 누르세요. 선택한 카드는 방향키로도 이동할 수 있습니다. 저장 전에는 본인 화면에만 보입니다.</p>}
     {editable && mode === 'order' && <p role="status" className="mt-3 text-sm text-violet-200">누른 순서대로 1번부터 지정됩니다. 전체 {members.length}명 중 {chosen.length}명 선택. 다시 누르면 선택을 취소합니다. 두 명만 선택했다면 ‘두 사람 순번 바꾸기’를 누르세요. 마지막에 ‘순서 저장’을 눌러 반영합니다.</p>}
-    <div className="mt-4 flex flex-wrap items-center gap-2"><button className={control} onClick={() => setZoom(minimumZoom)}>전체 보기</button><button className={control} onClick={() => setZoom(1)}>읽기 편하게</button><button className={control} disabled={scale <= minimumZoom} onClick={() => setZoom(Math.max(minimumZoom, scale - 0.15))} aria-label="배치 축소">−</button><span className="w-12 text-center text-xs text-zinc-400">{Math.round(scale * 100)}%</span><button className={control} onClick={() => setZoom(Math.min(2.5, scale + 0.15))} aria-label="배치 확대">＋</button><button disabled={mode!=='view'} aria-pressed={rotating} className={control} onClick={()=>setRotating(!rotating)}>배치 돌리기</button><label className="ml-auto flex items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={showOrder} onChange={e => setShowOrder(e.target.checked)} />이웃 연결선</label></div>
+    <div className="mt-4 flex flex-wrap items-center gap-2"><button className={control} onClick={() => setZoom(fittedZoom)}>전체 보기</button><button className={control} onClick={() => setZoom(1)}>읽기 편하게</button><button className={control} disabled={scale <= minimumZoom} onClick={() => setZoom(Math.max(minimumZoom, scale - 0.15))} aria-label="배치 축소">−</button><span className="w-12 text-center text-xs text-zinc-400">{Math.round(scale * 100)}%</span><button className={control} onClick={() => setZoom(Math.min(2.5, scale + 0.15))} aria-label="배치 확대">＋</button><button disabled={mode!=='view'} aria-pressed={rotating} className={control} onClick={()=>setRotating(!rotating)}>배치 돌리기</button><label className="ml-auto flex items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={showOrder} onChange={e => setShowOrder(e.target.checked)} />이웃 연결선</label></div>
     {rotating && <div className="mt-3 flex flex-wrap items-center gap-3"><label className="flex items-center gap-3 text-sm">회전 {rotation}°<input aria-label="배치 회전 각도" type="range" min="0" max="360" step="5" value={rotation} onChange={e=>setRotation(Number(e.target.value))} /></label><button className={control} onClick={()=>setRotation(0)}>원래 방향</button><span className="text-xs text-zinc-400">내 화면에만 적용됩니다.</span></div>}
-    <div ref={viewport} {...pinch} className="mt-4 overflow-auto rounded-2xl border border-white/10 bg-zinc-950" style={{ maxWidth: 600, height: Math.min(1000, (boardHeight + 96) * minimumZoom), touchAction: 'none' }}>
+    <div ref={viewport} {...pinch} className="mt-4 overflow-auto rounded-2xl border border-white/10 bg-zinc-950" style={{ maxWidth: 600, height: Math.min(1000, (boardHeight + 96) * fittedZoom), touchAction: 'none' }}>
       {!ordered.length ? <p className="p-10 text-center text-zinc-400">아직 배정된 참가자가 없습니다.</p> : <div style={{ width: (geometry.width + 160) * scale, height: (boardHeight + 96) * scale }} className="relative">
         <div ref={board} data-testid="seating-board" className="absolute origin-top-left" style={{ left:80*scale,top:80*scale,width: geometry.width, height: boardHeight, transform: `scale(${scale})`, backgroundImage: 'radial-gradient(#ffffff16 1px, transparent 1px)', backgroundSize: '20px 20px' }} onClick={e => { if (editing && !busy && selected) { const p = point(e.clientX, e.clientY); move(selected, p.x, p.y); setSelected(null); } }}>
           {!storyteller && mode==='view' && <p className="pointer-events-none absolute left-0 -top-16 z-10 text-xs leading-5 text-zinc-300">멤버를 클릭하여<br/>예상 역할/메모<br/>작성해보세요</p>}
