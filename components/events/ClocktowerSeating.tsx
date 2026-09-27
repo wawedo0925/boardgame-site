@@ -60,7 +60,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
   const [fit, setFit] = useState(0.7);
   const viewport = useRef<HTMLDivElement>(null);
   const board = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const drag = useRef<{ id: string; pointerId: number; clientX: number; clientY: number; x: number; y: number } | null>(null);
   const ordered = members.map(m=>({...m,seat:orderDraft?.[m.user_id]??m.seat})).sort((a, b) => a.seat - b.seat);
   const defaults = gridLayout(members);
   const positions = (editable ? draft : null) ?? Object.fromEntries(ordered.map(m => [m.user_id, layout[m.user_id] ?? defaults[m.user_id]]));
@@ -165,9 +165,29 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
             </>;
             return editable && mode !== 'view' ? <button key={member.user_id} data-testid={`seat-${member.user_id}`} title={storyteller?`${member.name} · ${member.actual_role??'미배정'} · ${flags.join(' / ')}${member.notes?` · ${member.notes}`:''}`:member.name} style={{ ...style, touchAction: editing ? 'none' : 'auto' }} className={`${className} ${editing ? 'cursor-grab active:cursor-grabbing' : ''} disabled:opacity-50`} aria-pressed={mode==='order'?chosen.includes(member.user_id):selected === member.user_id} disabled={busy}
               onClick={e => { e.stopPropagation(); if (mode === 'order') void chooseOrder(member); }}
-              onPointerDown={e => { if (!editing || busy) return; e.stopPropagation(); const p = point(e.clientX, e.clientY); drag.current = { id: member.user_id, dx: p.x - pos.x, dy: p.y - pos.y }; setSelected(member.user_id); e.currentTarget.setPointerCapture(e.pointerId); }}
-              onPointerMove={e => { if (!editing || busy || drag.current?.id !== member.user_id) return; const p = point(e.clientX, e.clientY); move(member.user_id, p.x - drag.current.dx, p.y - drag.current.dy); }}
-              onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}
+              onPointerDown={e => {
+                if (!editing || busy) return;
+                e.stopPropagation();
+                drag.current = { id: member.user_id, pointerId: e.pointerId, clientX: e.clientX, clientY: e.clientY, x: pos.x, y: pos.y };
+                setSelected(member.user_id);
+                e.currentTarget.setPointerCapture(e.pointerId);
+              }}
+              onPointerMove={e => {
+                const active = drag.current;
+                if (!editing || busy || !active || active.id !== member.user_id || active.pointerId !== e.pointerId) return;
+                e.preventDefault();
+                move(member.user_id, active.x + (e.clientX - active.clientX) / scale / 0.6, active.y + (e.clientY - active.clientY) / scale / 1.5);
+              }}
+              onPointerUp={e => {
+                if (drag.current?.pointerId === e.pointerId) drag.current = null;
+                if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+              }}
+              onPointerCancel={e => {
+                if (drag.current?.pointerId === e.pointerId) drag.current = null;
+              }}
+              onLostPointerCapture={e => {
+                if (drag.current?.pointerId === e.pointerId) drag.current = null;
+              }}
               onKeyDown={e => { if (!editing || busy) return; const delta = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[e.key]; if (delta) { e.preventDefault(); setSelected(member.user_id); move(member.user_id, pos.x + delta[0], pos.y + delta[1]); } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(member.user_id); } }}
             >{content}</button> : tallying && vote ? <button key={member.user_id} aria-pressed={voted} aria-label={`${member.name} · ${voted?'찬성 취소':'찬성으로 집계'}`} disabled={busy||!vote.voter_order.includes(member.user_id)||(!member.alive&&member.ghost_vote_used&&!voted)} className={`${className} ${voted?'outline outline-4 outline-violet-500':''} disabled:cursor-not-allowed`} style={style} onClick={()=>void onRecordVote?.(vote.id,member.user_id,!voted)}>{content}</button> : !storyteller && roomId && myId ? <button key={member.user_id} title={`${member.name} · 예상 역할과 메모`} className={`${className} disabled:cursor-not-allowed`} style={style} onClick={()=>setNominee(member)}>{content}{nominated.includes(member.user_id)&&<span className="mt-1 text-[10px]">오늘 지목받음</span>}</button> : <div key={member.user_id} title={member.name} className={className} style={style}>{content}</div>;
           })}
