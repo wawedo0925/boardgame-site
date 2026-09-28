@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { isAuthSessionMissingError, type User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
@@ -25,10 +25,6 @@ type Profile = {
 };
 
 type SiteRole = "MAIN_ADMIN" | "ADMIN" | "RULE_MASTER" | "MURDER_GM" | "MEMBER";
-
-type PlayRecordRow = {
-  play_record_games: { play_count: number | null }[] | null;
-};
 
 type PlayerLevel = {
   emoji: string;
@@ -104,11 +100,17 @@ export default function Header() {
   const [siteRole, setSiteRole] = useState<SiteRole>("MEMBER");
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isLogoutLoading, setIsLogoutLoading] = useState(false);
+  const loadedUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadMemberData(userId: string) {
+      // getUser()와 초기 SIGNED_IN 이벤트가 동시에 발생해도 무거운 회원
+      // 데이터를 중복 조회하지 않는다.
+      if (loadedUserIdRef.current === userId) return;
+      loadedUserIdRef.current = userId;
+
       const [profileResponse, playTotalResponse, roleResponse, attendanceResponse] = await Promise.all([
         supabase
           .from("profiles")
@@ -132,10 +134,11 @@ export default function Header() {
       }
 
       if (playTotalResponse.error) {
-        // DB migration 적용 전에도 기존 기능은 유지한다.
-        const fallback=await supabase.from("play_records").select("play_record_games(play_count)").eq("user_id",userId);
-        if(fallback.error){console.error("Header 플레이 기록 조회 오류:",fallback.error);setTotalPlayCount(0);}
-        else setTotalPlayCount(((fallback.data??[]) as PlayRecordRow[]).reduce((sum,record)=>sum+(record.play_record_games??[]).reduce((gameSum,game)=>gameSum+(game.play_count??0),0),0));
+        // 합계 RPC가 아직 적용되지 않았더라도 전체 플레이 기록을 다시
+        // 내려받지 않는다. 헤더 때문에 로그인 화면 전체가 무거워지는 것을
+        // 막고 등급만 안전한 기본값으로 표시한다.
+        console.error("Header 플레이 합계 조회 오류:", playTotalResponse.error);
+        setTotalPlayCount(0);
       } else {
         setTotalPlayCount(Number(playTotalResponse.data??0));
       }
@@ -172,6 +175,7 @@ export default function Header() {
       if (currentUser) {
         await loadMemberData(currentUser.id);
       } else {
+        loadedUserIdRef.current = null;
         setProfile(null);
         setTotalPlayCount(0);
         setHasConfirmedAttendance(false);
@@ -195,6 +199,7 @@ export default function Header() {
       if (currentUser) {
         void loadMemberData(currentUser.id);
       } else {
+        loadedUserIdRef.current = null;
         setProfile(null);
         setTotalPlayCount(0);
         setHasConfirmedAttendance(false);
