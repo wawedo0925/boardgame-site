@@ -12,12 +12,13 @@ const {PGlite}=require("../.local-reference/clocktower/test-runtime/node_modules
  await db.exec(fs.readFileSync("supabase/migrations/20260929060000_tichu_host_leave_cleanup.sql","utf8"));
  await db.exec(fs.readFileSync("supabase/migrations/20260929070000_tichu_avatars.sql","utf8"));
  await db.exec(fs.readFileSync("supabase/migrations/20260929080000_tichu_layered_avatars.sql","utf8"));
+ await db.exec(fs.readFileSync("supabase/migrations/20260929090000_tichu_avatar_art_v2.sql","utf8"));
  const ids=[1,2,3,4].map(n=>`00000000-0000-0000-0000-00000000000${n}`);
  for(let i=0;i<4;i++)await db.exec(`insert into auth.users values('${ids[i]}');insert into profiles(id,activity_name,gender) values('${ids[i]}','멤버${i+1}','${i%2?'여':'남'}')`);
  const as=async(i,sql)=>{await db.exec(`select set_config('request.jwt.claim.sub','${ids[i]}',false)`);return db.query(sql)};
- await as(0,"select public.tichu_set_avatar(7,8,6,5,4,11,4)");
+ await as(0,"select public.tichu_set_avatar(15,8,6,7,11,11,4)");
  let avatar=(await as(0,"select public.tichu_my_avatar() avatar")).rows[0].avatar;
- if(Number(avatar.hair)!==7||Number(avatar.skin)!==8||Number(avatar.hairColor)!==6||Number(avatar.expression)!==5||Number(avatar.outfit)!==4||Number(avatar.accessory)!==11||Number(avatar.frame)!==4)throw new Error("avatar save failed");
+ if(Number(avatar.hair)!==15||Number(avatar.skin)!==8||Number(avatar.hairColor)!==6||Number(avatar.expression)!==7||Number(avatar.outfit)!==11||Number(avatar.accessory)!==11||Number(avatar.frame)!==4)throw new Error("avatar save failed");
  const room=(await as(0,`select public.tichu_create_room(null,1000,15) id`)).rows[0].id;
  for(let i=1;i<4;i++)await as(i,`select public.tichu_join_room('${room}'::uuid)`);
  await as(0,`select public.tichu_set_target_score('${room}',1200)`);
