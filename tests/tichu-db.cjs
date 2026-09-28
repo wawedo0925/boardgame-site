@@ -9,6 +9,7 @@ const {PGlite}=require("../.local-reference/clocktower/test-runtime/node_modules
  await db.exec(fs.readFileSync("supabase/migrations/20260929030000_tichu_waiting_score_setting.sql","utf8"));
  await db.exec(fs.readFileSync("supabase/migrations/20260929040000_tichu_force_leave_game.sql","utf8"));
  await db.exec(fs.readFileSync("supabase/migrations/20260929050000_tichu_host_next_round.sql","utf8"));
+ await db.exec(fs.readFileSync("supabase/migrations/20260929060000_tichu_host_leave_cleanup.sql","utf8"));
  const ids=[1,2,3,4].map(n=>`00000000-0000-0000-0000-00000000000${n}`);
  for(let i=0;i<4;i++)await db.exec(`insert into auth.users values('${ids[i]}');insert into profiles values('${ids[i]}','멤버${i+1}','${i%2?'여':'남'}')`);
  const as=async(i,sql)=>{await db.exec(`select set_config('request.jwt.claim.sub','${ids[i]}',false)`);return db.query(sql)};
@@ -36,5 +37,8 @@ const {PGlite}=require("../.local-reference/clocktower/test-runtime/node_modules
  await as(1,`select public.tichu_leave_room('${room}')`);
  state=(await db.query(`select status,(select count(*) from tichu_players where room_id='${room}') players from tichu_rooms where id='${room}'`)).rows[0];
  if(state.status!=="FINISHED"||Number(state.players)!==3)throw new Error("force leave failed");
+ await as(0,`select public.tichu_leave_room('${room}')`);
+ state=(await db.query(`select count(*) rooms from tichu_rooms where id='${room}'`)).rows[0];
+ if(Number(state.rooms)!==0)throw new Error("host leave did not delete room");
  console.log("PASS: Tichu setup, exchange, scoring and forced game leave");await db.close();
 })().catch(e=>{console.error(e);process.exit(1)});
