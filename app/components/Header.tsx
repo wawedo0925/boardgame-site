@@ -9,6 +9,7 @@ const MOBILE_LINKS = [
   { href: "/events", label: "모임 일정" },
   { href: "/boardgames", label: "보드게임" },
   { href: "/murder-mystery", label: "머더미스터리" },
+  { href: "/tichu", label: "티츄" },
   { href: "/reviews", label: "게임 평가" },
   { href: "/rankings", label: "게임 랭킹" },
   { href: "/mypage", label: "마이페이지" },
