@@ -49,11 +49,12 @@ export async function updateSession(request: NextRequest) {
       .maybeSingle();
 
     if (!profileError) {
+      const hasValue = (value: unknown) => String(value ?? "").trim().length > 0;
       const hasCompleteActivityProfile = Boolean(
-        profile?.activity_name?.trim() &&
-          profile?.birth_year?.trim() &&
-          profile?.region?.trim() &&
-          profile?.gender?.trim(),
+        hasValue(profile?.activity_name) &&
+          hasValue(profile?.birth_year) &&
+          hasValue(profile?.region) &&
+          hasValue(profile?.gender),
       );
 
       if (!hasCompleteActivityProfile) {

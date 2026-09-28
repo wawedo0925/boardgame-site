@@ -4,9 +4,9 @@ const bell=fs.readFileSync('components/notifications/NotificationBell.tsx','utf8
 const events=fs.readFileSync('app/events/page.tsx','utf8');
 const mystery=fs.readFileSync('components/mypage/MurderMysteryHistory.tsx','utf8');
 const images=fs.readFileSync('lib/image-upload.ts','utf8');
-assert.match(header,/rpc\("my_legacy_play_total"\)/);
-assert.doesNotMatch(bell,/setInterval/);
-assert.match(bell,/postgres_changes/);
+assert.doesNotMatch(header,/rpc\("my_legacy_play_total"\)/);
+assert.match(header,/from\("play_records"\)/);
+assert.match(bell,/setInterval/);
 assert.match(events,/sevenDaysAgo/);
 assert.match(events,/전체 종료 일정 보기/);
 assert.match(mystery,/recordQuery\.limit\(3\)/);

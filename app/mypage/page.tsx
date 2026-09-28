@@ -17,7 +17,7 @@ function SectionLoading(){return <div className="mt-8 h-36 animate-pulse rounded
 type Profile = {
   id: string;
   activity_name: string | null;
-  birth_year: string | null;
+  birth_year: string | number | null;
   region: string | null;
   gender: string | null;
   created_at: string;
@@ -164,11 +164,12 @@ function makeDisplayName(profile: Profile | null) {
 }
 
 function hasCompleteActivityProfile(profile: Profile | null) {
+  const hasValue = (value: unknown) => String(value ?? "").trim().length > 0;
   return Boolean(
-    profile?.activity_name?.trim() &&
-      profile?.birth_year?.trim() &&
-      profile?.region?.trim() &&
-      profile?.gender?.trim(),
+    hasValue(profile?.activity_name) &&
+      hasValue(profile?.birth_year) &&
+      hasValue(profile?.region) &&
+      hasValue(profile?.gender),
   );
 }
 

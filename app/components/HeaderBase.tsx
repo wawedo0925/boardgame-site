@@ -19,12 +19,16 @@ const menuItems = [
 
 type Profile = {
   activity_name: string | null;
-  birth_year: string | null;
+  birth_year: string | number | null;
   region: string | null;
   gender: string | null;
 };
 
 type SiteRole = "MAIN_ADMIN" | "ADMIN" | "RULE_MASTER" | "MURDER_GM" | "MEMBER";
+
+type PlayRecordRow = {
+  play_record_games: { play_count: number | null }[] | null;
+};
 
 type PlayerLevel = {
   emoji: string;
@@ -111,13 +115,16 @@ export default function Header() {
       if (loadedUserIdRef.current === userId) return;
       loadedUserIdRef.current = userId;
 
-      const [profileResponse, playTotalResponse, roleResponse, attendanceResponse] = await Promise.all([
+      const [profileResponse, playResponse, roleResponse, attendanceResponse] = await Promise.all([
         supabase
           .from("profiles")
           .select("activity_name, birth_year, region, gender")
           .eq("id", userId)
           .maybeSingle(),
-        supabase.rpc("my_legacy_play_total"),
+        supabase
+          .from("play_records")
+          .select("play_record_games(play_count)")
+          .eq("user_id", userId),
         supabase.rpc("current_site_role"),
         supabase.rpc("has_confirmed_event_attendance"),
       ]);
@@ -133,14 +140,18 @@ export default function Header() {
         setProfile(profileResponse.data as Profile | null);
       }
 
-      if (playTotalResponse.error) {
-        // 합계 RPC가 아직 적용되지 않았더라도 전체 플레이 기록을 다시
-        // 내려받지 않는다. 헤더 때문에 로그인 화면 전체가 무거워지는 것을
-        // 막고 등급만 안전한 기본값으로 표시한다.
-        console.error("Header 플레이 합계 조회 오류:", playTotalResponse.error);
+      if (playResponse.error) {
+        console.error("Header 플레이 기록 조회 오류:", playResponse.error);
         setTotalPlayCount(0);
       } else {
-        setTotalPlayCount(Number(playTotalResponse.data??0));
+        const records = (playResponse.data ?? []) as PlayRecordRow[];
+        setTotalPlayCount(records.reduce(
+          (sum, record) => sum + (record.play_record_games ?? []).reduce(
+            (gameSum, game) => gameSum + (game.play_count ?? 0),
+            0,
+          ),
+          0,
+        ));
       }
 
       if (roleResponse.error) {
