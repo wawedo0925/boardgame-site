@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "와위두 보드라운지의 보드게임 정보와 이벤트 일정을 확인하세요.",
     start_url: "/",
     display: "standalone",
-    background_color: "#09090b",
-    theme_color: "#09090b",
+    background_color: "#0b274d",
+    theme_color: "#0b274d",
     icons: [
       {
         src: "/boardlounge-icon-512-v3.png",

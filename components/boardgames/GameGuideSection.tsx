@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { optimizeImage } from "@/lib/image-upload";
 
 type RuleNote = { id:string; category:"PREP"|"PLAY"|"SCORING"|"TIP"; content:string; sort_order:number };
 type OrganizerImage = { id:string; storage_path:string; caption:string|null; sort_order:number };
@@ -60,7 +61,7 @@ export default function GameGuideSection({gameId}:{gameId:string}) {
   async function editNote(row:RuleNote){const content=prompt("룰 메모를 수정하세요.",row.content)?.trim();if(!content||content===row.content)return;const{error}=await supabase.from("game_rule_notes").update({content,updated_at:new Date().toISOString()}).eq("id",row.id);if(error)alert(error.message);else await load()}
   async function removeNote(id:string){if(!confirm("이 룰 메모를 삭제할까요?"))return;const{error}=await supabase.from("game_rule_notes").delete().eq("id",id);if(error)alert(error.message);else await load()}
 
-  async function uploadImage(file:File|null){if(!file||!userId)return;if(images.length>=3){alert("사진은 게임당 최대 3장입니다.");return}if(!["image/jpeg","image/png","image/webp"].includes(file.type)){alert("JPG, PNG, WEBP 사진만 올릴 수 있습니다.");return}if(file.size>5*1024*1024){alert("사진 한 장은 5MB 이하여야 합니다.");return}const ext=file.name.split(".").pop()?.toLowerCase()||"jpg";const path=`${gameId}/${crypto.randomUUID()}.${ext}`;try{setBusy(true);const{error:uploadError}=await supabase.storage.from("game-organizers").upload(path,file,{contentType:file.type});if(uploadError)throw uploadError;const{error}=await supabase.from("game_organizer_images").insert({game_id:gameId,storage_path:path,caption:caption.trim()||null,sort_order:images.length,created_by:userId});if(error){await supabase.storage.from("game-organizers").remove([path]);throw error}setCaption("");await load()}catch(e){alert(e instanceof Error?e.message:"사진을 올리지 못했습니다.")}finally{setBusy(false)}}
+  async function uploadImage(file:File|null){if(!file||!userId)return;if(images.length>=3){alert("사진은 게임당 최대 3장입니다.");return}try{setBusy(true);const optimized=await optimizeImage(file,{maxWidth:1600,maxHeight:1600});const path=`${gameId}/${crypto.randomUUID()}.webp`;const{error:uploadError}=await supabase.storage.from("game-organizers").upload(path,optimized,{contentType:optimized.type});if(uploadError)throw uploadError;const{error}=await supabase.from("game_organizer_images").insert({game_id:gameId,storage_path:path,caption:caption.trim()||null,sort_order:images.length,created_by:userId});if(error){await supabase.storage.from("game-organizers").remove([path]);throw error}setCaption("");await load()}catch(e){alert(e instanceof Error?e.message:"사진을 올리지 못했습니다.")}finally{setBusy(false)}}
   async function editImage(row:OrganizerImage){const value=prompt("사진 설명을 수정하세요.",row.caption??"");if(value===null)return;const{error}=await supabase.from("game_organizer_images").update({caption:value.trim()||null,updated_at:new Date().toISOString()}).eq("id",row.id);if(error)alert(error.message);else await load()}
   async function removeImage(row:OrganizerImage){if(!confirm("이 사진을 삭제할까요?"))return;const{error}=await supabase.from("game_organizer_images").delete().eq("id",row.id);if(error){alert(error.message);return}await supabase.storage.from("game-organizers").remove([row.storage_path]);await load()}
 

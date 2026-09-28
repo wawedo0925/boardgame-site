@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { createClient } from "../../../lib/supabase/client";
+import { optimizeImage } from "@/lib/image-upload";
 
 type Tab = "BOARDGAME" | "MYSTERY";
 const field = "w-full rounded-xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm outline-none focus:border-amber-400/60";
@@ -22,11 +23,9 @@ export default function LibraryManager() {
   const [message, setMessage] = useState("");
 
   async function upload(file: File, bucket: string, folder: string) {
-    if (file.size > 10 * 1024 * 1024) throw new Error("표지 파일은 10MB 이하여야 합니다.");
-    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error("JPG, PNG, WEBP 이미지만 등록할 수 있습니다.");
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const path = `${folder}/cover-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from(bucket).upload(path, file);
+    const optimized=await optimizeImage(file,{maxWidth:1200,maxHeight:1600});
+    const path = `${folder}/cover-${Date.now()}.webp`;
+    const { error } = await supabase.storage.from(bucket).upload(path, optimized,{contentType:optimized.type});
     if (error) throw error;
     return { path, url: supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl };
   }

@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { FormEvent, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
-import EventPlayHistory from "@/components/mypage/EventPlayHistory";
-import Achievements from "@/components/mypage/Achievements";
-import MurderPreferenceGate from "@/components/mypage/MurderPreferenceGate";
-import MurderPlayPreferences from "@/components/mypage/MurderPlayPreferences";
-import MurderMysteryHistory from "@/components/mypage/MurderMysteryHistory";
+const EventPlayHistory=dynamic(()=>import("@/components/mypage/EventPlayHistory"),{loading:()=> <SectionLoading/>});
+const Achievements=dynamic(()=>import("@/components/mypage/Achievements"),{loading:()=> <SectionLoading/>});
+const MurderPreferenceGate=dynamic(()=>import("@/components/mypage/MurderPreferenceGate"));
+const MurderPlayPreferences=dynamic(()=>import("@/components/mypage/MurderPlayPreferences"),{loading:()=> <SectionLoading/>});
+const MurderMysteryHistory=dynamic(()=>import("@/components/mypage/MurderMysteryHistory"),{loading:()=> <SectionLoading/>});
+
+function SectionLoading(){return <div className="mt-8 h-36 animate-pulse rounded-3xl border border-white/10 bg-white/[0.03]"/>;}
 
 type Profile = {
   id: string;

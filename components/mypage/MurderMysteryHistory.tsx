@@ -16,6 +16,7 @@ export default function MurderMysteryHistory() {
   const [records, setRecords] = useState<RecordRow[]>([]);
   const [mysteries, setMysteries] = useState<Mystery[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAll,setShowAll]=useState(false);
   const [saving, setSaving] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [mode, setMode] = useState<"LIST" | "CUSTOM">("LIST");
@@ -25,10 +26,12 @@ export default function MurderMysteryHistory() {
   const [rating, setRating] = useState("");
   const [memo, setMemo] = useState("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (all=false) => {
     setLoading(true);
+    let recordQuery=supabase.from("murder_mystery_personal_records").select("id,murder_mystery_id,custom_title,participation_role,rating,private_memo,played_at,source,event_id,created_at").order("played_at", { ascending: false }).order("created_at", { ascending: false });
+    if(!all)recordQuery=recordQuery.limit(3);
     const [recordResult, mysteryResult] = await Promise.all([
-      supabase.from("murder_mystery_personal_records").select("id,murder_mystery_id,custom_title,participation_role,rating,private_memo,played_at,source,event_id,created_at").order("played_at", { ascending: false }).order("created_at", { ascending: false }),
+      recordQuery,
       supabase.from("murder_mysteries").select("id,title").order("title"),
     ]);
     if (recordResult.error) console.error("개인 머더미스터리 기록 조회 오류:", recordResult.error);
@@ -38,7 +41,7 @@ export default function MurderMysteryHistory() {
     setLoading(false);
   }, [supabase]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(false); }, [load]);
 
   const titleMap = useMemo(() => new Map(mysteries.map((item) => [item.id, item.title])), [mysteries]);
   const titleOf = (record: RecordRow) => record.murder_mystery_id ? titleMap.get(record.murder_mystery_id) ?? "삭제된 작품" : record.custom_title ?? "직접 등록 작품";
@@ -62,7 +65,7 @@ export default function MurderMysteryHistory() {
     });
     setSaving(false);
     if (error) return alert(`기록을 추가하지 못했습니다: ${error.message}`);
-    resetForm(); setFormOpen(false); await load();
+    resetForm(); setFormOpen(false); await load(showAll);
   }
 
   async function updateRecord(record: RecordRow, nextRating: string, nextMemo: string) {
@@ -72,14 +75,14 @@ export default function MurderMysteryHistory() {
       updated_at: new Date().toISOString(),
     }).eq("id", record.id);
     if (error) return alert(`기록을 수정하지 못했습니다: ${error.message}`);
-    await load();
+    await load(showAll);
   }
 
   async function removeRecord(record: RecordRow) {
     if (record.source === "EVENT" || !confirm(`“${titleOf(record)}” 기록을 삭제할까요?`)) return;
     const { error } = await supabase.from("murder_mystery_personal_records").delete().eq("id", record.id);
     if (error) return alert(`기록을 삭제하지 못했습니다: ${error.message}`);
-    await load();
+    await load(showAll);
   }
 
   return <section className="mt-8 rounded-3xl border border-red-400/25 bg-red-400/[0.035] p-6 sm:p-8">
@@ -91,7 +94,7 @@ export default function MurderMysteryHistory() {
       <button disabled={saving} className="mt-4 w-full rounded-xl bg-red-400 py-3 font-black text-zinc-950 disabled:opacity-50">{saving ? "저장 중..." : "내 기록에 추가"}</button>
     </form>}
 
-    {loading ? <div className="mt-6 h-32 animate-pulse rounded-2xl bg-white/[0.03]"/> : records.length === 0 ? <div className="mt-6 rounded-2xl border border-dashed border-white/10 py-12 text-center text-zinc-500">아직 기록이 없습니다. 예전에 플레이한 작품을 추가해 보세요.</div> : <div className="mt-6 grid gap-4 lg:grid-cols-2">{records.map((record) => <RecordCard key={record.id} record={record} title={titleOf(record)} onSave={updateRecord} onDelete={removeRecord}/>)}</div>}
+    {loading ? <div className="mt-6 h-32 animate-pulse rounded-2xl bg-white/[0.03]"/> : records.length === 0 ? <div className="mt-6 rounded-2xl border border-dashed border-white/10 py-12 text-center text-zinc-500">아직 기록이 없습니다. 예전에 플레이한 작품을 추가해 보세요.</div> : <><div className="mt-6 grid gap-4 lg:grid-cols-2">{records.map((record) => <RecordCard key={record.id} record={record} title={titleOf(record)} onSave={updateRecord} onDelete={removeRecord}/>)}</div>{!showAll&&records.length===3&&<button type="button" onClick={()=>{setShowAll(true);void load(true);}} className="mt-4 w-full rounded-xl border border-white/10 py-3 text-sm font-semibold text-zinc-300">전체 머더미스터리 기록 보기</button>}</>}
   </section>;
 }
 

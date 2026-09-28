@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import UnownedBadge from "@/components/UnownedBadge";
 import InterestOverview from "./InterestOverview";
 import type { MurderMystery } from "./page";
+import { optimizeImage } from "@/lib/image-upload";
 
 const BUCKET = "murder-mystery-covers";
 
@@ -49,19 +50,11 @@ export default function MurderMysteryList({ mysteries, isAdmin, interestCounts }
   }, [hostFilter, mysteries, query]);
 
   async function uploadCover(item: MurderMystery, file: File) {
-    if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
-      alert("JPG, PNG, WEBP 사진만 올릴 수 있습니다.");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      alert("사진 크기는 10MB 이하여야 합니다.");
-      return;
-    }
-
     setBusyId(item.id);
-    const path = `${item.id}/${safeFileName(file.name)}`;
     try {
-      const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false });
+      const optimized=await optimizeImage(file,{maxWidth:1200,maxHeight:1600});
+      const path = `${item.id}/${safeFileName(optimized.name)}`;
+      const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, optimized, { upsert: false, contentType:optimized.type });
       if (uploadError) throw uploadError;
 
       const { data: publicData } = supabase.storage.from(BUCKET).getPublicUrl(path);

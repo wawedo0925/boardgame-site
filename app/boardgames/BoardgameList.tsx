@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 import UnownedBadge from "@/components/UnownedBadge";
+import { optimizeImage } from "@/lib/image-upload";
 
 const BOARDGAME_COVER_BUCKET = "boardgame-covers";
 
@@ -226,32 +227,17 @@ export default function BoardgameList({
 
     if (!file || !game || !resolvedCanManage) return;
 
-    if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
-      alert("JPG, PNG, WEBP 이미지만 등록할 수 있습니다.");
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      alert("표지 이미지는 10MB 이하여야 합니다.");
-      return;
-    }
-
     setBusyId(game.id);
-
-    const extension =
-      file.name
-        .split(".")
-        .pop()
-        ?.toLowerCase()
-        .replace(/[^a-z0-9]/g, "") || "jpg";
-
-    const path = `${game.id}/${Date.now()}.${extension}`;
+    let optimized:File;
+    try { optimized=await optimizeImage(file,{maxWidth:1200,maxHeight:1600}); }
+    catch(error){setBusyId(null);alert(error instanceof Error?error.message:'표지를 처리하지 못했습니다.');return;}
+    const path = `${game.id}/${Date.now()}.webp`;
 
     const { error: uploadError } = await supabase.storage
       .from(BOARDGAME_COVER_BUCKET)
-      .upload(path, file, {
+      .upload(path, optimized, {
         upsert: false,
-        contentType: file.type || undefined,
+        contentType: optimized.type,
       });
 
     if (uploadError) {

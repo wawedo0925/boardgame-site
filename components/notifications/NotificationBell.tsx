@@ -29,12 +29,14 @@ export default function NotificationBell({ userId }: { userId: string }) {
     void loadCount();
 
     const refresh = () => void loadCount();
-    const interval = window.setInterval(refresh, 30000);
+    const channel=supabase.channel(`notification-count:${userId}`)
+      .on("postgres_changes",{event:"*",schema:"public",table:"notifications",filter:`recipient_id=eq.${userId}`},refresh)
+      .subscribe();
     window.addEventListener("focus", refresh);
 
     return () => {
       active = false;
-      window.clearInterval(interval);
+      void supabase.removeChannel(channel);
       window.removeEventListener("focus", refresh);
     };
   }, [supabase, userId]);

@@ -27,11 +27,7 @@ type Profile = {
 type SiteRole = "MAIN_ADMIN" | "ADMIN" | "RULE_MASTER" | "MURDER_GM" | "MEMBER";
 
 type PlayRecordRow = {
-  play_record_games:
-    | {
-        play_count: number | null;
-      }[]
-    | null;
+  play_record_games: { play_count: number | null }[] | null;
 };
 
 type PlayerLevel = {
@@ -113,22 +109,13 @@ export default function Header() {
     let isMounted = true;
 
     async function loadMemberData(userId: string) {
-      const [profileResponse, playResponse, roleResponse, attendanceResponse] = await Promise.all([
+      const [profileResponse, playTotalResponse, roleResponse, attendanceResponse] = await Promise.all([
         supabase
           .from("profiles")
           .select("activity_name, birth_year, region, gender")
           .eq("id", userId)
           .maybeSingle(),
-        supabase
-          .from("play_records")
-          .select(
-            `
-              play_record_games (
-                play_count
-              )
-            `,
-          )
-          .eq("user_id", userId),
+        supabase.rpc("my_legacy_play_total"),
         supabase.rpc("current_site_role"),
         supabase.rpc("has_confirmed_event_attendance"),
       ]);
@@ -144,22 +131,13 @@ export default function Header() {
         setProfile(profileResponse.data as Profile | null);
       }
 
-      if (playResponse.error) {
-        console.error("Header 플레이 기록 조회 오류:", playResponse.error);
-        setTotalPlayCount(0);
+      if (playTotalResponse.error) {
+        // DB migration 적용 전에도 기존 기능은 유지한다.
+        const fallback=await supabase.from("play_records").select("play_record_games(play_count)").eq("user_id",userId);
+        if(fallback.error){console.error("Header 플레이 기록 조회 오류:",fallback.error);setTotalPlayCount(0);}
+        else setTotalPlayCount(((fallback.data??[]) as PlayRecordRow[]).reduce((sum,record)=>sum+(record.play_record_games??[]).reduce((gameSum,game)=>gameSum+(game.play_count??0),0),0));
       } else {
-        const records = (playResponse.data ?? []) as PlayRecordRow[];
-        const total = records.reduce(
-          (recordSum, record) =>
-            recordSum +
-            (record.play_record_games ?? []).reduce(
-              (gameSum, game) => gameSum + (game.play_count ?? 0),
-              0,
-            ),
-          0,
-        );
-
-        setTotalPlayCount(total);
+        setTotalPlayCount(Number(playTotalResponse.data??0));
       }
 
       if (roleResponse.error) {

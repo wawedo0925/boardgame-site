@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import Header from "./components/Header";
@@ -28,6 +28,10 @@ export const metadata: Metadata = {
     title: "보드라운지",
     statusBarStyle: "black-translucent",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b274d",
 };
 
 export default function RootLayout({

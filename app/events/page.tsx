@@ -194,6 +194,8 @@ export default function EventsPage() {
   const [showEnded, setShowEnded] = useState(false);
   const [showKindFilter, setShowKindFilter] = useState(false);
   const [showEndedKindFilter, setShowEndedKindFilter] = useState(false);
+  const [allEndedEvents,setAllEndedEvents]=useState<EventRow[]|null>(null);
+  const [allEndedLoading,setAllEndedLoading]=useState(false);
   const [endedKindFilter, setEndedKindFilter] = useState<EventKindFilter>("all");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -204,20 +206,27 @@ export default function EventsPage() {
       setLoading(true);
       const { data: authData } = await supabase.auth.getUser();
       const currentUserId = authData.user?.id ?? null;
-      const [eventResult, waitlistResult] = await Promise.all([
-        supabase.from("events").select(`id,title,started_at,ended_at,location,description,created_by,max_participants,participation_fee,event_kind,event_status,murder_mysteries(title),event_participants(id,user_id,participation_role,gm_pending)`).order("started_at", { ascending: true }),
+      const now=new Date().toISOString();
+      const sevenDaysAgo=new Date(Date.now()-7*24*60*60*1000).toISOString();
+      const fields=`id,title,started_at,ended_at,location,description,created_by,max_participants,participation_fee,event_kind,event_status,murder_mysteries(title),event_participants(id,user_id,participation_role,gm_pending)`;
+      const [activeResult,recentEndedResult, waitlistResult] = await Promise.all([
+        supabase.from("events").select(fields).or(`ended_at.is.null,ended_at.gte.${now}`).order("started_at", { ascending: true }),
+        supabase.from("events").select(fields).lt("ended_at",now).gte("ended_at",sevenDaysAgo).order("started_at",{ascending:false}),
         currentUserId
           ? supabase.from("event_waitlist").select("event_id").eq("user_id", currentUserId)
           : Promise.resolve({ data: [], error: null }),
       ]);
       if (!active) return;
       setUserId(currentUserId);
-      if (eventResult.error) {
-        console.error("이벤트 목록 조회 오류:", eventResult.error);
+      const eventError=activeResult.error||recentEndedResult.error;
+      if (eventError) {
+        console.error("이벤트 목록 조회 오류:", eventError);
         setErrorMessage("이벤트 목록을 불러오지 못했습니다.");
         setEvents([]);
       } else {
-        setEvents((eventResult.data ?? []) as EventRow[]);
+        const merged=new Map<string,EventRow>();
+        [...(activeResult.data??[]),...(recentEndedResult.data??[])].forEach(row=>merged.set(row.id,row as EventRow));
+        setEvents([...merged.values()]);
       }
       if (waitlistResult.error) console.error("대기 목록 조회 오류:", waitlistResult.error);
       setWaitlistedIds(new Set((waitlistResult.data ?? []).map((row: { event_id: string }) => row.event_id)));
@@ -226,6 +235,13 @@ export default function EventsPage() {
     void load();
     return () => { active = false; };
   }, [supabase]);
+
+  async function loadAllEndedEvents(){
+    setAllEndedLoading(true);setAllEndedEvents(null);
+    const {data,error}=await supabase.from("events").select(`id,title,started_at,ended_at,location,description,created_by,max_participants,participation_fee,event_kind,event_status,murder_mysteries(title),event_participants(id,user_id,participation_role,gm_pending)`).lt("ended_at",new Date().toISOString()).order("started_at",{ascending:false}).limit(200);
+    if(error){console.error("전체 종료 일정 조회 오류:",error);setErrorMessage("전체 종료 일정을 불러오지 못했습니다.");setAllEndedEvents([]);}else setAllEndedEvents((data??[]) as EventRow[]);
+    setAllEndedLoading(false);
+  }
 
   const counts = useMemo(() => ({
     joined: events.filter((event) => event.event_participants?.some((p) => p.user_id === userId)).length,
@@ -253,6 +269,7 @@ export default function EventsPage() {
   const endedEvents = useMemo(() => events.filter((event) => getStatus(event) === "종료"
     && onSelectedDate(event, endedSelectedDate)
     && (endedKindFilter === "all" || event.event_kind === endedKindFilter)).sort(newestFirst), [events, endedKindFilter, endedSelectedDate]);
+  const visibleEndedEvents=useMemo(()=>(allEndedEvents??endedEvents).filter(event=>onSelectedDate(event,endedSelectedDate)&&(endedKindFilter==="all"||event.event_kind===endedKindFilter)).sort(newestFirst),[allEndedEvents,endedEvents,endedKindFilter,endedSelectedDate]);
 
   const selectClass = "min-w-0 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-zinc-300 outline-none focus:border-amber-400/60";
 
@@ -303,16 +320,18 @@ export default function EventsPage() {
       })}</div>}
     </section>
     {showKindFilter && <KindFilterDialog value={kindFilter} date={selectedDate} onApply={(kind, date) => { setKindFilter(kind); setSelectedDate(date); setDateFilter("all"); }} onClose={() => setShowKindFilter(false)} />}
-    {showEnded && <EventDialog title="종료 이벤트" onClose={() => setShowEnded(false)}>
+    {showEnded && <EventDialog title="종료 이벤트" onClose={() => {setShowEnded(false);setAllEndedEvents(null);}}>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-zinc-400">총 <span className="font-semibold text-amber-400">{endedEvents.length}</span>개 · 개최일 최신순</p>
+        <p className="text-sm text-zinc-400">{allEndedEvents?'전체 종료 일정':'최근 7일'} <span className="font-semibold text-amber-400">{visibleEndedEvents.length}</span>개 · 개최일 최신순</p>
         <button type="button" aria-haspopup="dialog" onClick={() => setShowEndedKindFilter(true)} className={selectClass}>필터 · {endedKindFilter === "all" ? "전체 종류" : getKindMeta(endedKindFilter).label}</button>
       </div>
       {endedSelectedDate && <div className="mb-5 flex flex-wrap items-center gap-3 text-sm"><span className="text-amber-300">진행 날짜 · {endedSelectedDate}</span><button type="button" onClick={() => setEndedSelectedDate("")} className="text-zinc-400 hover:text-white">날짜 해제</button></div>}
-      {loading ? <p role="status" className="py-12 text-center text-zinc-400">이벤트를 불러오는 중입니다.</p>
+      {!allEndedEvents&&<button type="button" disabled={allEndedLoading} onClick={()=>void loadAllEndedEvents()} className="mb-5 w-full rounded-2xl border border-amber-400/30 bg-amber-400/5 px-5 py-3 font-semibold text-amber-300 disabled:opacity-50">{allEndedLoading?'전체 종료 일정 불러오는 중…':'전체 종료 일정 보기'}</button>}
+      {allEndedLoading ? <p role="status" className="py-12 text-center text-zinc-400">전체 종료 일정을 별도로 불러오는 중입니다.</p>
+        : loading ? <p role="status" className="py-12 text-center text-zinc-400">이벤트를 불러오는 중입니다.</p>
         : errorMessage ? <p role="alert" className="py-12 text-center text-red-300">{errorMessage}</p>
-        : endedEvents.length === 0 ? <p className="py-12 text-center text-zinc-400">조건에 맞는 종료 이벤트가 없습니다.</p>
-        : <ul className="space-y-3">{endedEvents.map((event) => {
+        : visibleEndedEvents.length === 0 ? <p className="py-12 text-center text-zinc-400">조건에 맞는 종료 이벤트가 없습니다.</p>
+        : <ul className="space-y-3">{visibleEndedEvents.map((event) => {
           const kind = getKindMeta(event.event_kind);
           return <li key={event.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
             <div className="flex flex-wrap items-center gap-2 text-xs"><span className={`rounded-full px-3 py-1 font-semibold ${kind.className}`}>{kind.label}</span><span className="text-zinc-500">종료</span></div>
