@@ -296,7 +296,7 @@ export default function MyPage() {
         setProfile(loadedProfile);
         setForm({
           activityName: loadedProfile.activity_name ?? "",
-          birthYear: loadedProfile.birth_year ?? "",
+          birthYear: String(loadedProfile.birth_year ?? ""),
           region: loadedProfile.region ?? "",
           gender: loadedProfile.gender ?? "",
         });
@@ -509,7 +509,7 @@ export default function MyPage() {
     setProfile(savedProfile);
     setForm({
       activityName: savedProfile.activity_name ?? "",
-      birthYear: savedProfile.birth_year ?? "",
+      birthYear: String(savedProfile.birth_year ?? ""),
       region: savedProfile.region ?? "",
       gender: savedProfile.gender ?? "",
     });
@@ -531,7 +531,7 @@ export default function MyPage() {
 
     setForm({
       activityName: profile.activity_name ?? "",
-      birthYear: profile.birth_year ?? "",
+      birthYear: String(profile.birth_year ?? ""),
       region: profile.region ?? "",
       gender: profile.gender ?? "",
     });
