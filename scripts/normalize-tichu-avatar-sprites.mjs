@@ -25,7 +25,7 @@ async function sheet(cells,columns,output){
 }
 
 const hair=[];
-for(let row=0;row<4;row++)for(let column=0;column<4;column++)hair.push(await openFace(await normalized("public/tichu-avatar-hair-v2.webp",{left:column*256,top:row*256,width:256,height:256},{width:400,height:400,top:34})));
+for(let row=0;row<4;row++)for(let column=0;column<4;column++)hair.push(await openFace(await normalized("public/tichu-avatar-hair-v2.webp",{left:column*256,top:row*256,width:256,height:256},{width:400,height:400,top:0})));
 await sheet(hair,4,"public/tichu-avatar-hair-v3.webp");
 
 const face=[];

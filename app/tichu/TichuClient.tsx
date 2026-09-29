@@ -23,7 +23,6 @@ function AvatarArt({index,skin=1,hairColor=0,expression=0,outfit=0,accessory=0,f
  return <span className={`relative block shrink-0 overflow-hidden rounded-full bg-gradient-to-br [container-type:size] ${avatarFrames[Math.max(0,Math.min(7,frame||0))]} ${size}`}>
   <span className="absolute inset-0 bg-[url('/tichu-avatar-base-v3.webp')] bg-contain bg-center bg-no-repeat"/>
   <span className="absolute inset-0" style={{backgroundColor:s,clipPath:"ellipse(34% 38% at 50% 46%)",opacity:skin===0?.12:.68}}/>
-  <span className="absolute inset-0" style={{background:`radial-gradient(circle at 42% 24%, color-mix(in srgb, ${h} 72%, white), ${h} 58%)`,clipPath:"ellipse(31% 31% at 50% 38%)"}}/>
   <span className="absolute inset-0 bg-[url('/tichu-avatar-outfits-v3.webp')] bg-[length:400%_300%] bg-no-repeat" style={{backgroundPosition:outfitPos}}/>
   <span className="absolute inset-0 bg-[url('/tichu-avatar-expressions-v3.webp')] bg-[length:400%_200%] bg-no-repeat" style={{backgroundPosition:facePos}}/>
   <span className="absolute inset-0 bg-[url('/tichu-avatar-hair-v3.webp')] bg-[length:400%_400%] bg-no-repeat" style={{backgroundPosition:hairPos}}/>
