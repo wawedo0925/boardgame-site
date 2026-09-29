@@ -12,6 +12,11 @@ async function normalized(source,region,box){
 
 async function empty(){return sharp({create:{width:cellSize,height:cellSize,channels:4,background:transparent}}).png().toBuffer()}
 
+async function openMohawkFace(image){
+ const opening=Buffer.from(`<svg width="512" height="512"><ellipse cx="256" cy="315" rx="106" ry="78" fill="white"/></svg>`);
+ return sharp(image).composite([{input:opening,blend:"dest-out"}]).png().toBuffer();
+}
+
 async function sheet(cells,columns,output){
  const rows=Math.ceil(cells.length/columns),background=await empty();
  const layers=[];
@@ -22,7 +27,8 @@ async function sheet(cells,columns,output){
 const hair=[];
 for(let row=0;row<4;row++)for(let column=0;column<4;column++){
  const index=row*4+column,extendedHeight=index===2?276:index===3?310:256;
- hair.push(await normalized("public/tichu-avatar-hair-v2.webp",{left:column*256,top:row*256,width:256,height:extendedHeight},{width:400,height:400,top:0}));
+ const layer=await normalized("public/tichu-avatar-hair-v2.webp",{left:column*256,top:row*256,width:256,height:extendedHeight},{width:400,height:400,top:0});
+ hair.push(index===8?await openMohawkFace(layer):layer);
 }
 await sheet(hair,4,"public/tichu-avatar-hair-v3.webp");
 
