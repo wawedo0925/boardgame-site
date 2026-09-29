@@ -13,7 +13,7 @@ async function normalized(source,region,box){
 async function empty(){return sharp({create:{width:cellSize,height:cellSize,channels:4,background:transparent}}).png().toBuffer()}
 
 async function openFace(image){
- const opening=Buffer.from(`<svg width="512" height="512"><ellipse cx="256" cy="296" rx="124" ry="105" fill="white"/></svg>`);
+ const opening=Buffer.from(`<svg width="512" height="512"><ellipse cx="256" cy="315" rx="105" ry="76" fill="white"/></svg>`);
  return sharp(image).composite([{input:opening,blend:"dest-out"}]).png().toBuffer();
 }
 
