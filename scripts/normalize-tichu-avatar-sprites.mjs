@@ -12,6 +12,11 @@ async function normalized(source,region,box){
 
 async function empty(){return sharp({create:{width:cellSize,height:cellSize,channels:4,background:transparent}}).png().toBuffer()}
 
+async function openFace(image){
+ const opening=Buffer.from(`<svg width="512" height="512"><ellipse cx="256" cy="296" rx="124" ry="105" fill="white"/></svg>`);
+ return sharp(image).composite([{input:opening,blend:"dest-out"}]).png().toBuffer();
+}
+
 async function sheet(cells,columns,output){
  const rows=Math.ceil(cells.length/columns),background=await empty();
  const layers=[];
@@ -20,7 +25,7 @@ async function sheet(cells,columns,output){
 }
 
 const hair=[];
-for(let row=0;row<4;row++)for(let column=0;column<4;column++)hair.push(await normalized("public/tichu-avatar-hair-v2.webp",{left:column*256,top:row*256,width:256,height:256},{width:450,height:450,top:20}));
+for(let row=0;row<4;row++)for(let column=0;column<4;column++)hair.push(await openFace(await normalized("public/tichu-avatar-hair-v2.webp",{left:column*256,top:row*256,width:256,height:256},{width:400,height:400,top:34})));
 await sheet(hair,4,"public/tichu-avatar-hair-v3.webp");
 
 const face=[];
@@ -30,7 +35,7 @@ await sheet(face,4,"public/tichu-avatar-expressions-v3.webp");
 
 const outfits=[];
 const outfitRows=[[0,290],[290,185],[475,208]];
-for(const [top,height] of outfitRows)for(let column=0;column<4;column++)outfits.push(await normalized("public/tichu-avatar-outfits-v2.webp",{left:column*256,top,width:256,height},{width:430,height:178,top:334}));
+for(const [top,height] of outfitRows)for(let column=0;column<4;column++)outfits.push(await normalized("public/tichu-avatar-outfits-v2.webp",{left:column*256,top,width:256,height},{width:360,height:145,top:367}));
 await sheet(outfits,4,"public/tichu-avatar-outfits-v3.webp");
 
 const accessories=[await empty()];
