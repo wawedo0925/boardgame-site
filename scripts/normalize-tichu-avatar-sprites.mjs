@@ -25,7 +25,7 @@ await sheet(hair,4,"public/tichu-avatar-hair-v3.webp");
 
 const face=[];
 const faceRows=[[0,300],[300,285]];
-for(const [top,height] of faceRows)for(let column=0;column<4;column++)face.push(await normalized("public/tichu-avatar-expressions-v2.webp",{left:column*256,top,width:256,height},{width:360,height:220,top:145}));
+for(const [top,height] of faceRows)for(let column=0;column<4;column++)face.push(await normalized("public/tichu-avatar-expressions-v2.webp",{left:column*256,top,width:256,height},{width:190,height:165,top:178}));
 await sheet(face,4,"public/tichu-avatar-expressions-v3.webp");
 
 const outfits=[];
