@@ -20,7 +20,7 @@ async function sheet(cells,columns,output){
 }
 
 const hair=[];
-for(let row=0;row<4;row++)for(let column=0;column<4;column++)hair.push(await normalized("public/tichu-avatar-hair-v2.webp",{left:column*256,top:row*256,width:256,height:256},{width:506,height:500,top:0}));
+for(let row=0;row<4;row++)for(let column=0;column<4;column++)hair.push(await normalized("public/tichu-avatar-hair-v2.webp",{left:column*256,top:row*256,width:256,height:256},{width:450,height:450,top:20}));
 await sheet(hair,4,"public/tichu-avatar-hair-v3.webp");
 
 const face=[];
@@ -30,7 +30,7 @@ await sheet(face,4,"public/tichu-avatar-expressions-v3.webp");
 
 const outfits=[];
 const outfitRows=[[0,290],[290,185],[475,208]];
-for(const [top,height] of outfitRows)for(let column=0;column<4;column++)outfits.push(await normalized("public/tichu-avatar-outfits-v2.webp",{left:column*256,top,width:256,height},{width:512,height:210,top:302}));
+for(const [top,height] of outfitRows)for(let column=0;column<4;column++)outfits.push(await normalized("public/tichu-avatar-outfits-v2.webp",{left:column*256,top,width:256,height},{width:430,height:178,top:334}));
 await sheet(outfits,4,"public/tichu-avatar-outfits-v3.webp");
 
 const accessories=[await empty()];
