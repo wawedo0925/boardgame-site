@@ -25,8 +25,8 @@ function AvatarArt({index,skin=1,hairColor=0,expression=0,outfit=0,accessory=0,f
   <span className="absolute inset-0" style={{backgroundColor:s,WebkitMaskImage:"url('/tichu-avatar-base-v3.webp')",maskImage:"url('/tichu-avatar-base-v3.webp')",WebkitMaskSize:"contain",maskSize:"contain",WebkitMaskPosition:"center",maskPosition:"center",WebkitMaskRepeat:"no-repeat",maskRepeat:"no-repeat",clipPath:"inset(0 0 19% 0)",opacity:skin===0?.1:.68}}/>
   <span className="absolute inset-0 bg-[url('/tichu-avatar-outfits-v3.webp')] bg-[length:400%_300%] bg-no-repeat" style={{backgroundPosition:outfitPos}}/>
   <span className="absolute inset-0 bg-[url('/tichu-avatar-expressions-v3.webp')] bg-[length:400%_200%] bg-no-repeat" style={{backgroundPosition:facePos}}/>
-  <span className="absolute inset-0 bg-[url('/tichu-avatar-hair-v3.webp')] bg-[length:400%_400%] bg-no-repeat" style={{backgroundPosition:hairPos,transform:"translateY(-6%)"}}/>
-  <span className="absolute inset-0 opacity-75" style={{backgroundColor:h,WebkitMaskImage:"url('/tichu-avatar-hair-v3.webp')",maskImage:"url('/tichu-avatar-hair-v3.webp')",WebkitMaskSize:"400% 400%",maskSize:"400% 400%",WebkitMaskPosition:hairPos,maskPosition:hairPos,mixBlendMode:"color",transform:"translateY(-6%)"}}/>
+  <span className="absolute inset-0 bg-[url('/tichu-avatar-hair-v3.webp')] bg-[length:400%_400%] bg-no-repeat" style={{backgroundPosition:hairPos}}/>
+  <span className="absolute inset-0 opacity-75" style={{backgroundColor:h,WebkitMaskImage:"url('/tichu-avatar-hair-v3.webp')",maskImage:"url('/tichu-avatar-hair-v3.webp')",WebkitMaskSize:"400% 400%",maskSize:"400% 400%",WebkitMaskPosition:hairPos,maskPosition:hairPos,mixBlendMode:"color"}}/>
   {acc>0&&<span className="absolute inset-0 bg-[url('/tichu-avatar-accessories-v3.webp')] bg-[length:400%_400%] bg-no-repeat" style={{backgroundPosition:accPos}}/>}
  </span>
 }
