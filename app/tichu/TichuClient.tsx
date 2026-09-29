@@ -21,12 +21,12 @@ function AvatarArt({index,skin=1,hairColor=0,expression=0,outfit=0,accessory=0,f
  const hair=Math.max(0,Math.min(15,index||0)),face=Math.max(0,Math.min(7,expression||0)),clothes=Math.max(0,Math.min(11,outfit||0)),acc=Math.max(0,Math.min(15,accessory||0)),s=skinColors[Math.max(0,Math.min(9,skin||0))],h=hairColors[Math.max(0,Math.min(7,hairColor||0))];
  const hairPos=`${(hair%4)*100/3}% ${Math.floor(hair/4)*100/3}%`,facePos=`${(face%4)*100/3}% ${Math.floor(face/4)*100}%`,outfitPos=`${(clothes%4)*100/3}% ${Math.floor(clothes/4)*100/2}%`,accPos=`${(acc%4)*100/3}% ${Math.floor(acc/4)*100/3}%`;
  return <span className={`relative block shrink-0 overflow-hidden rounded-full bg-gradient-to-br [container-type:size] ${avatarFrames[Math.max(0,Math.min(7,frame||0))]} ${size}`}>
-  <span className="absolute inset-0 bg-[url('/tichu-avatar-base-v3.webp')] bg-contain bg-center bg-no-repeat"/>
-  <span className="absolute inset-0" style={{backgroundColor:s,clipPath:"ellipse(34% 38% at 50% 46%)",opacity:skin===0?.12:.68}}/>
+  <span className="absolute inset-0 bg-[url('/tichu-avatar-base-v3.webp')] bg-contain bg-center bg-no-repeat" style={{clipPath:"inset(0 0 19% 0)"}}/>
+  <span className="absolute inset-0" style={{backgroundColor:s,WebkitMaskImage:"url('/tichu-avatar-base-v3.webp')",maskImage:"url('/tichu-avatar-base-v3.webp')",WebkitMaskSize:"contain",maskSize:"contain",WebkitMaskPosition:"center",maskPosition:"center",WebkitMaskRepeat:"no-repeat",maskRepeat:"no-repeat",clipPath:"inset(0 0 19% 0)",opacity:skin===0?.1:.68}}/>
   <span className="absolute inset-0 bg-[url('/tichu-avatar-outfits-v3.webp')] bg-[length:400%_300%] bg-no-repeat" style={{backgroundPosition:outfitPos}}/>
   <span className="absolute inset-0 bg-[url('/tichu-avatar-expressions-v3.webp')] bg-[length:400%_200%] bg-no-repeat" style={{backgroundPosition:facePos}}/>
-  <span className="absolute inset-0 bg-[url('/tichu-avatar-hair-v3.webp')] bg-[length:400%_400%] bg-no-repeat" style={{backgroundPosition:hairPos}}/>
-  <span className="absolute inset-0 opacity-75" style={{backgroundColor:h,WebkitMaskImage:"url('/tichu-avatar-hair-v3.webp')",maskImage:"url('/tichu-avatar-hair-v3.webp')",WebkitMaskSize:"400% 400%",maskSize:"400% 400%",WebkitMaskPosition:hairPos,maskPosition:hairPos,mixBlendMode:"color"}}/>
+  <span className="absolute inset-0 bg-[url('/tichu-avatar-hair-v3.webp')] bg-[length:400%_400%] bg-no-repeat" style={{backgroundPosition:hairPos,transform:"translateY(-6%)"}}/>
+  <span className="absolute inset-0 opacity-75" style={{backgroundColor:h,WebkitMaskImage:"url('/tichu-avatar-hair-v3.webp')",maskImage:"url('/tichu-avatar-hair-v3.webp')",WebkitMaskSize:"400% 400%",maskSize:"400% 400%",WebkitMaskPosition:hairPos,maskPosition:hairPos,mixBlendMode:"color",transform:"translateY(-6%)"}}/>
   {acc>0&&<span className="absolute inset-0 bg-[url('/tichu-avatar-accessories-v3.webp')] bg-[length:400%_400%] bg-no-repeat" style={{backgroundPosition:accPos}}/>}
  </span>
 }
