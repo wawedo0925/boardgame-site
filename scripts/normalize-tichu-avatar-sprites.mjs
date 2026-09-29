@@ -25,9 +25,16 @@ async function sheet(cells,columns,output){
 }
 
 const hair=[];
+const hairSpecs=[
+ [470,10],[470,15],[480,0],[500,0],
+ [470,0],[470,5],[460,15],[480,10],
+ [480,0],[450,20],[460,0],[400,45],
+ [470,5],[470,0],[450,15],[480,0],
+];
 for(let row=0;row<4;row++)for(let column=0;column<4;column++){
- const index=row*4+column,extendedHeight=index===2?276:index===3?310:256;
- const layer=await normalized("public/tichu-avatar-hair-v2.webp",{left:column*256,top:row*256,width:256,height:extendedHeight},{width:400,height:400,top:0});
+ const index=row*4+column,[size,boxTop]=hairSpecs[index];
+ const region=index===7?{left:column*256,top:320,width:256,height:192}:{left:column*256,top:row*256,width:256,height:index===2?276:index===3?310:256};
+ const layer=await normalized("public/tichu-avatar-hair-v2.webp",region,{width:size,height:size,top:boxTop});
  hair.push(index===8?await openMohawkFace(layer):layer);
 }
 await sheet(hair,4,"public/tichu-avatar-hair-v3.webp");
