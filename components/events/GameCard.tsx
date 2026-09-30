@@ -43,6 +43,6 @@ export default function GameCard({ eventGame, canManage, onChanged, onAddRound }
         <TeamScoreSummary players={round.players}/><div className="mt-3 space-y-2">{sorted.map((player)=><div key={player.user_id} className="flex min-h-10 items-center justify-between gap-3 rounded-xl bg-white/[0.04] px-3"><span className="truncate text-sm text-zinc-300">{name(player)}</span><strong className="shrink-0 text-amber-300">{player.is_gm?"GM 진행":cooperativeResultLabel(player)??scoreRankLabel(player,round.players)??wolfScoreLabel(player)??teamScoreLabel(player)??(eventGame.result_type==="ROLE"?(player.role_name?`${player.role_name} · ${player.is_winner?"승리":"패배"}`:"역할 미입력"):eventGame.result_type==="SCORE"?(player.score===null?"미입력":`${player.score.toLocaleString()}점`):(player.rank===null?"미입력":`${player.rank}등`))}</strong></div>)}</div>
       </section>})}</div>
     {editing&&<RoundResultDialog cooperative={eventGame.game?.type==="COOP"} gameName={eventGame.game?.name} round={editing} resultType={eventGame.result_type} onClose={()=>setEditing(null)} onSaved={onChanged}/>}
-    {editingRole&&eventGame.game&&<RoleResultDialog round={editingRole} gameId={eventGame.game.id} onClose={()=>setEditingRole(null)} onSaved={onChanged}/>}
+    {editingRole&&eventGame.game&&<RoleResultDialog round={editingRole} gameId={eventGame.game.id} gameName={eventGame.game.name} onClose={()=>setEditingRole(null)} onSaved={onChanged}/>}
   </article>;
 }

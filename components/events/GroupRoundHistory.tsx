@@ -47,6 +47,6 @@ export default function GroupRoundHistory({ games, canManage, onChanged, onRepea
     })}
     {rows.length === 0 && <p className="py-5 text-center text-sm text-zinc-600">아직 진행한 판이 없습니다.</p>}
     {scoreRound && <RoundResultDialog cooperative={scoreRound.game.game?.type === "COOP"} gameName={scoreRound.game.game?.name} round={scoreRound.round} resultType={scoreRound.game.result_type} onClose={() => setScoreRound(null)} onSaved={onChanged}/>}
-    {roleRound?.game.game && <RoleResultDialog round={roleRound.round} gameId={roleRound.game.game.id} onClose={() => setRoleRound(null)} onSaved={onChanged}/>}
+    {roleRound?.game.game && <RoleResultDialog round={roleRound.round} gameId={roleRound.game.game.id} gameName={roleRound.game.game.name} onClose={() => setRoleRound(null)} onSaved={onChanged}/>}
   </div>;
 }
