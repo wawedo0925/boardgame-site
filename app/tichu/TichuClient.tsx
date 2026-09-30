@@ -53,6 +53,7 @@ type Room = {
   target_score: number;
   turn_seconds: number;
   turn_deadline: string | null;
+  exchange_deadline: string | null;
   round_no: number;
   sky_score: number;
   pink_score: number;
@@ -1061,16 +1062,23 @@ export default function TichuClient() {
   }, [botAct, roomId, snap]);
   useEffect(() => {
     const tick = () => {
-      if (!snap?.room.turn_deadline) return setLeft(0);
+      if (!snap) return setLeft(0);
+      const deadline =
+        snap.room.status === "EXCHANGE"
+          ? snap.room.exchange_deadline
+          : snap.room.turn_deadline;
+      if (!deadline) return setLeft(0);
       const n = Math.max(
         0,
-        Math.ceil(
-          (new Date(snap.room.turn_deadline).getTime() - Date.now()) / 1000,
-        ),
+        Math.ceil((new Date(deadline).getTime() - Date.now()) / 1000),
       );
       setLeft(n);
-      if (!n && roomId && !snap.spectator && snap.room.status === "PLAYING")
-        void act("tichu_timeout", { p_room: roomId });
+      if (!n && roomId && !snap.spectator) {
+        if (snap.room.status === "PLAYING")
+          void act("tichu_timeout", { p_room: roomId });
+        if (snap.room.status === "EXCHANGE")
+          void act("tichu_exchange_timeout", { p_room: roomId });
+      }
     };
     tick();
     const i = setInterval(tick, 1000);
@@ -1079,6 +1087,7 @@ export default function TichuClient() {
     act,
     roomId,
     snap?.room.status,
+    snap?.room.exchange_deadline,
     snap?.room.turn_deadline,
     snap?.spectator,
   ]);
@@ -1875,11 +1884,32 @@ export default function TichuClient() {
       )}
       {!spectator && exchange && (
         <section className="mt-4 rounded-3xl border border-white/10 p-4">
-          <div>
-            <b>카드 한 장 선택 → 받을 멤버 선택</b>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <b>카드 한 장 선택 → 받을 멤버 선택</b>
+              <p className="text-xs text-zinc-500">
+                각 멤버에게 한 장씩 · 완료 {snap.exchange_count}/4
+              </p>
+            </div>
+            <span
+              className={`shrink-0 rounded-full px-3 py-1 text-sm font-black ${left <= 5 ? "bg-red-500 text-white" : "bg-amber-300 text-black"}`}
+            >
+              {left}초
+            </span>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-white/5 p-3">
             <p className="text-xs text-zinc-500">
-              각 멤버에게 한 장씩 · 완료 {snap.exchange_count}/4
+              시간 종료 시 남은 카드는 자동으로 선택됩니다.
             </p>
+            <button
+              disabled={busy || Object.keys(snap.my_gifts).length === 0}
+              onClick={() =>
+                void act("tichu_undo_gift", { p_room: roomId })
+              }
+              className="shrink-0 rounded-lg border border-rose-300/40 bg-rose-400/10 px-3 py-2 text-xs font-black text-rose-200 disabled:opacity-30"
+            >
+              최근 카드 번복
+            </button>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
             {players
