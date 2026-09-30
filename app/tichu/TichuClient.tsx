@@ -2040,23 +2040,28 @@ export default function TichuClient() {
         </section>
       )}
       {!spectator && playing && (selected.includes(52) || room.wish_rank) && (
-        <section className="mt-4 text-center">
+        <section className="mx-auto mt-2 w-fit max-w-full text-center">
           {selected.includes(52) && (
-            <select
-              value={wish}
-              onChange={(e) => setWish(Number(e.target.value))}
-              className="rounded-xl bg-zinc-900 p-3"
-            >
-              <option value={0}>소원 없음</option>
-              {Array.from({ length: 13 }, (_, i) => i + 2).map((n) => (
-                <option key={n} value={n}>
-                  소원 {n === 14 ? "A" : n}
-                </option>
-              ))}
-            </select>
+            <div className="flex max-w-[18rem] items-center gap-1 overflow-x-auto rounded-xl border border-sky-300/20 bg-zinc-950 p-1.5 shadow-lg">
+              <span className="shrink-0 px-1 text-[10px] font-black text-sky-300">
+                소원
+              </span>
+              {[0, ...Array.from({ length: 13 }, (_, i) => i + 2)].map(
+                (n) => (
+                  <button
+                    type="button"
+                    key={n}
+                    onClick={() => setWish(n)}
+                    className={`h-7 min-w-7 shrink-0 rounded-md px-1 text-[11px] font-black ${wish === n ? "bg-sky-300 text-zinc-950" : "bg-white/10 text-zinc-300"}`}
+                  >
+                    {n === 0 ? "없음" : n === 14 ? "A" : n}
+                  </button>
+                ),
+              )}
+            </div>
           )}
           {room.wish_rank && (
-            <p className="mt-2 text-base font-black text-sky-300">
+            <p className="mt-1 text-xs font-black text-sky-300">
               현재 소원: {room.wish_rank === 14 ? "A" : room.wish_rank}
             </p>
           )}
@@ -2182,38 +2187,38 @@ export default function TichuClient() {
           onClick={() => setChatOpen(false)}
         >
           <aside
-            className="mx-auto flex h-[min(26rem,55dvh)] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/70 bg-white/90 p-4 text-zinc-950 shadow-2xl backdrop-blur-md"
+            className="mx-auto flex h-[min(18rem,38dvh)] w-[52vw] min-w-[17rem] max-w-xs flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/90 p-3 text-zinc-950 shadow-2xl backdrop-blur-md"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-black">실시간 채팅</h2>
-                <p className="text-[11px] text-zinc-500">
+                <h2 className="text-sm font-black">실시간 채팅</h2>
+                <p className="text-[9px] text-zinc-500">
                   방이 닫히면 대화도 사라집니다.
                 </p>
               </div>
               <button
                 onClick={() => setChatOpen(false)}
-                className="order-first mr-3 shrink-0 rounded-lg border border-zinc-300 bg-white/70 px-3 py-2"
+                className="order-first mr-2 shrink-0 rounded-lg border border-zinc-300 bg-white/70 px-2 py-1"
               >
                 ✕
               </button>
             </div>
-            <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
+            <div className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
               {chats.length === 0 && (
                 <p className="py-8 text-center text-sm text-zinc-500">
                   아직 채팅이 없습니다.
                 </p>
               )}
               {chats.map((c) => (
-                <div key={c.id} className="rounded-xl bg-zinc-100/90 px-3 py-2">
-                  <b className="text-xs text-sky-700">{c.user}</b>
-                  <p className="break-words text-sm text-zinc-900">{c.text}</p>
+                <div key={c.id} className="rounded-lg bg-zinc-100/90 px-2 py-1.5">
+                  <b className="text-[10px] text-sky-700">{c.user}</b>
+                  <p className="break-words text-xs text-zinc-900">{c.text}</p>
                 </div>
               ))}
               <div ref={chatEnd} />
             </div>
-            <div className="mt-3 flex shrink-0 gap-2">
+            <div className="mt-2 flex shrink-0 gap-1.5">
               <input
                 ref={chatInput}
                 value={chatText}
@@ -2236,11 +2241,11 @@ export default function TichuClient() {
                   send();
                 }}
                 placeholder="메시지 입력"
-                className="min-w-0 flex-1 rounded-xl border border-zinc-300 bg-white/85 p-3 text-base text-zinc-950 placeholder:text-zinc-400"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white/85 p-2 text-sm text-zinc-950 placeholder:text-zinc-400"
               />
               <button
                 onClick={send}
-                className="rounded-xl bg-sky-400 px-4 font-black text-zinc-950"
+                className="rounded-lg bg-sky-400 px-2.5 text-xs font-black text-zinc-950"
               >
                 전송
               </button>
