@@ -615,6 +615,7 @@ export default function TichuClient() {
     chatEnd = useRef<HTMLDivElement | null>(null),
     chatInput = useRef<HTMLInputElement | null>(null),
     chatComposing = useRef(false),
+    dogCardTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     loadInFlight = useRef(false),
     botInFlight = useRef(false),
     timeoutInFlight = useRef(false);
@@ -636,6 +637,7 @@ export default function TichuClient() {
     [bubbles, setBubbles] = useState<Record<string, string>>({}),
     [sound, setSound] = useState(true),
     [announcement, setAnnouncement] = useState(""),
+    [dogCardVisible, setDogCardVisible] = useState(false),
     [avatar, setAvatar] = useState(0),
     [skin, setSkin] = useState(1),
     [hairColor, setHairColor] = useState(0),
@@ -854,6 +856,14 @@ export default function TichuClient() {
     },
     [soundFx],
   );
+  const showDogCard = useCallback(() => {
+    setDogCardVisible(true);
+    if (dogCardTimer.current) clearTimeout(dogCardTimer.current);
+    dogCardTimer.current = setTimeout(() => {
+      setDogCardVisible(false);
+      dogCardTimer.current = null;
+    }, 2000);
+  }, []);
   const showBubble = useCallback((id: string, text: string) => {
     setBubbles((v) => ({ ...v, [id]: text }));
     clearTimeout(bubbleTimers.current[id]);
@@ -986,8 +996,9 @@ export default function TichuClient() {
                   event: "card",
                   payload: { kind },
                 });
-                if (kind === "dog") {
-                  setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
+              if (kind === "dog") {
+                showDogCard();
+                setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
                   setTimeout(() => setAnnouncement(""), 2000);
                 }
               }
@@ -1005,6 +1016,7 @@ export default function TichuClient() {
       snap?.players,
       snap?.room.trick.length,
       snap?.room.turn_seat,
+      showDogCard,
       soundFx,
       supabase,
     ]);
@@ -1065,6 +1077,7 @@ export default function TichuClient() {
         const kind = (payload.kind || "card") as ReturnType<typeof cardSound>;
         soundFx(kind);
         if (kind === "dog") {
+          showDogCard();
           setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
           setTimeout(() => setAnnouncement(""), 2000);
         }
@@ -1081,6 +1094,7 @@ export default function TichuClient() {
     roomId,
     showAnnouncement,
     showBubble,
+    showDogCard,
     soundFx,
     supabase,
   ]);
@@ -1094,8 +1108,18 @@ export default function TichuClient() {
         (snap.room.status === "EXCHANGE" && snap.exchange_count < 4) ||
         (snap.room.status === "PLAYING" && current?.is_bot);
     if (!should) return;
-    const timer = setTimeout(() => void botAct(), 2300);
-    return () => clearTimeout(timer);
+    let stopped = false,
+      retry: ReturnType<typeof setTimeout>;
+    const run = async () => {
+      await botAct();
+      if (!stopped) retry = setTimeout(run, 3000);
+    };
+    const timer = setTimeout(() => void run(), 2300);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      clearTimeout(retry);
+    };
   }, [botAct, roomId, snap]);
   useEffect(() => {
     const tick = () => {
@@ -1532,6 +1556,7 @@ export default function TichuClient() {
     const kind = cardSound(selected);
     soundFx(kind);
     if (kind === "dog") {
+      showDogCard();
       setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
       setTimeout(() => setAnnouncement(""), 2000);
     }
@@ -1900,7 +1925,7 @@ export default function TichuClient() {
               </p>
             )}
             <div className="flex justify-center -space-x-5">
-              {(room.trick.at(-1)?.cards || []).map((c) => (
+              {(dogCardVisible ? [53] : room.trick.at(-1)?.cards || []).map((c) => (
                 <Card key={c} card={c} tiny />
               ))}
             </div>
