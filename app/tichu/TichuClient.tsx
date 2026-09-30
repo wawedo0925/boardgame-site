@@ -614,7 +614,10 @@ export default function TichuClient() {
     bubbleTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({}),
     chatEnd = useRef<HTMLDivElement | null>(null),
     chatInput = useRef<HTMLInputElement | null>(null),
-    chatComposing = useRef(false);
+    chatComposing = useRef(false),
+    loadInFlight = useRef(false),
+    botInFlight = useRef(false),
+    timeoutInFlight = useRef(false);
   const [user, setUser] = useState<string | null>(null),
     [rooms, setRooms] = useState<Lobby[]>([]),
     [roomId, setRoomId] = useState<string | null>(null),
@@ -869,26 +872,31 @@ export default function TichuClient() {
     setRooms((data || []) as Lobby[]);
   }, [supabase]),
     load = useCallback(async () => {
-      if (!roomId) return;
-      const [
-        { data, error },
-        { data: pending },
-        { data: spectatorNames },
-      ] = await Promise.all([
-        supabase.rpc("tichu_snapshot", { p_room: roomId }),
-        supabase.rpc("tichu_exchange_pending", { p_room: roomId }),
-        supabase.rpc("tichu_spectator_names", { p_room: roomId }),
-      ]);
-      if (error) return;
-      if (data)
-        setSnap({
-          ...(data as Snap),
-          exchange_pending_ids: (pending || []) as string[],
-          spectator_names: (spectatorNames || []) as string[],
-        });
-      else {
-        setRoomId(null);
-        setSnap(null);
+      if (!roomId || loadInFlight.current) return;
+      loadInFlight.current = true;
+      try {
+        const [
+          { data, error },
+          { data: pending },
+          { data: spectatorNames },
+        ] = await Promise.all([
+          supabase.rpc("tichu_snapshot", { p_room: roomId }),
+          supabase.rpc("tichu_exchange_pending", { p_room: roomId }),
+          supabase.rpc("tichu_spectator_names", { p_room: roomId }),
+        ]);
+        if (error) return;
+        if (data)
+          setSnap({
+            ...(data as Snap),
+            exchange_pending_ids: (pending || []) as string[],
+            spectator_names: (spectatorNames || []) as string[],
+          });
+        else {
+          setRoomId(null);
+          setSnap(null);
+        }
+      } finally {
+        loadInFlight.current = false;
       }
     }, [roomId, supabase]);
   const rpc = useCallback(
@@ -925,55 +933,70 @@ export default function TichuClient() {
       [load, lobby, refresh, rpc],
     ),
     botAct = useCallback(async () => {
-      if (!roomId) return;
+      if (!roomId || botInFlight.current) return;
+      botInFlight.current = true;
       const oldTrickLength = snap?.room.trick.length || 0,
         actingBot = snap?.players.find((p) => p.seat === snap.room.turn_seat);
-      const { error } = await supabase.rpc("tichu_bot_tick", {
-        p_room: roomId,
-      });
-      if (!error) {
-        const { data } = await supabase.rpc("tichu_snapshot", {
+      try {
+        const { error } = await supabase.rpc("tichu_bot_tick", {
           p_room: roomId,
         });
-        if (data) {
-          const next = data as Snap,
-            setCards = next.room.trick.at(-1)?.cards || [];
-          setSnap(next);
-          if (next.room.status === "PLAYING" && actingBot) {
-            const afterBot = next.players.find(
-                (p) => p.user_id === actingBot.user_id,
-              ),
-              played = !!afterBot && afterBot.count < actingBot.count;
-            let kind: ReturnType<typeof cardSound> | "pass" | null = null;
-            if (
-              played &&
-              next.room.lead === null &&
-              next.room.trick.length === 0
-            )
-              kind = "dog";
-            else if (
-              played &&
-              next.room.trick.length > oldTrickLength &&
-              setCards.length
-            )
-              kind = cardSound(setCards);
-            else if (!played && next.room.turn_seat !== snap?.room.turn_seat)
-              kind = "pass";
-            if (kind) {
-              soundFx(kind);
-              void channel.current?.send({
-                type: "broadcast",
-                event: "card",
-                payload: { kind },
-              });
-              if (kind === "dog") {
-                setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
-                setTimeout(() => setAnnouncement(""), 2000);
+        if (!error) {
+          const [
+            { data },
+            { data: pending },
+            { data: spectatorNames },
+          ] = await Promise.all([
+            supabase.rpc("tichu_snapshot", { p_room: roomId }),
+            supabase.rpc("tichu_exchange_pending", { p_room: roomId }),
+            supabase.rpc("tichu_spectator_names", { p_room: roomId }),
+          ]);
+          if (data) {
+            const next: Snap = {
+                ...(data as Snap),
+                exchange_pending_ids: (pending || []) as string[],
+                spectator_names: (spectatorNames || []) as string[],
+              },
+              setCards = next.room.trick.at(-1)?.cards || [];
+            setSnap(next);
+            if (next.room.status === "PLAYING" && actingBot) {
+              const afterBot = next.players.find(
+                  (p) => p.user_id === actingBot.user_id,
+                ),
+                played = !!afterBot && afterBot.count < actingBot.count;
+              let kind: ReturnType<typeof cardSound> | "pass" | null = null;
+              if (
+                played &&
+                next.room.lead === null &&
+                next.room.trick.length === 0
+              )
+                kind = "dog";
+              else if (
+                played &&
+                next.room.trick.length > oldTrickLength &&
+                setCards.length
+              )
+                kind = cardSound(setCards);
+              else if (!played && next.room.turn_seat !== snap?.room.turn_seat)
+                kind = "pass";
+              if (kind) {
+                soundFx(kind);
+                void channel.current?.send({
+                  type: "broadcast",
+                  event: "card",
+                  payload: { kind },
+                });
+                if (kind === "dog") {
+                  setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
+                  setTimeout(() => setAnnouncement(""), 2000);
+                }
               }
             }
           }
+          refresh();
         }
-        refresh();
+      } finally {
+        botInFlight.current = false;
       }
     }, [
       cardSound,
@@ -1087,11 +1110,19 @@ export default function TichuClient() {
         Math.ceil((new Date(deadline).getTime() - Date.now()) / 1000),
       );
       setLeft(n);
-      if (!n && roomId && !snap.spectator) {
-        if (snap.room.status === "PLAYING")
-          void act("tichu_timeout", { p_room: roomId });
-        if (snap.room.status === "EXCHANGE")
-          void act("tichu_exchange_timeout", { p_room: roomId });
+      if (!n && roomId && !snap.spectator && !timeoutInFlight.current) {
+        const timeoutRpc =
+          snap.room.status === "PLAYING"
+            ? "tichu_timeout"
+            : snap.room.status === "EXCHANGE"
+              ? "tichu_exchange_timeout"
+              : null;
+        if (timeoutRpc) {
+          timeoutInFlight.current = true;
+          void act(timeoutRpc, { p_room: roomId }).finally(() => {
+            timeoutInFlight.current = false;
+          });
+        }
       }
     };
     tick();
@@ -1810,11 +1841,11 @@ export default function TichuClient() {
       )}
       {(grand || exchange || playing) && (
         <section className="relative mt-4 min-h-[25rem] rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_center,#18342d,#09090b_72%)]">
-          {snap.spectator_names.length > 0 && (
+          {(snap.spectator_names ?? []).length > 0 && (
             <div className="absolute left-4 top-4 z-10 max-w-[42%] rounded-xl border border-sky-300/20 bg-zinc-950/85 px-3 py-2 text-[11px] shadow-lg backdrop-blur-sm">
               <span className="block font-black text-sky-300">관전 중</span>
               <span className="mt-0.5 block truncate text-zinc-300">
-                {snap.spectator_names.join(" · ")}
+                {(snap.spectator_names ?? []).join(" · ")}
               </span>
             </div>
           )}
@@ -1900,10 +1931,10 @@ export default function TichuClient() {
             <div>
               <b>카드 한 장 선택 → 받을 멤버 선택</b>
               <p className="text-xs text-zinc-400">
-                {snap.exchange_pending_ids.length > 0 ? (
+                {(snap.exchange_pending_ids ?? []).length > 0 ? (
                   <>
                     <span className="font-black text-amber-300">
-                      {snap.exchange_pending_ids
+                      {(snap.exchange_pending_ids ?? [])
                         .map((id) => players.find((p) => p.user_id === id))
                         .filter((p): p is Player => Boolean(p))
                         .map((p) =>
