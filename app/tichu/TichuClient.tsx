@@ -84,6 +84,7 @@ type Snap = {
   players: Player[];
   exchange_count: number;
   exchange_pending_ids: string[];
+  spectator_names: string[];
   my_gifts: Record<string, number>;
   received: { card: number; from_name: string }[];
 };
@@ -868,15 +869,21 @@ export default function TichuClient() {
   }, [supabase]),
     load = useCallback(async () => {
       if (!roomId) return;
-      const [{ data, error }, { data: pending }] = await Promise.all([
+      const [
+        { data, error },
+        { data: pending },
+        { data: spectatorNames },
+      ] = await Promise.all([
         supabase.rpc("tichu_snapshot", { p_room: roomId }),
         supabase.rpc("tichu_exchange_pending", { p_room: roomId }),
+        supabase.rpc("tichu_spectator_names", { p_room: roomId }),
       ]);
       if (error) return;
       if (data)
         setSnap({
           ...(data as Snap),
           exchange_pending_ids: (pending || []) as string[],
+          spectator_names: (spectatorNames || []) as string[],
         });
       else {
         setRoomId(null);
@@ -1812,6 +1819,14 @@ export default function TichuClient() {
       )}
       {(grand || exchange || playing) && (
         <section className="relative mt-4 min-h-[25rem] rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_center,#18342d,#09090b_72%)]">
+          {snap.spectator_names.length > 0 && (
+            <div className="absolute left-4 top-4 z-10 max-w-[42%] rounded-xl border border-sky-300/20 bg-zinc-950/85 px-3 py-2 text-[11px] shadow-lg backdrop-blur-sm">
+              <span className="block font-black text-sky-300">관전 중</span>
+              <span className="mt-0.5 block truncate text-zinc-300">
+                {snap.spectator_names.join(" · ")}
+              </span>
+            </div>
+          )}
           <div className="absolute left-1/2 top-3 -translate-x-1/2">
             <Avatar
               p={topPlayer}
