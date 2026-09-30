@@ -31,17 +31,15 @@ export default function GroupRoundHistory({ games, canManage, onChanged, onRepea
     {rows.map(({ game, round }, index) => {
       const folded = collapsed.includes(round.id);
       return <article key={round.id} className="rounded-xl border border-white/10 bg-zinc-950/60 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0 max-w-full"><p className="truncate text-xs text-amber-300">{index + 1}판 · {game.game?.type === "COOP" ? "협력형" : game.result_type === "ROLE" ? "역할형" : "점수/등수형"}<GameResultStats game={game} stats={stats[game.game_id]}/></p><h4 className="break-words font-bold">{game.game?.name}</h4></div>
-          <div className="flex flex-wrap gap-2">
-            {canManage && <>
-              <button onClick={() => game.game?.type !== "COOP" && game.result_type === "ROLE" && !isWolfStreet(game.game?.name) && !isDeathStation(game.game?.name) ? setRoleRound({ game, round }) : setScoreRound({ game, round })} className="min-h-11 rounded-lg bg-white/10 px-3 py-2 text-sm">결과 입력/수정</button>
-              {onRepeat && <button disabled={repeatDisabled} title="확정된 현재 조원으로 같은 게임을 추가합니다. 조원 변경 후에는 먼저 조 편성을 확정해 주세요." onClick={() => void onRepeat(game)} className="min-h-11 rounded-lg bg-amber-400/15 px-3 text-sm font-bold text-amber-300 disabled:opacity-40">한판 더</button>}
-              <button onClick={() => void remove(round)} className="min-h-11 rounded-lg border border-red-400/20 px-3 text-sm text-red-300">삭제</button>
-            </>}
-            <button aria-expanded={!folded} onClick={() => setCollapsed(current => folded ? current.filter(id => id !== round.id) : [...current, round.id])} className="min-h-11 px-2 text-sm text-amber-300">{folded ? "더보기" : "접기"}</button>
-          </div>
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1"><p className="truncate text-[11px] text-amber-300 sm:text-xs">{index + 1}판 · {game.game?.type === "COOP" ? "협력형" : game.result_type === "ROLE" ? "역할형" : "점수/등수형"}<GameResultStats game={game} stats={stats[game.game_id]}/></p><h4 className="truncate text-sm font-bold sm:text-base">{game.game?.name}</h4></div>
+          <button aria-expanded={!folded} onClick={() => setCollapsed(current => folded ? current.filter(id => id !== round.id) : [...current, round.id])} className="min-h-9 shrink-0 px-1.5 text-xs font-bold text-amber-300">{folded ? "더보기" : "접기"}</button>
         </div>
+        {canManage && <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-1.5">
+          <button onClick={() => game.game?.type !== "COOP" && game.result_type === "ROLE" && !isWolfStreet(game.game?.name) && !isDeathStation(game.game?.name) ? setRoleRound({ game, round }) : setScoreRound({ game, round })} className="min-h-10 min-w-0 rounded-lg bg-white/10 px-2 py-1.5 text-xs sm:text-sm">결과 입력/수정</button>
+          {onRepeat && <button disabled={repeatDisabled} title="확정된 현재 조원으로 같은 게임을 추가합니다. 조원 변경 후에는 먼저 조 편성을 확정해 주세요." onClick={() => void onRepeat(game)} className="min-h-10 rounded-lg bg-amber-400/15 px-2.5 text-xs font-bold text-amber-300 disabled:opacity-40 sm:text-sm">한판 더</button>}
+          <button onClick={() => void remove(round)} className="min-h-10 rounded-lg border border-red-400/20 px-2.5 text-xs text-red-300 sm:text-sm">삭제</button>
+        </div>}
         {!folded && <><TeamScoreSummary players={round.players}/><div className="mt-3 space-y-1">{orderRoundResults(round.players, game.result_type).map(p => <div key={p.user_id} className="flex justify-between gap-3 rounded-lg bg-white/[0.04] px-3 py-2 text-sm"><span>{pname(p)}</span><strong className="text-amber-300">{p.is_gm ? "GM 진행" : cooperativeResultLabel(p) ?? scoreRankLabel(p, round.players) ?? wolfScoreLabel(p) ?? teamScoreLabel(p) ?? (game.result_type === "ROLE" ? (p.role_name ? `${p.role_name} · ${p.is_winner ? "승리" : "패배"}` : "미입력") : game.result_type === "SIMPLE_SCORE" ? (p.rank ? `${p.rank}등` : "미입력") : (p.score !== null ? `${p.score}점` : "미입력"))}</strong></div>)}</div></>}
       </article>;
     })}
