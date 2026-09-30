@@ -1711,6 +1711,17 @@ export default function TichuClient() {
               </button>
             ))}
           </div>
+          {host && (
+            <button
+              disabled={busy || players.length < 2}
+              onClick={() =>
+                void act("tichu_randomize_teams", { p_room: roomId })
+              }
+              className="mt-3 w-full rounded-xl border border-amber-300/40 bg-amber-300/10 p-3 font-black text-amber-200 disabled:opacity-30"
+            >
+              🎲 팀 무작위 배정
+            </button>
+          )}
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {players.map((p) => (
               <div
