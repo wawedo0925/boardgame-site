@@ -1259,6 +1259,13 @@ export default function TichuClient() {
   }
   async function declare(kind: "grand" | "small", call = true) {
     if (!roomId) return;
+    if (
+      call &&
+      !confirm(
+        `${kind === "grand" ? "라지 티츄(±200점)" : "스몰 티츄(±100점)"}를 정말 선언하시겠습니까?\n선언 후에는 취소할 수 없습니다.`,
+      )
+    )
+      return;
     const text = `${mine?.name || "멤버"}님이 ${kind === "grand" ? "라지 티츄" : "스몰 티츄"}를 선언했습니다!`;
     await act(
       kind === "grand" ? "tichu_grand_choice" : "tichu_declare_small",
