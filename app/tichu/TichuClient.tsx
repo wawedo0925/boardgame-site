@@ -83,6 +83,7 @@ type Snap = {
   };
   players: Player[];
   exchange_count: number;
+  exchange_pending_ids: string[];
   my_gifts: Record<string, number>;
   received: { card: number; from_name: string }[];
 };
@@ -862,16 +863,21 @@ export default function TichuClient() {
     );
   }, []);
   const lobby = useCallback(async () => {
-      const { data } = await supabase.rpc("tichu_lobby");
-      setRooms((data || []) as Lobby[]);
-    }, [supabase]),
+    const { data } = await supabase.rpc("tichu_lobby");
+    setRooms((data || []) as Lobby[]);
+  }, [supabase]),
     load = useCallback(async () => {
       if (!roomId) return;
-      const { data, error } = await supabase.rpc("tichu_snapshot", {
-        p_room: roomId,
-      });
+      const [{ data, error }, { data: pending }] = await Promise.all([
+        supabase.rpc("tichu_snapshot", { p_room: roomId }),
+        supabase.rpc("tichu_exchange_pending", { p_room: roomId }),
+      ]);
       if (error) return;
-      if (data) setSnap(data as Snap);
+      if (data)
+        setSnap({
+          ...(data as Snap),
+          exchange_pending_ids: (pending || []) as string[],
+        });
       else {
         setRoomId(null);
         setSnap(null);
@@ -1887,8 +1893,25 @@ export default function TichuClient() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <b>카드 한 장 선택 → 받을 멤버 선택</b>
-              <p className="text-xs text-zinc-500">
-                각 멤버에게 한 장씩 · 완료 {snap.exchange_count}/4
+              <p className="text-xs text-zinc-400">
+                {snap.exchange_pending_ids.length > 0 ? (
+                  <>
+                    <span className="font-black text-amber-300">
+                      {snap.exchange_pending_ids
+                        .map((id) => players.find((p) => p.user_id === id))
+                        .filter((p): p is Player => Boolean(p))
+                        .map((p) =>
+                          p.is_bot ? p.name.replace(/^연습\s*/, "") : p.name,
+                        )
+                        .join(" · ")}
+                    </span>{" "}
+                    진행 중
+                  </>
+                ) : (
+                  <span className="font-black text-emerald-300">
+                    모두 교환 완료
+                  </span>
+                )}
               </p>
             </div>
             <span
