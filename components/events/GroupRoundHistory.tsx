@@ -1,7 +1,7 @@
 "use client";
 import GameResultStats, { useGameResultStats } from "./GameResultStats";
 import { isDeathStation } from "@/lib/death-station";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { scoreRankLabel } from "@/lib/score-rank";
 import { cooperativeResultLabel } from "@/lib/cooperative";
 import { orderRoundResults } from "@/lib/round-result-order";
@@ -13,14 +13,28 @@ import { deleteRound } from "@/lib/services/rounds";
 import type { EventGame, EventGameRound } from "@/types/event";
 import RoundResultDialog from "./RoundResultDialog";
 import RoleResultDialog from "./RoleResultDialog";
-type Props = { games: EventGame[]; canManage: boolean; onChanged: () => Promise<void> | void; onRepeat?: (game: EventGame) => Promise<void>; repeatDisabled?: boolean };
+type Props = { games: EventGame[]; canManage: boolean; onChanged: () => Promise<void> | void; onRepeat?: (game: EventGame) => Promise<void>; repeatDisabled?: boolean; collapseKey?: string };
 const pname = (p: EventGameRound["players"][number]) => p.profile?.activity_name || "회원";
-export default function GroupRoundHistory({ games, canManage, onChanged, onRepeat, repeatDisabled }: Props) {
+export default function GroupRoundHistory({ games, canManage, onChanged, onRepeat, repeatDisabled, collapseKey = "default" }: Props) {
   const stats = useGameResultStats(games);
   const supabase = useMemo(() => createClient(), []);
   const [scoreRound, setScoreRound] = useState<{ game: EventGame; round: EventGameRound } | null>(null);
   const [roleRound, setRoleRound] = useState<{ game: EventGame; round: EventGameRound } | null>(null);
   const [collapsed, setCollapsed] = useState<string[]>([]);
+  const collapsedStorageKey = `group-round-collapsed:${collapseKey}`;
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(collapsedStorageKey) || "[]");
+      if (Array.isArray(stored)) setCollapsed(stored.filter(value => typeof value === "string"));
+    } catch {}
+  }, [collapsedStorageKey]);
+  function toggleCollapsed(roundId: string) {
+    setCollapsed(current => {
+      const next = current.includes(roundId) ? current.filter(id => id !== roundId) : [...current, roundId];
+      localStorage.setItem(collapsedStorageKey, JSON.stringify(next));
+      return next;
+    });
+  }
   const rows = games.flatMap(game => game.rounds.map(round => ({ game, round }))).sort((a, b) => new Date(a.round.created_at).getTime() - new Date(b.round.created_at).getTime());
   async function remove(round: EventGameRound) {
     if (!confirm("이 판과 결과를 삭제할까요?")) return;
@@ -33,14 +47,13 @@ export default function GroupRoundHistory({ games, canManage, onChanged, onRepea
       return <article key={round.id} className="rounded-xl border border-white/10 bg-zinc-950/60 p-4">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1"><p className="truncate text-[11px] text-amber-300 sm:text-xs">{index + 1}판 · {game.game?.type === "COOP" ? "협력형" : game.result_type === "ROLE" ? "역할형" : "점수/등수형"}<GameResultStats game={game} stats={stats[game.game_id]}/></p><h4 className="truncate text-sm font-bold sm:text-base">{game.game?.name}</h4></div>
-          <button aria-expanded={!folded} onClick={() => setCollapsed(current => folded ? current.filter(id => id !== round.id) : [...current, round.id])} className="min-h-9 shrink-0 px-1.5 text-xs font-bold text-amber-300">{folded ? "더보기" : "접기"}</button>
+          <button aria-expanded={!folded} onClick={() => toggleCollapsed(round.id)} className="min-h-9 shrink-0 px-1.5 text-xs font-bold text-amber-300">{folded ? "더보기" : "접기"}</button>
         </div>
-        {canManage && <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-1.5">
+        {!folded && <>{canManage && <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-1.5">
           <button onClick={() => game.game?.type !== "COOP" && game.result_type === "ROLE" && !isWolfStreet(game.game?.name) && !isDeathStation(game.game?.name) ? setRoleRound({ game, round }) : setScoreRound({ game, round })} className="min-h-10 min-w-0 rounded-lg bg-white/10 px-2 py-1.5 text-xs sm:text-sm">결과 입력/수정</button>
           {onRepeat && <button disabled={repeatDisabled} title="확정된 현재 조원으로 같은 게임을 추가합니다. 조원 변경 후에는 먼저 조 편성을 확정해 주세요." onClick={() => void onRepeat(game)} className="min-h-10 rounded-lg bg-amber-400/15 px-2.5 text-xs font-bold text-amber-300 disabled:opacity-40 sm:text-sm">한판 더</button>}
           <button onClick={() => void remove(round)} className="min-h-10 rounded-lg border border-red-400/20 px-2.5 text-xs text-red-300 sm:text-sm">삭제</button>
-        </div>}
-        {!folded && <><TeamScoreSummary players={round.players}/><div className="mt-3 space-y-1">{orderRoundResults(round.players, game.result_type).map(p => <div key={p.user_id} className="flex justify-between gap-3 rounded-lg bg-white/[0.04] px-3 py-2 text-sm"><span>{pname(p)}</span><strong className="text-amber-300">{p.is_gm ? "GM 진행" : cooperativeResultLabel(p) ?? scoreRankLabel(p, round.players) ?? wolfScoreLabel(p) ?? teamScoreLabel(p) ?? (game.result_type === "ROLE" ? (p.role_name ? `${p.role_name} · ${p.is_winner ? "승리" : "패배"}` : "미입력") : game.result_type === "SIMPLE_SCORE" ? (p.rank ? `${p.rank}등` : "미입력") : (p.score !== null ? `${p.score}점` : "미입력"))}</strong></div>)}</div></>}
+        </div>}<TeamScoreSummary players={round.players}/><div className="mt-3 space-y-1">{orderRoundResults(round.players, game.result_type).map(p => <div key={p.user_id} className="flex justify-between gap-3 rounded-lg bg-white/[0.04] px-3 py-2 text-sm"><span>{pname(p)}</span><strong className="text-amber-300">{p.is_gm ? "GM 진행" : cooperativeResultLabel(p) ?? scoreRankLabel(p, round.players) ?? wolfScoreLabel(p) ?? teamScoreLabel(p) ?? (game.result_type === "ROLE" ? (p.role_name ? `${p.role_name} · ${p.is_winner ? "승리" : "패배"}` : "미입력") : game.result_type === "SIMPLE_SCORE" ? (p.rank ? `${p.rank}등` : "미입력") : (p.score !== null ? `${p.score}점` : "미입력"))}</strong></div>)}</div></>}
       </article>;
     })}
     {rows.length === 0 && <p className="py-5 text-center text-sm text-zinc-600">아직 진행한 판이 없습니다.</p>}

@@ -58,6 +58,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   const [adding, setAdding] = useState<GroupDraft | null>(null);
   const [recommending, setRecommending] = useState<GroupDraft | null>(null);
   const [collapsed, setCollapsed] = useState<string[]>([]);
+  const collapsedStorageKey = `group-play-collapsed:${eventId}:${currentUserId || "guest"}`;
   const [savedGroups, setSavedGroups] = useState<Record<string,string>>({});
   const [busy, setBusy] = useState(false);
   const repeatLock = useRef(false);
@@ -72,6 +73,20 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   }, [eventId, supabase]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(collapsedStorageKey) || "[]");
+      if (Array.isArray(stored)) setCollapsed(stored.filter(value => typeof value === "string"));
+    } catch {}
+  }, [collapsedStorageKey]);
+
+  function toggleCollapsed(groupId: string) {
+    setCollapsed(current => {
+      const next = current.includes(groupId) ? current.filter(id => id !== groupId) : [...current, groupId];
+      localStorage.setItem(collapsedStorageKey, JSON.stringify(next));
+      return next;
+    });
+  }
 
   const eligibleParticipants = useMemo(
     () => participants.filter(participant => participant.attendance_status === "PRESENT"),
@@ -218,7 +233,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
       return <article key={group.id} ref={node => {if(node)groupRefs.current.set(group.id,node);else groupRefs.current.delete(group.id)}} onClick={() => selected.length && move(selected, group.id)} className={`rounded-2xl border-2 p-4 transition ${selected.length && editable ? "cursor-pointer border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.2)]" : "border-white"}`}>
         <div className="flex flex-wrap items-center gap-2" onClick={event => event.stopPropagation()}>
           <input aria-label="조 이름" disabled={!editable} value={group.name} onChange={event => setDrafts(current => current.map(item => item.id === group.id ? { ...item, name: event.target.value } : item))} className="h-11 min-w-24 flex-1 rounded-xl bg-white/10 px-3 font-bold disabled:opacity-80 sm:max-w-48"/>
-          <button aria-expanded={!collapsed.includes(group.id)} onClick={() => setCollapsed(current => current.includes(group.id) ? current.filter(id => id !== group.id) : [...current, group.id])} className="min-h-11 shrink-0 px-2 text-sm text-amber-300">{collapsed.includes(group.id) ? "더보기" : "접기"}</button>
+          <button aria-expanded={!collapsed.includes(group.id)} onClick={() => toggleCollapsed(group.id)} className="min-h-11 shrink-0 px-2 text-sm text-amber-300">{collapsed.includes(group.id) ? "더보기" : "접기"}</button>
         </div>
         {!collapsed.includes(group.id)&&<>
         {editable&&<div className="mt-3 flex flex-wrap items-center gap-2" onClick={event => event.stopPropagation()}>
@@ -235,7 +250,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
             <button disabled={busy || savedGroups[group.id] !== groupSignature(group)} title="조 편성 확정 후 확인할 수 있습니다." onClick={() => setRecommending(group)} className="min-h-11 rounded-xl bg-emerald-400/15 px-4 py-2 font-bold text-emerald-300 disabled:opacity-40">게임 비추천</button>
           </div>}
         </div>
-        <GroupRoundHistory games={groupGames} canManage={groupEditable} onChanged={load} onRepeat={game => repeatGame(group, game)} repeatDisabled={busy || savedGroups[group.id] !== groupSignature(group)} /></>}
+        <GroupRoundHistory games={groupGames} canManage={groupEditable} onChanged={load} onRepeat={game => repeatGame(group, game)} repeatDisabled={busy || savedGroups[group.id] !== groupSignature(group)} collapseKey={`${eventId}:${currentUserId || "guest"}:${group.id}`} /></>}
       </article>;
     })}</div>
     {editable && <div className="mt-5 grid gap-3 sm:grid-cols-3"><button disabled={busy} onClick={reset} className="h-12 rounded-xl border border-white/15 text-zinc-300 disabled:opacity-50">조 편성 초기화</button><button disabled={busy} onClick={resetPlayRecords} className="h-12 rounded-xl border border-red-400/40 text-red-300 disabled:opacity-50">플레이 기록 전체 초기화</button><button disabled={busy} onClick={save} className="h-12 rounded-xl bg-amber-400 font-bold text-zinc-950 disabled:opacity-50">조 편성 확정</button></div>}
