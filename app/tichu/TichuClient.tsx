@@ -148,6 +148,7 @@ function combo(cards: number[]): Combo | null {
   if (
     (n === 2 || n === 3) &&
     vals.length === 1 &&
+    vals[0] >= 2 &&
     (counts.get(vals[0]) || 0) + (ph ? 1 : 0) === n
   )
     return {
@@ -625,7 +626,7 @@ export default function TichuClient() {
     [left, setLeft] = useState(0),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
-    [wish, setWish] = useState(2),
+    [wish, setWish] = useState(0),
     [chatOpen, setChatOpen] = useState(false),
     [chatText, setChatText] = useState(""),
     [chats, setChats] = useState<Chat[]>([]),
@@ -1467,16 +1468,6 @@ export default function TichuClient() {
   async function play(dragonTarget?: string) {
     if (!roomId || !picked) return;
     if (
-      room.wish_rank &&
-      me.cards.some((c) => c < 52 && rank(c) === room.wish_rank) &&
-      !selected.some((c) => c < 52 && rank(c) === room.wish_rank)
-    ) {
-      alert(
-        `소원 때문에 ${room.wish_rank === 14 ? "A" : room.wish_rank}는 내셔야 합니다.`,
-      );
-      return;
-    }
-    if (
       leader?.team === me.team &&
       leader.user_id !== me.user_id &&
       !confirm(
@@ -1504,7 +1495,7 @@ export default function TichuClient() {
       p_room: roomId,
       p_cards: selected,
       p_combo: playCombo,
-      p_wish: selected.includes(52) ? wish : null,
+      p_wish: selected.includes(52) && wish >= 2 ? wish : null,
       p_dragon_target: dragon,
     });
     const kind = cardSound(selected);
@@ -1982,6 +1973,7 @@ export default function TichuClient() {
               onChange={(e) => setWish(Number(e.target.value))}
               className="rounded-xl bg-zinc-900 p-3"
             >
+              <option value={0}>소원 없음</option>
               {Array.from({ length: 13 }, (_, i) => i + 2).map((n) => (
                 <option key={n} value={n}>
                   소원 {n === 14 ? "A" : n}
