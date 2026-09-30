@@ -695,10 +695,11 @@ export default function TichuClient() {
       };
       if (calls[kind] && "speechSynthesis" in window) {
         const voice = new SpeechSynthesisUtterance(calls[kind]);
-        voice.lang = "en-US";
-        voice.rate = 0.95;
-        speechSynthesis.cancel();
-        speechSynthesis.speak(voice);
+      voice.lang = "en-US";
+      voice.rate = 0.95;
+      voice.volume = kind === "pass" ? 0.65 : 1;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(voice);
       }
       if (kind === "bomb") {
         const duration = 1.3,
@@ -746,7 +747,7 @@ export default function TichuClient() {
         filter.type = "bandpass";
         filter.frequency.value = 1750;
         filter.Q.value = 0.7;
-        gain.gain.setValueAtTime(0.42, now);
+        gain.gain.setValueAtTime(0.64, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
         src.connect(filter).connect(gain).connect(ctx.destination);
         src.start();
@@ -814,7 +815,7 @@ export default function TichuClient() {
           start = now + i * 0.07;
         osc.type = "sine";
         osc.frequency.setValueAtTime(frequency, start);
-        gain.gain.setValueAtTime(0.1, start);
+        gain.gain.setValueAtTime(kind === "pass" ? 0.065 : 0.1, start);
         gain.gain.exponentialRampToValueAtTime(0.001, start + 0.13);
         osc.connect(gain).connect(ctx.destination);
         osc.start(start);
@@ -1853,22 +1854,22 @@ export default function TichuClient() {
             </div>
           </div>
           {playing && !spectator && (
-            <>
-              <button
-                disabled={(!myTurn && !picked?.bomb) || !picked || busy}
-                onClick={() => void play()}
-                className="absolute bottom-9 left-3 w-[5.5rem] rounded-xl bg-amber-300 px-2 py-3 text-sm font-black text-black disabled:opacity-30"
-              >
-                {!myTurn && picked?.bomb ? "폭탄" : "카드 내기"}
-              </button>
+            <div className="absolute inset-x-3 bottom-9 flex items-center justify-between sm:inset-x-auto sm:right-3 sm:justify-start sm:gap-2">
               <button
                 disabled={!myTurn || !room.lead || busy}
                 onClick={() => void passTurn()}
-                className="absolute bottom-9 right-3 w-[5.5rem] rounded-xl border border-white bg-white px-2 py-3 text-sm font-black text-zinc-950 shadow-lg disabled:opacity-30"
+                className="w-[5.5rem] rounded-xl border border-white bg-white px-2 py-3 text-sm font-black text-zinc-950 shadow-lg disabled:opacity-30"
               >
                 패스
               </button>
-            </>
+              <button
+                disabled={(!myTurn && !picked?.bomb) || !picked || busy}
+                onClick={() => void play()}
+                className="w-[5.5rem] rounded-xl bg-amber-300 px-2 py-3 text-sm font-black text-black disabled:opacity-30"
+              >
+                {!myTurn && picked?.bomb ? "폭탄" : "카드 내기"}
+              </button>
+            </div>
           )}
         </section>
       )}
