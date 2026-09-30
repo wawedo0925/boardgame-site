@@ -1532,6 +1532,7 @@ export default function TichuClient() {
     if (
       leader?.team === me.team &&
       leader.user_id !== me.user_id &&
+      leader.count > 0 &&
       !confirm(
         "현재 우리 팀이 리드입니다. 그래도 내시겠습니까?\n취소하면 패스합니다.",
       )
