@@ -61,6 +61,8 @@ export default function EventCapacityCard({
 
   const overCapacity = maxParticipants !== null && participantCount > maxParticipants;
 
+  if (waitlist.length === 0) return null;
+
   return (
     <section className="rounded-3xl border border-sky-400/20 bg-sky-400/[0.035] p-5 sm:p-7">
       <div className="flex flex-wrap items-end justify-between gap-4">

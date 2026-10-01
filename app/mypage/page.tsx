@@ -6,11 +6,9 @@ import { FormEvent, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/client";
-const EventPlayHistory=dynamic(()=>import("@/components/mypage/EventPlayHistory"),{loading:()=> <SectionLoading/>});
-const Achievements=dynamic(()=>import("@/components/mypage/Achievements"),{loading:()=> <SectionLoading/>});
+const MyPageCollections=dynamic(()=>import("@/components/mypage/MyPageCollections"),{loading:()=> <SectionLoading/>});
 const MurderPreferenceGate=dynamic(()=>import("@/components/mypage/MurderPreferenceGate"));
 const MurderPlayPreferences=dynamic(()=>import("@/components/mypage/MurderPlayPreferences"),{loading:()=> <SectionLoading/>});
-const MurderMysteryHistory=dynamic(()=>import("@/components/mypage/MurderMysteryHistory"),{loading:()=> <SectionLoading/>});
 
 function SectionLoading(){return <div className="mt-8 h-36 animate-pulse rounded-3xl border border-white/10 bg-white/[0.03]"/>;}
 
@@ -309,9 +307,6 @@ export default function MyPage() {
 
       setIsStatsLoading(true);
 
-      const reviewAuthorName =
-        loadedProfile?.activity_name?.trim() || getKakaoNickname(currentUser);
-
       const [recordResponse, eventRoundResponse, reviewResponse] = await Promise.all([
         supabase
           .from("play_records")
@@ -371,7 +366,7 @@ export default function MyPage() {
               )
             `,
           )
-          .eq("author_name", reviewAuthorName)
+          .eq("user_id", currentUser.id)
           .order("created_at", { ascending: false }),
       ]);
 
@@ -969,10 +964,8 @@ export default function MyPage() {
           </article>
         </div>
 
-        <EventPlayHistory />
+        <MyPageCollections userId={user.id} />
         <MurderPreferenceGate><MurderPlayPreferences key={user.id} userId={user.id} /></MurderPreferenceGate>
-        <MurderMysteryHistory />
-        <Achievements userId={user.id} />
 
         <section className="mt-8 rounded-3xl border border-amber-400/20 bg-amber-400/[0.04] p-6 sm:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">

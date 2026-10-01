@@ -16,6 +16,17 @@ const groupSignature = (group: GroupDraft) => JSON.stringify([group.name, [...gr
 
 type Props = { eventId: string; participants: GroupParticipant[]; currentUserId?: string | null; canManage?: boolean; isClosed?: boolean };
 const participantLabel = (participant: GroupParticipant) => participant.profile?.activity_name || "회원";
+const unassignedPriority = ["우영", "아라", "병준", "채현", "용택", "연서", "성원"];
+const compareUnassigned = (a: GroupParticipant, b: GroupParticipant) => {
+  const aName = participantLabel(a).split("/")[0].trim();
+  const bName = participantLabel(b).split("/")[0].trim();
+  const aIndex = unassignedPriority.indexOf(aName);
+  const bIndex = unassignedPriority.indexOf(bName);
+  return (aIndex < 0 ? unassignedPriority.length : aIndex)
+    - (bIndex < 0 ? unassignedPriority.length : bIndex)
+    || aName.localeCompare(bName, "ko")
+    || a.user_id.localeCompare(b.user_id);
+};
 const participantBirthLabel = (participant?: GroupParticipant) => {
   const value = participant?.profile?.birth_year?.trim();
   if (!value) return "";
@@ -107,7 +118,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   }, [editable, eligibleIds]);
 
   const assigned = new Set(drafts.flatMap(group => group.userIds));
-  const unassigned = eligibleParticipants.filter(participant => !assigned.has(participant.user_id));
+  const unassigned = eligibleParticipants.filter(participant => !assigned.has(participant.user_id)).sort(compareUnassigned);
 
   function toggleSelected(userId: string) {
     if (!editable) return;

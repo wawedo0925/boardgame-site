@@ -1,0 +1,10 @@
+const assert = require('node:assert/strict');
+const ts = require('typescript');
+require.extensions['.ts'] = (m, f) => m._compile(ts.transpileModule(require('fs').readFileSync(f, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, f);
+const { favoriteGames } = require('../lib/favorite-games.ts');
+const review = (game_id, rating, day) => ({ game_id, rating, created_at: `2026-10-${day}T00:00:00Z` });
+const reviews = [review('lowered', 5, '01'), review('four', 4, '02'), review('five', 5, '01'), review('lowered', 3, '02'), review('five', 5, '02'), review('one', 1, '03')];
+assert.deepEqual(favoriteGames(reviews).map(r => r.game_id), ['five', 'four']);
+assert.equal(reviews.length, 6);
+assert.deepEqual(favoriteGames([]), []);
+console.log('PASS: latest rating, 4+ filter, 5-star priority, deduplication and empty list');
