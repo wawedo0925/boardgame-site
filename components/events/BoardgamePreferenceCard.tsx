@@ -130,6 +130,8 @@ export default function BoardgamePreferenceCard({
     setBusy(null);
   }
 
+  if (!canChange) return null;
+
   const intro = (
     <>
       <p className="text-sm font-semibold text-amber-300">GAME PREFERENCE</p>
