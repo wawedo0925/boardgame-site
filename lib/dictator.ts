@@ -8,5 +8,10 @@ export function dictatorResults(players: { userId: string; role: string }[], win
   const validRole = (role: string) => DICTATOR_ROLES.some(value => value === role);
   if (!players.length || players.some(player => !validRole(player.role))) throw new Error("모든 멤버의 직업을 선택해 주세요.");
   if (!validRole(winningRole) || !players.some(player => player.role === winningRole)) throw new Error("참가자가 선택한 직업 중 승리 직업을 선택해 주세요.");
-  return players.map(player => ({ ...player, isWinner: player.role === winningRole }));
+  return players.map(player => ({ ...player, isWinner: player.role === winningRole || (winningRole === "독재자" && player.role === "광대") }));
+}
+
+export function dictatorWinningRole(players: { role_name: string | null; is_winner: boolean | null }[]) {
+  return players.find(player => player.is_winner && player.role_name === "독재자")?.role_name
+    ?? players.find(player => player.is_winner)?.role_name ?? "";
 }

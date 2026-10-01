@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { DICTATOR_ROLES, dictatorResults } from "@/lib/dictator";
+import { DICTATOR_ROLES, dictatorResults, dictatorWinningRole } from "@/lib/dictator";
 import type { EventGameRound } from "@/types/event";
 
 type Props = { round: EventGameRound; onClose: () => void; onSaved: () => Promise<void> | void };
@@ -10,7 +10,7 @@ type Props = { round: EventGameRound; onClose: () => void; onSaved: () => Promis
 export default function DictatorResultDialog({ round, onClose, onSaved }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const [roles, setRoles] = useState<Record<string, string>>(() => Object.fromEntries(round.players.map(p => [p.user_id, p.role_name ?? ""])));
-  const [winner, setWinner] = useState(round.players.find(p => p.is_winner)?.role_name ?? "");
+  const [winner, setWinner] = useState(() => dictatorWinningRole(round.players));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const hasResult = round.players.some(p => p.role_name || p.is_winner !== null);
@@ -50,7 +50,7 @@ export default function DictatorResultDialog({ round, onClose, onSaved }: Props)
   return <div className="fixed inset-0 z-[100] flex items-end bg-black/70 sm:items-center sm:justify-center">
     <section role="dialog" aria-modal="true" aria-labelledby="dictator-result-title" className="max-h-[94dvh] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-zinc-950 p-5 text-white sm:max-w-2xl sm:rounded-3xl sm:p-7">
       <div className="flex items-center justify-between gap-3"><h2 id="dictator-result-title" className="text-xl font-bold">{round.round_number}판 · 직업별 결과</h2><button disabled={busy} aria-label="닫기" onClick={onClose} className="min-h-11 min-w-11 rounded-full bg-white/5 text-xl">×</button></div>
-      <p className="mt-3 text-sm text-zinc-400">여러 멤버가 같은 직업을 선택할 수 있습니다. 승리 직업에 해당하는 멤버가 모두 승리로 기록됩니다.</p>
+      <p className="mt-3 text-sm text-zinc-400">여러 멤버가 같은 직업을 선택할 수 있습니다. 승리 직업에 해당하는 멤버가 모두 승리로 기록되며, 독재자가 승리하면 광대도 함께 승리합니다.</p>
       <div className="mt-5 space-y-3">{round.players.map(p => <label key={p.user_id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 p-4">
         <span className="font-bold">{p.profile?.activity_name?.trim() || "회원"}</span>
         <select disabled={busy} value={roles[p.user_id]} onChange={e => setRoles(current => ({ ...current, [p.user_id]: e.target.value }))} className="min-h-12 rounded-xl border border-white/20 bg-zinc-900 px-4 text-base">
