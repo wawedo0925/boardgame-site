@@ -1503,9 +1503,9 @@ export default function TichuClient() {
     atOffset = (n: number) =>
       players.find((p) => p.seat === (baseSeat + n) % 4),
     bottom = atOffset(0),
-    leftPlayer = atOffset(3),
+    leftPlayer = atOffset(1),
     topPlayer = atOffset(2),
-    rightPlayer = atOffset(1),
+    rightPlayer = atOffset(3),
     opps = mine
       ? players
           .filter((p) => p.team !== mine.team)
