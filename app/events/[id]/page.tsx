@@ -855,7 +855,7 @@ export default function EventDetailPage() {
                   eventId={eventId}
                   participants={participants}
                   currentUserId={user?.id ?? null}
-                  canManage={canManage}
+                  canManage={canManage || siteRole === "RULE_MASTER"}
                   isClosed={isLocked}
                 />
               ) : event.event_kind === "CLOCKTOWER" && (canManage || participants.some(p => p.user_id === user?.id)) ? (
