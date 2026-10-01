@@ -28,7 +28,7 @@ export default function Header() {
   }, []);
 
   return (
-    <>
+    <div data-site-header>
       <HeaderBase />
 
       <button
@@ -90,6 +90,6 @@ export default function Header() {
           </nav>
         </>
       ) : null}
-    </>
+    </div>
   );
 }

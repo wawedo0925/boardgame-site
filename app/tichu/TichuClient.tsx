@@ -693,6 +693,12 @@ export default function TichuClient() {
       "beginner" | "intermediate" | "advanced"
     >("beginner"),
     [dragonPicker, setDragonPicker] = useState(false);
+
+  useEffect(() => {
+    document.body.classList.toggle("tichu-in-room", Boolean(roomId));
+    return () => document.body.classList.remove("tichu-in-room");
+  }, [roomId]);
+
   const soundFx = useCallback(
     (
       kind:
@@ -1651,7 +1657,7 @@ export default function TichuClient() {
     });
   }
   return (
-    <main className="mx-auto max-w-5xl px-2 py-4 sm:px-5">
+    <main className="mx-auto max-w-5xl px-2 py-2 sm:px-5">
       <header className="sticky top-0 z-20 rounded-2xl border border-white/10 bg-zinc-950/95 p-3">
         <div className="flex justify-between">
           <div>
@@ -1960,7 +1966,7 @@ export default function TichuClient() {
         </section>
       )}
       {(grand || exchange || playing) && (
-        <section className="relative mt-2 min-h-[19rem] rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_center,#18342d,#09090b_72%)] sm:min-h-[20rem]">
+        <section className="relative mt-2 min-h-[16.5rem] rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_center,#18342d,#09090b_72%)] sm:min-h-[18rem]">
           {(snap.spectator_names ?? []).length > 0 && (
             <div className="absolute left-4 top-4 z-10 max-w-[42%] rounded-xl border border-sky-300/20 bg-zinc-950/85 px-3 py-2 text-[11px] shadow-lg backdrop-blur-sm">
               <span className="block font-black text-sky-300">관전 중</span>
@@ -1974,7 +1980,7 @@ export default function TichuClient() {
               현재 소원 · <span className="text-sm text-white">{rankSymbol(room.wish_rank)}</span>
             </div>
           )}
-          <div className="absolute left-1/2 top-3 -translate-x-1/2">
+          <div className="absolute left-1/2 top-1 -translate-x-1/2">
             <Avatar
               p={topPlayer}
               active={room.turn_seat === topPlayer?.seat}
@@ -1998,7 +2004,7 @@ export default function TichuClient() {
               bubble={rightPlayer && bubbles[rightPlayer.user_id]}
             />
           </div>
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2">
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
             <Avatar
               p={bottom}
               active={room.turn_seat === bottom?.seat}
@@ -2031,7 +2037,7 @@ export default function TichuClient() {
             </div>
           </div>
           {playing && !spectator && (
-            <div className="absolute inset-x-3 bottom-9 flex items-center justify-between sm:inset-x-auto sm:right-3 sm:justify-start sm:gap-2">
+            <div className="absolute inset-x-3 bottom-5 flex items-center justify-between sm:inset-x-auto sm:right-3 sm:justify-start sm:gap-2">
               <button
                 disabled={!myTurn || !room.lead || busy}
                 onClick={() => void passTurn()}

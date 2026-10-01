@@ -25,6 +25,10 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+body.tichu-in-room [data-site-header] {
+  display: none;
+}
+
 /* Scoped to the Clocktower UI; keep browser pinch zoom available. */
 .clocktower-popup {
   top: calc(var(--popup-top, 0px) + env(safe-area-inset-top, 0px) + 8px);
