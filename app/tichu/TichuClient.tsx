@@ -733,6 +733,7 @@ export default function TichuClient() {
 
   function startChatDrag(event: React.PointerEvent<HTMLDivElement>) {
     if (!chatPosition) return;
+    if ((event.target as HTMLElement).closest("button, input, label")) return;
     const startX = event.clientX,
       startY = event.clientY,
       origin = chatPosition;
@@ -2432,8 +2433,11 @@ export default function TichuClient() {
                 </p>
               </div>
               <button
+                type="button"
+                aria-label="채팅 닫기"
+                onPointerDown={(event) => event.stopPropagation()}
                 onClick={() => setChatOpen(false)}
-                className="order-first mr-2 shrink-0 rounded-lg border px-2 py-1"
+                className="order-first relative z-20 mr-2 grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg border text-base"
                 style={{
                   backgroundColor: `rgba(255,255,255,${(chatOpacity / 100) * 0.7})`,
                   borderColor: `rgba(212,212,216,${chatOpacity / 100})`,
