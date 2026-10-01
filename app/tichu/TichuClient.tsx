@@ -692,12 +692,81 @@ export default function TichuClient() {
     [botDifficulty, setBotDifficulty] = useState<
       "beginner" | "intermediate" | "advanced"
     >("beginner"),
-    [dragonPicker, setDragonPicker] = useState(false);
+    [dragonPicker, setDragonPicker] = useState(false),
+    [chatPosition, setChatPosition] = useState<{ x: number; y: number } | null>(null),
+    [chatSize, setChatSize] = useState({ width: 288, height: 288 });
 
   useEffect(() => {
     document.body.classList.toggle("tichu-in-room", Boolean(roomId));
     return () => document.body.classList.remove("tichu-in-room");
   }, [roomId]);
+
+  useEffect(() => {
+    if (!chatOpen) return;
+    const width = Math.min(chatSize.width, window.innerWidth - 24);
+    const height = Math.min(chatSize.height, window.innerHeight - 96);
+    setChatSize({ width, height });
+    setChatPosition((current) =>
+      current
+        ? {
+            x: Math.max(12, Math.min(current.x, window.innerWidth - width - 12)),
+            y: Math.max(12, Math.min(current.y, window.innerHeight - height - 12)),
+          }
+        : { x: Math.max(12, (window.innerWidth - width) / 2), y: 80 },
+    );
+  }, [chatOpen]);
+
+  function startChatDrag(event: React.PointerEvent<HTMLDivElement>) {
+    if (!chatPosition) return;
+    const startX = event.clientX,
+      startY = event.clientY,
+      origin = chatPosition;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const move = (next: PointerEvent) =>
+      setChatPosition({
+        x: Math.max(
+          12,
+          Math.min(origin.x + next.clientX - startX, window.innerWidth - chatSize.width - 12),
+        ),
+        y: Math.max(
+          12,
+          Math.min(origin.y + next.clientY - startY, window.innerHeight - chatSize.height - 12),
+        ),
+      });
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  }
+
+  function startChatResize(event: React.PointerEvent<HTMLButtonElement>) {
+    if (!chatPosition) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX,
+      startY = event.clientY,
+      origin = chatSize;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const move = (next: PointerEvent) =>
+      setChatSize({
+        width: Math.max(
+          240,
+          Math.min(origin.width + next.clientX - startX, window.innerWidth - chatPosition.x - 12),
+        ),
+        height: Math.max(
+          208,
+          Math.min(origin.height + next.clientY - startY, window.innerHeight - chatPosition.y - 12),
+        ),
+      });
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  }
 
   const soundFx = useCallback(
     (
@@ -2263,16 +2332,24 @@ export default function TichuClient() {
         </p>
       )}
       {chatOpen && (
-        <div className="pointer-events-none fixed inset-0 z-50 p-3 pt-[max(5rem,env(safe-area-inset-top))]">
+        <div className="pointer-events-none fixed inset-0 z-50">
           <aside
-            className="pointer-events-auto mx-auto flex h-[min(18rem,38dvh)] w-[52vw] min-w-[17rem] max-w-xs flex-col overflow-hidden rounded-2xl border p-3"
+            className="pointer-events-auto fixed flex min-h-[13rem] min-w-[15rem] flex-col overflow-hidden rounded-2xl border p-3"
             style={{
+              left: chatPosition?.x ?? 12,
+              top: chatPosition?.y ?? 80,
+              width: chatSize.width,
+              height: chatSize.height,
               backgroundColor: `rgba(255,255,255,${chatOpacity / 100})`,
               borderColor: `rgba(255,255,255,${(chatOpacity / 100) * 0.75})`,
               boxShadow: `0 24px 48px rgba(0,0,0,${(chatOpacity / 100) * 0.45})`,
             }}
           >
-            <div className="flex items-center justify-between">
+            <div
+              onPointerDown={startChatDrag}
+              className="flex cursor-move touch-none items-center justify-between select-none"
+              title="드래그해서 채팅창 이동"
+            >
               <div style={{ opacity: Math.min(1, 0.55 + chatOpacity / 200) }}>
                 <h2 className="text-sm font-black">실시간 채팅</h2>
                 <p className="text-[9px] text-zinc-500">
@@ -2298,7 +2375,7 @@ export default function TichuClient() {
               <span className="shrink-0">투명도</span>
               <input
                 type="range"
-                min={25}
+                min={5}
                 max={100}
                 value={chatOpacity}
                 onChange={(e) => setChatOpacity(Number(e.target.value))}
@@ -2378,6 +2455,13 @@ export default function TichuClient() {
                 전송
               </button>
             </div>
+            <button
+              type="button"
+              aria-label="채팅창 크기 조절"
+              title="드래그해서 채팅창 크기 조절"
+              onPointerDown={startChatResize}
+              className="absolute bottom-0 right-0 h-6 w-6 cursor-se-resize touch-none text-zinc-600 after:absolute after:bottom-1 after:right-1 after:h-2.5 after:w-2.5 after:border-b-2 after:border-r-2 after:border-current"
+            />
           </aside>
         </div>
       )}
