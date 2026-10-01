@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { EventGameRound } from "@/types/event";
 import { isScotlandYard } from "@/lib/scotland-yard";
 import ScotlandYardResultDialog from "./ScotlandYardResultDialog";
+import { isDictator } from "@/lib/dictator";
+import DictatorResultDialog from "./DictatorResultDialog";
 
 type Role={id:string;name:string;team_name:string};
 type Props={round:EventGameRound;gameId:string;gameName?:string;onClose:()=>void;onSaved:()=>Promise<void>|void};
@@ -34,6 +36,7 @@ function DefaultRoleResultDialog({round,gameId,onClose,onSaved}:Props){
 }
 
 export default function RoleResultDialog(props:Props){
+ if(isDictator(props.gameName)) return <DictatorResultDialog round={props.round} onClose={props.onClose} onSaved={props.onSaved}/>;
  if(isScotlandYard(props.gameName)) return <ScotlandYardResultDialog round={props.round} onClose={props.onClose} onSaved={props.onSaved}/>;
  return <DefaultRoleResultDialog {...props}/>;
 }
