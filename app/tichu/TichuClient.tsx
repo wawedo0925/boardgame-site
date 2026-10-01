@@ -16,6 +16,7 @@ type Lobby = {
   spectators_allowed: boolean;
   target_score: number;
   turn_seconds: number;
+  game_mode: "TEAM" | "INDIVIDUAL";
 };
 type Player = {
   user_id: string;
@@ -38,6 +39,7 @@ type Player = {
   grand_called: boolean;
   small_called: boolean;
   finish_order: number | null;
+  score: number;
 };
 type Room = {
   id: string;
@@ -50,6 +52,8 @@ type Room = {
   trick: { seat: number; cards: number[] }[];
   last_trick_seat: number | null;
   winner_team: number | null;
+  winner_user_id: string | null;
+  game_mode: "TEAM" | "INDIVIDUAL";
   target_score: number;
   turn_seconds: number;
   turn_deadline: string | null;
@@ -62,6 +66,7 @@ type Room = {
     sky: number;
     pink: number;
     first_user: string;
+    individual?: Record<string, number>;
   }[];
   wish_rank: number | null;
   dragon_target: string | null;
@@ -693,6 +698,7 @@ export default function TichuClient() {
       "beginner" | "intermediate" | "advanced"
     >("beginner"),
     [dragonPicker, setDragonPicker] = useState(false),
+    [gameMode, setGameMode] = useState<"TEAM" | "INDIVIDUAL">("TEAM"),
     [chatPosition, setChatPosition] = useState<{ x: number; y: number } | null>(null),
     [chatSize, setChatSize] = useState({ width: 288, height: 288 });
 
@@ -1322,6 +1328,7 @@ export default function TichuClient() {
           p_title: null,
           p_target_score: target,
           p_turn_seconds: seconds,
+          p_game_mode: gameMode,
         })) as string,
       );
     } catch {}
@@ -1478,6 +1485,25 @@ export default function TichuClient() {
           </div>
         </div>
         <section className="mt-7 grid gap-3 rounded-3xl border border-sky-300/20 bg-sky-300/5 p-5 sm:grid-cols-[1fr_1fr_auto]">
+          <div className="sm:col-span-3">
+            <p className="mb-2 text-sm font-bold text-zinc-400">게임 방식</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setGameMode("TEAM")}
+                className={`rounded-xl border p-3 font-black ${gameMode === "TEAM" ? "border-sky-300 bg-sky-300 text-zinc-950" : "border-white/15 bg-zinc-900 text-zinc-300"}`}
+              >
+                팀전 (2 대 2)
+              </button>
+              <button
+                type="button"
+                onClick={() => setGameMode("INDIVIDUAL")}
+                className={`rounded-xl border p-3 font-black ${gameMode === "INDIVIDUAL" ? "border-amber-300 bg-amber-300 text-zinc-950" : "border-white/15 bg-zinc-900 text-zinc-300"}`}
+              >
+                개인전 (1·1·1·1)
+              </button>
+            </div>
+          </div>
           <label className="text-sm text-zinc-400">
             목표 점수
             <input
@@ -1526,6 +1552,7 @@ export default function TichuClient() {
                   <b className="text-lg">{r.host_name} 방</b>
                   <small className="ml-2 text-zinc-500">
                     {r.target_score}점 · {r.turn_seconds}초
+                    {` · ${r.game_mode === "INDIVIDUAL" ? "개인전" : "팀전"}`}
                     {active && ` · 관전자 ${r.spectators || 0}명`}
                   </small>
                 </span>
@@ -1642,6 +1669,7 @@ export default function TichuClient() {
     );
   if (!snap) return <main className="p-20 text-center">방을 불러오는 중…</main>;
   const { room, me, players, spectator } = snap,
+    individual = room.game_mode === "INDIVIDUAL",
     mine = players.find((p) => p.user_id === me.user_id),
     baseSeat = spectator ? 0 : (me.seat ?? 0),
     atOffset = (n: number) =>
@@ -1652,7 +1680,9 @@ export default function TichuClient() {
     rightPlayer = atOffset(3),
     opps = mine
       ? players
-          .filter((p) => p.team !== mine.team)
+          .filter((p) =>
+            individual ? p.user_id !== mine.user_id && p.count > 0 : p.team !== mine.team,
+          )
           .sort(
             (a, b) =>
               ((a.seat - baseSeat + 4) % 4) - ((b.seat - baseSeat + 4) % 4),
@@ -1669,12 +1699,13 @@ export default function TichuClient() {
     host = !spectator && room.host_id === me.user_id,
     allReady = players.length === 4 && players.every((p) => p.ready),
     teamsOk =
-      players.filter((p) => p.team === 0).length === 2 &&
-      players.filter((p) => p.team === 1).length === 2;
-  async function play(dragonTarget?: string) {
+      individual ||
+      (players.filter((p) => p.team === 0).length === 2 &&
+        players.filter((p) => p.team === 1).length === 2);
+  async function play(specialTarget?: string) {
     if (!roomId || !picked) return;
     if (
-      leader?.team === me.team &&
+      !individual && leader?.team === me.team &&
       leader.user_id !== me.user_id &&
       leader.count > 0 &&
       !confirm(
@@ -1682,11 +1713,11 @@ export default function TichuClient() {
       )
     )
       return void passTurn();
-    if (selected.includes(55) && !dragonTarget) {
+    if ((selected.includes(55) || (individual && selected.includes(53))) && !specialTarget) {
       setDragonPicker(true);
       return;
     }
-    const dragon = selected.includes(55) ? dragonTarget : null,
+    const targetPlayer = selected.includes(55) || (individual && selected.includes(53)) ? specialTarget : null,
       playCombo =
         selected.length === 1 && selected[0] === 54
           ? {
@@ -1703,20 +1734,25 @@ export default function TichuClient() {
       p_cards: selected,
       p_combo: playCombo,
       p_wish: selected.includes(52) && wish >= 2 ? wish : null,
-      p_dragon_target: dragon,
+      p_dragon_target: targetPlayer,
     });
     const kind = cardSound(selected);
     const spokenCall = comboCall(selected),
       dragonTargetName =
         kind === "dragon"
-          ? players.find((p) => p.user_id === dragon)?.name
+          ? players.find((p) => p.user_id === targetPlayer)?.name
           : undefined;
     soundFx(kind, spokenCall);
     if (dragonTargetName)
       showDragonRecipient(dragonTargetName.replace(/^연습\s*/, ""));
     if (kind === "dog") {
       showDogCard();
-      setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
+      const dogTargetName = players.find((p) => p.user_id === targetPlayer)?.name;
+      setAnnouncement(
+        individual && dogTargetName
+          ? `🐶 멍멍! ${dogTargetName}님에게 선이 넘어갑니다`
+          : "🐶 멍멍! 팀원에게 턴이 넘어갑니다",
+      );
       setTimeout(() => setAnnouncement(""), 2000);
     }
     void channel.current?.send({
@@ -1761,13 +1797,21 @@ export default function TichuClient() {
             </button>
           </div>
         </div>
-        <div className="mt-2 grid grid-cols-[1fr_auto_1fr] text-center">
-          <b className="text-sky-300">하늘팀 {room.sky_score}</b>
-          <span className="rounded-full bg-white/10 px-3 py-1">
-            {room.target_score}점
-          </span>
-          <b className="text-pink-300">{room.pink_score} 핑크팀</b>
-        </div>
+        {individual ? (
+          <div className="mt-2 grid grid-cols-4 gap-1 text-center text-[10px]">
+            {players.map((p) => (
+              <span key={p.user_id} className="truncate rounded-lg bg-white/10 px-1 py-1.5">
+                <b>{p.name}</b> {p.score}점
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-2 grid grid-cols-[1fr_auto_1fr] text-center">
+            <b className="text-sky-300">하늘팀 {room.sky_score}</b>
+            <span className="rounded-full bg-white/10 px-3 py-1">{room.target_score}점</span>
+            <b className="text-pink-300">{room.pink_score} 핑크팀</b>
+          </div>
+        )}
       </header>
       {dragonPicker && (
         <div
@@ -1779,10 +1823,10 @@ export default function TichuClient() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-black text-amber-300">
-              용 트릭을 누구에게 줄까요?
+              {selected.includes(53) ? "누구에게 첫 턴을 넘길까요?" : "용 트릭을 누구에게 줄까요?"}
             </h2>
             <p className="mt-1 text-xs text-zinc-400">
-              선택한 상대가 이번 트릭의 카드를 받습니다.
+              {selected.includes(53) ? "선택한 플레이어가 새 트릭을 시작합니다." : "선택한 상대가 이번 트릭의 카드를 받습니다."}
             </p>
             <div className="mt-5 grid grid-cols-2 gap-3">
               {opps.map((p, i) => (
@@ -1792,7 +1836,7 @@ export default function TichuClient() {
                   className={`rounded-2xl border-2 p-4 font-black ${teams[p.team].border} bg-white/5`}
                 >
                   <span className="block text-xs text-zinc-400">
-                    {i === 0 ? "내 기준 왼쪽" : "내 기준 오른쪽"}
+                    {individual ? `선택 ${i + 1}` : i === 0 ? "내 기준 왼쪽" : "내 기준 오른쪽"}
                   </span>
                   <span className={`mt-1 block ${teams[p.team].text}`}>
                     {p.is_bot ? p.name.replace(/^연습\s*/, "") : p.name}
@@ -1825,7 +1869,7 @@ export default function TichuClient() {
         <section className="mt-4 rounded-3xl border border-white/10 p-5">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-black">팀 선택 및 준비</h2>
+              <h2 className="text-xl font-black">{individual ? "개인전 준비" : "팀 선택 및 준비"}</h2>
               <p className="mt-1 text-xs text-zinc-500">
                 현재 목표 {room.target_score.toLocaleString()}점
               </p>
@@ -1857,7 +1901,7 @@ export default function TichuClient() {
               </div>
             )}
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          {!individual && <div className="mt-4 grid grid-cols-2 gap-3">
             {[0, 1].map((t) => (
               <button
                 key={t}
@@ -1869,8 +1913,8 @@ export default function TichuClient() {
                 {teams[t].name} {players.filter((p) => p.team === t).length}/2
               </button>
             ))}
-          </div>
-          {host && (
+          </div>}
+          {!individual && host && (
             <button
               disabled={busy || players.length < 2}
               onClick={() =>
@@ -2303,7 +2347,7 @@ export default function TichuClient() {
       {roundEnd && (
         <section className="mt-4 rounded-3xl border p-6 text-center">
           <h2 className="text-2xl font-black">{room.round_no}라운드 종료</h2>
-          <Score room={room} />
+          <Score room={room} players={players} />
           {host ? (
             <button
               onClick={() => void act("tichu_start_room", { p_room: roomId })}
@@ -2321,9 +2365,11 @@ export default function TichuClient() {
       {room.status === "FINISHED" && (
         <section className="mt-4 rounded-3xl border border-amber-300/30 p-8 text-center">
           <h2 className="text-3xl font-black">
-            {teams[room.winner_team || 0].name} 승리!
+            {individual
+              ? `${players.find((p) => p.user_id === room.winner_user_id)?.name || "개인전 우승자"} 승리!`
+              : `${teams[room.winner_team || 0].name} 승리!`}
           </h2>
-          <Score room={room} />
+          <Score room={room} players={players} />
         </section>
       )}
       {message && (
@@ -2468,7 +2514,21 @@ export default function TichuClient() {
     </main>
   );
 }
-function Score({ room }: { room: Room }) {
+function Score({ room, players }: { room: Room; players: Player[] }) {
+  if (room.game_mode === "INDIVIDUAL") {
+    return (
+      <div className="mx-auto mt-4 max-w-sm space-y-2">
+        {[...players]
+          .sort((a, b) => b.score - a.score)
+          .map((p, index) => (
+            <div key={p.user_id} className="flex items-center justify-between rounded-xl bg-white/[.04] p-3">
+              <span>{index + 1}위 · {p.name}</span>
+              <b className="text-amber-300">{p.score}점</b>
+            </div>
+          ))}
+      </div>
+    );
+  }
   return (
     <div className="mx-auto mt-4 max-w-sm space-y-2">
       {room.round_history.map((h) => (
