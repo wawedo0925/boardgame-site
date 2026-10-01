@@ -127,6 +127,25 @@ function label(c: number) {
           ? "J"
           : String(r);
 }
+function spokenRank(value: number) {
+  return (
+    {
+      2: "Two",
+      3: "Three",
+      4: "Four",
+      5: "Five",
+      6: "Six",
+      7: "Seven",
+      8: "Eight",
+      9: "Nine",
+      10: "Ten",
+      11: "Jack",
+      12: "Queen",
+      13: "King",
+      14: "Ace",
+    } as Record<number, string>
+  )[Math.floor(value)] || String(Math.floor(value));
+}
 function combo(cards: number[]): Combo | null {
   if (
     !cards.length ||
@@ -196,6 +215,19 @@ function combo(cards: number[]): Combo | null {
     };
   }
   return null;
+}
+function comboCall(cards: number[]) {
+  const made = combo(cards);
+  if (!made || made.kind === "single") return undefined;
+  const high = spokenRank(made.strength);
+  if (made.kind === "pair") return `${high} Double!`;
+  if (made.kind === "triple") return `${high} Triple!`;
+  if (made.kind === "full") return `${high} Full House!`;
+  if (made.kind === "pair-straight") return `${high} Pair Straight!`;
+  if (made.kind === "straight") return `${high} Straight!`;
+  if (made.kind === "four") return `${high} Bomb!`;
+  if (made.kind === "straight-bomb") return `${high} Straight Bomb!`;
+  return `${high} Combo!`;
 }
 function Card({
   card,
@@ -669,6 +701,7 @@ export default function TichuClient() {
         | "pass"
         | "grand"
         | "small",
+      spokenCall?: string,
   ) => {
     if (!sound) return;
     if (kind === "dog") {
@@ -702,8 +735,9 @@ export default function TichuClient() {
         dragon: "Dragon!",
         pass: "Pass!",
       };
-      if (calls[kind] && "speechSynthesis" in window) {
-        const voice = new SpeechSynthesisUtterance(calls[kind]);
+      const call = spokenCall || calls[kind];
+      if (call && "speechSynthesis" in window) {
+        const voice = new SpeechSynthesisUtterance(call);
       voice.lang = "en-US";
       voice.rate = 0.95;
       voice.volume = kind === "pass" ? 0.65 : 1;
@@ -834,11 +868,11 @@ export default function TichuClient() {
     [sound],
   );
   const cardSound = useCallback((cards: number[]) => {
-    if (cards.includes(52)) return "sparrow" as const;
-    if (cards.includes(53)) return "dog" as const;
-    if (cards.includes(54)) return "phoenix" as const;
-    if (cards.includes(55)) return "dragon" as const;
     const made = combo(cards);
+    if (made?.kind === "single" && cards.includes(52)) return "sparrow" as const;
+    if (made?.kind === "single" && cards.includes(53)) return "dog" as const;
+    if (made?.kind === "single" && cards.includes(54)) return "phoenix" as const;
+    if (made?.kind === "single" && cards.includes(55)) return "dragon" as const;
     if (made?.bomb) return "bomb" as const;
     if (made?.kind === "straight") return "straight" as const;
     if (made?.kind === "full") return "full" as const;
@@ -990,11 +1024,12 @@ export default function TichuClient() {
               else if (!played && next.room.turn_seat !== snap?.room.turn_seat)
                 kind = "pass";
               if (kind) {
-                soundFx(kind);
+                const spokenCall = played ? comboCall(setCards) : undefined;
+                soundFx(kind, spokenCall);
                 void channel.current?.send({
                   type: "broadcast",
                   event: "card",
-                  payload: { kind },
+                  payload: { kind, spokenCall },
                 });
               if (kind === "dog") {
                 showDogCard();
@@ -1075,7 +1110,10 @@ export default function TichuClient() {
       )
       .on("broadcast", { event: "card" }, ({ payload }) => {
         const kind = (payload.kind || "card") as ReturnType<typeof cardSound>;
-        soundFx(kind);
+        soundFx(
+          kind,
+          typeof payload.spokenCall === "string" ? payload.spokenCall : undefined,
+        );
         if (kind === "dog") {
           showDogCard();
           setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
@@ -1562,7 +1600,8 @@ export default function TichuClient() {
       p_dragon_target: dragon,
     });
     const kind = cardSound(selected);
-    soundFx(kind);
+    const spokenCall = comboCall(selected);
+    soundFx(kind, spokenCall);
     if (kind === "dog") {
       showDogCard();
       setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
@@ -1571,7 +1610,7 @@ export default function TichuClient() {
     void channel.current?.send({
       type: "broadcast",
       event: "card",
-      payload: { kind },
+      payload: { kind, spokenCall },
     });
   }
   return (
@@ -1944,9 +1983,9 @@ export default function TichuClient() {
               </p>
             )}
             <div className="flex justify-center -space-x-5">
-              {(dogCardVisible ? [53] : room.trick.at(-1)?.cards || []).map((c) => (
-                <Card key={c} card={c} tiny />
-              ))}
+              {[...(dogCardVisible ? [53] : room.trick.at(-1)?.cards || [])]
+                .sort((a, b) => rank(a) - rank(b) || a - b)
+                .map((c) => <Card key={c} card={c} tiny />)}
             </div>
           </div>
           {playing && !spectator && (
