@@ -125,8 +125,13 @@ select coalesce(jsonb_agg(jsonb_build_object('id',r.id,'title',r.title,'status',
 -- Preserve the current spectator-aware snapshot and expose personal scores.
 do $$ declare fn text; begin
   select pg_get_functiondef('public.tichu_snapshot(uuid)'::regprocedure) into fn;
-  if strpos(fn,'''finish_order'', f.finish_order')=0 then raise exception 'Tichu snapshot score insertion point not found'; end if;
-  fn:=replace(fn,'''finish_order'', f.finish_order','''finish_order'', f.finish_order, ''score'', p.score');
+  if strpos(fn,'''finish_order'', f.finish_order')>0 then
+    fn:=replace(fn,'''finish_order'', f.finish_order','''finish_order'', f.finish_order, ''score'', p.score');
+  elsif strpos(fn,'''finish_order'',f.finish_order')>0 then
+    fn:=replace(fn,'''finish_order'',f.finish_order','''finish_order'',f.finish_order, ''score'',p.score');
+  else
+    raise exception 'Tichu snapshot score insertion point not found';
+  end if;
   execute fn;
 end $$;
 
