@@ -151,6 +151,7 @@ export default function EventDetailPage() {
   const [canOperate, setCanOperate] = useState(false);
   const [siteRole, setSiteRole] = useState("MEMBER");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [preferencePromptOpen, setPreferencePromptOpen] = useState(false);
@@ -601,9 +602,20 @@ export default function EventDetailPage() {
           <section className="mx-auto grid max-w-7xl gap-8 px-6 pb-8 pt-14 lg:grid-cols-[1fr_360px]">
             <div className="space-y-8">
               <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-                <h2 className="text-2xl font-bold">이벤트 정보</h2>
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="text-2xl font-bold">이벤트 정보</h2>
+                  <button
+                    type="button"
+                    aria-expanded={infoOpen}
+                    aria-controls="event-info-details"
+                    onClick={() => setInfoOpen((value) => !value)}
+                    className="shrink-0 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-zinc-300 transition hover:border-amber-400/40 hover:text-amber-300"
+                  >
+                    {infoOpen ? "접기 −" : "더보기 +"}
+                  </button>
+                </div>
 
-                <div className="mt-7 grid gap-5 sm:grid-cols-2">
+                <div id="event-info-details" hidden={!infoOpen} className={infoOpen ? "mt-7 grid gap-5 sm:grid-cols-2" : "hidden"}>
                   <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
                     <p className="text-xs font-semibold tracking-wider text-zinc-500">
                       날짜
