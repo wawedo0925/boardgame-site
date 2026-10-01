@@ -64,6 +64,7 @@ type Room = {
     first_user: string;
   }[];
   wish_rank: number | null;
+  dragon_target: string | null;
   spectators_allowed: boolean;
 };
 type Snap = {
@@ -904,6 +905,10 @@ export default function TichuClient() {
       dogCardTimer.current = null;
     }, 2000);
   }, []);
+  const showDragonRecipient = useCallback((name: string) => {
+    setAnnouncement(`🐉 용 트릭 → ${name}에게 전달`);
+    setTimeout(() => setAnnouncement(""), 2600);
+  }, []);
   const showBubble = useCallback((id: string, text: string) => {
     setBubbles((v) => ({ ...v, [id]: text }));
     clearTimeout(bubbleTimers.current[id]);
@@ -1030,12 +1035,22 @@ export default function TichuClient() {
               else if (!played && next.room.turn_seat !== snap?.room.turn_seat)
                 kind = "pass";
               if (kind) {
-                const spokenCall = played ? comboCall(setCards) : undefined;
+                const spokenCall = played ? comboCall(setCards) : undefined,
+                  dragonTargetName =
+                    kind === "dragon"
+                      ? next.players.find(
+                          (p) => p.user_id === next.room.dragon_target,
+                        )?.name
+                      : undefined;
                 soundFx(kind, spokenCall);
+                if (dragonTargetName)
+                  showDragonRecipient(
+                    dragonTargetName.replace(/^연습\s*/, ""),
+                  );
                 void channel.current?.send({
                   type: "broadcast",
                   event: "card",
-                  payload: { kind, spokenCall },
+                  payload: { kind, spokenCall, dragonTargetName },
                 });
               if (kind === "dog") {
                 showDogCard();
@@ -1058,6 +1073,7 @@ export default function TichuClient() {
       snap?.room.trick.length,
       snap?.room.turn_seat,
       showDogCard,
+      showDragonRecipient,
       soundFx,
       supabase,
     ]);
@@ -1120,6 +1136,11 @@ export default function TichuClient() {
           kind,
           typeof payload.spokenCall === "string" ? payload.spokenCall : undefined,
         );
+        if (
+          kind === "dragon" &&
+          typeof payload.dragonTargetName === "string"
+        )
+          showDragonRecipient(payload.dragonTargetName.replace(/^연습\s*/, ""));
         if (kind === "dog") {
           showDogCard();
           setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
@@ -1139,6 +1160,7 @@ export default function TichuClient() {
     showAnnouncement,
     showBubble,
     showDogCard,
+    showDragonRecipient,
     soundFx,
     supabase,
   ]);
@@ -1606,8 +1628,14 @@ export default function TichuClient() {
       p_dragon_target: dragon,
     });
     const kind = cardSound(selected);
-    const spokenCall = comboCall(selected);
+    const spokenCall = comboCall(selected),
+      dragonTargetName =
+        kind === "dragon"
+          ? players.find((p) => p.user_id === dragon)?.name
+          : undefined;
     soundFx(kind, spokenCall);
+    if (dragonTargetName)
+      showDragonRecipient(dragonTargetName.replace(/^연습\s*/, ""));
     if (kind === "dog") {
       showDogCard();
       setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
@@ -1616,7 +1644,7 @@ export default function TichuClient() {
     void channel.current?.send({
       type: "broadcast",
       event: "card",
-      payload: { kind, spokenCall },
+      payload: { kind, spokenCall, dragonTargetName },
     });
   }
   return (
