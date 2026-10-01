@@ -664,6 +664,7 @@ export default function TichuClient() {
     [message, setMessage] = useState(""),
     [wish, setWish] = useState(0),
     [chatOpen, setChatOpen] = useState(false),
+    [chatOpacity, setChatOpacity] = useState(90),
     [chatText, setChatText] = useState(""),
     [chats, setChats] = useState<Chat[]>([]),
     [bubbles, setBubbles] = useState<Record<string, string>>({}),
@@ -2222,13 +2223,10 @@ export default function TichuClient() {
         </p>
       )}
       {chatOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/35 p-3 pt-[max(5rem,env(safe-area-inset-top))]"
-          onClick={() => setChatOpen(false)}
-        >
+        <div className="pointer-events-none fixed inset-0 z-50 p-3 pt-[max(5rem,env(safe-area-inset-top))]">
           <aside
-            className="mx-auto flex h-[min(18rem,38dvh)] w-[52vw] min-w-[17rem] max-w-xs flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/90 p-3 text-zinc-950 shadow-2xl backdrop-blur-md"
-            onClick={(e) => e.stopPropagation()}
+            className="pointer-events-auto mx-auto flex h-[min(18rem,38dvh)] w-[52vw] min-w-[17rem] max-w-xs flex-col overflow-hidden rounded-2xl border border-white/70 p-3 text-zinc-950 shadow-2xl backdrop-blur-md"
+            style={{ backgroundColor: `rgba(255,255,255,${chatOpacity / 100})` }}
           >
             <div className="flex items-center justify-between">
               <div>
@@ -2244,6 +2242,19 @@ export default function TichuClient() {
                 ✕
               </button>
             </div>
+            <label className="mt-2 flex items-center gap-2 text-[10px] font-bold text-zinc-600">
+              <span className="shrink-0">투명도</span>
+              <input
+                type="range"
+                min={25}
+                max={100}
+                value={chatOpacity}
+                onChange={(e) => setChatOpacity(Number(e.target.value))}
+                className="h-4 min-w-0 flex-1 accent-sky-500"
+                aria-label="채팅창 투명도"
+              />
+              <span className="w-7 text-right">{chatOpacity}%</span>
+            </label>
             <div className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
               {chats.length === 0 && (
                 <p className="py-8 text-center text-sm text-zinc-500">
