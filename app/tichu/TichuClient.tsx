@@ -598,7 +598,7 @@ function Avatar({
   return (
     <div className="relative">
       <div
-        className={`relative mx-auto w-28 rounded-2xl border-4 bg-zinc-900/95 p-2 text-center shadow-xl transition ${active ? `${teams[p.team].border} scale-105 shadow-[0_0_24px_rgba(125,211,252,.4)]` : "border-white/10"}`}
+        className={`relative mx-auto flex h-[4.4rem] w-[7.5rem] items-center gap-2 rounded-xl border-[3px] bg-zinc-900/95 p-1.5 shadow-xl transition ${active ? `${teams[p.team].border} scale-105 shadow-[0_0_24px_rgba(125,211,252,.4)]` : "border-white/10"}`}
       >
         {lead && (
           <span className="absolute -right-2 -top-2 z-10 animate-pulse rounded-full border-2 border-zinc-950 bg-amber-300 px-2 py-1 text-[10px] font-black text-black shadow-lg">
@@ -613,28 +613,31 @@ function Avatar({
           outfit={p.outfit}
           accessory={p.accessory}
           frame={p.frame}
+          size="h-11 w-11"
         />
-        <p className={`mt-1 truncate text-sm font-black ${teams[p.team].text}`}>
+        <div className="min-w-0 flex-1 text-left">
+        <p className={`truncate font-black leading-tight ${displayName.length >= 3 ? "text-[11px]" : "text-xs"} ${teams[p.team].text}`}>
           {displayName}
         </p>
-        <p className="text-[10px] text-zinc-400">{p.count}장</p>
-        <div className="mt-1 min-h-4">
+        <p className="mt-0.5 text-[9px] text-zinc-400">{p.count}장</p>
+        <div className="mt-1 min-h-3 leading-none">
           {p.grand_called && (
-            <span className="animate-pulse rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-black text-black">
-              라지 티츄!
+            <span className="animate-pulse rounded-full bg-amber-300 px-1.5 py-0.5 text-[8px] font-black text-black">
+              라지!
             </span>
           )}
           {p.small_called && !p.grand_called && (
-            <span className="animate-pulse rounded-full bg-violet-400 px-2 py-0.5 text-[10px] font-black text-white">
-              스몰 티츄!
+            <span className="animate-pulse rounded-full bg-violet-400 px-1.5 py-0.5 text-[8px] font-black text-white">
+              스몰!
             </span>
           )}
           {p.finish_order && (
-            <span className="text-[10px] text-amber-300">
+            <span className="text-[9px] text-amber-300">
               {" "}
               {p.finish_order}등
             </span>
           )}
+        </div>
         </div>
       </div>
       {bubble && (
@@ -1966,6 +1969,11 @@ export default function TichuClient() {
               </span>
             </div>
           )}
+          {playing && room.wish_rank && (
+            <div className="absolute right-4 top-4 z-10 rounded-full border border-sky-300/50 bg-sky-300/15 px-3 py-1.5 text-[10px] font-black text-sky-200 shadow-[0_0_18px_rgba(125,211,252,.25)] backdrop-blur-sm">
+              현재 소원 · <span className="text-sm text-white">{rankSymbol(room.wish_rank)}</span>
+            </div>
+          )}
           <div className="absolute left-1/2 top-3 -translate-x-1/2">
             <Avatar
               p={topPlayer}
@@ -2113,9 +2121,8 @@ export default function TichuClient() {
           </div>
         </section>
       )}
-      {!spectator && playing && (selected.includes(52) || room.wish_rank) && (
+      {!spectator && playing && selected.includes(52) && (
         <section className="mx-auto mt-2 w-fit max-w-full text-center">
-          {selected.includes(52) && (
             <div className="flex max-w-[18rem] items-center gap-1 overflow-x-auto rounded-xl border border-sky-300/20 bg-zinc-950 p-1.5 shadow-lg">
               <span className="shrink-0 px-1 text-[10px] font-black text-sky-300">
                 소원
@@ -2133,12 +2140,6 @@ export default function TichuClient() {
                 ),
               )}
             </div>
-          )}
-          {room.wish_rank && (
-            <p className="mt-1 text-xs font-black text-sky-300">
-              현재 소원: {rankSymbol(room.wish_rank)}
-            </p>
-          )}
         </section>
       )}
       {!spectator && (grand || exchange || playing) && (
