@@ -105,6 +105,12 @@ const suits = ["●", "◆", "★", "▲"],
   teams = [
     { name: "하늘팀", border: "border-sky-400", text: "text-sky-300" },
     { name: "핑크팀", border: "border-pink-400", text: "text-pink-300" },
+  ],
+  individualColors = [
+    { border: "border-red-400", text: "text-red-300", bg: "bg-red-400/10" },
+    { border: "border-yellow-400", text: "text-yellow-300", bg: "bg-yellow-400/10" },
+    { border: "border-blue-400", text: "text-blue-300", bg: "bg-blue-400/10" },
+    { border: "border-emerald-400", text: "text-emerald-300", bg: "bg-emerald-400/10" },
   ];
 function rank(c: number) {
   return c < 52
@@ -592,18 +598,21 @@ function Avatar({
   active = false,
   lead = false,
   bubble,
+  individual = false,
 }: {
   p?: Player;
   active?: boolean;
   lead?: boolean;
   bubble?: string;
+  individual?: boolean;
 }) {
   if (!p) return <div />;
-  const displayName = p.is_bot ? p.name.replace(/^연습\s*/, "") : p.name;
+  const displayName = p.is_bot ? p.name.replace(/^연습\s*/, "") : p.name,
+    theme = individual ? individualColors[p.seat % 4] : teams[p.team];
   return (
     <div className="relative">
       <div
-        className={`relative mx-auto flex h-[4.4rem] w-[7.5rem] items-center gap-2 rounded-xl border-[3px] bg-zinc-900/95 p-1.5 shadow-xl transition ${active ? `${teams[p.team].border} scale-105 shadow-[0_0_24px_rgba(125,211,252,.4)]` : "border-white/10"}`}
+        className={`relative mx-auto flex h-[4.4rem] w-[7.5rem] items-center gap-2 rounded-xl border-[3px] bg-zinc-900/95 p-1.5 shadow-xl transition ${active ? `${theme.border} scale-105 shadow-[0_0_24px_rgba(125,211,252,.4)]` : individual ? theme.border : "border-white/10"}`}
       >
         {lead && (
           <span className="absolute -right-2 -top-2 z-10 animate-pulse rounded-full border-2 border-zinc-950 bg-amber-300 px-2 py-1 text-[10px] font-black text-black shadow-lg">
@@ -621,7 +630,7 @@ function Avatar({
           size="h-11 w-11"
         />
         <div className="min-w-0 flex-1 text-left">
-        <p className={`truncate font-black leading-tight ${displayName.length >= 3 ? "text-[11px]" : "text-xs"} ${teams[p.team].text}`}>
+        <p className={`truncate font-black leading-tight ${displayName.length >= 3 ? "text-[11px]" : "text-xs"} ${theme.text}`}>
           {displayName}
         </p>
         <p className="mt-0.5 text-[9px] text-zinc-400">{p.count}장</p>
@@ -1800,7 +1809,7 @@ export default function TichuClient() {
         {individual ? (
           <div className="mt-2 grid grid-cols-4 gap-1 text-center text-[10px]">
             {players.map((p) => (
-              <span key={p.user_id} className="truncate rounded-lg bg-white/10 px-1 py-1.5">
+              <span key={p.user_id} className={`truncate rounded-lg border px-1 py-1.5 ${individualColors[p.seat % 4].border} ${individualColors[p.seat % 4].bg} ${individualColors[p.seat % 4].text}`}>
                 <b>{p.name}</b> {p.score}점
               </span>
             ))}
@@ -1833,12 +1842,12 @@ export default function TichuClient() {
                 <button
                   key={p.user_id}
                   onClick={() => void play(p.user_id)}
-                  className={`rounded-2xl border-2 p-4 font-black ${teams[p.team].border} bg-white/5`}
+                  className={`rounded-2xl border-2 p-4 font-black ${(individual ? individualColors[p.seat % 4] : teams[p.team]).border} bg-white/5`}
                 >
                   <span className="block text-xs text-zinc-400">
                     {individual ? `선택 ${i + 1}` : i === 0 ? "내 기준 왼쪽" : "내 기준 오른쪽"}
                   </span>
-                  <span className={`mt-1 block ${teams[p.team].text}`}>
+                  <span className={`mt-1 block ${(individual ? individualColors[p.seat % 4] : teams[p.team]).text}`}>
                     {p.is_bot ? p.name.replace(/^연습\s*/, "") : p.name}
                   </span>
                 </button>
@@ -1929,7 +1938,7 @@ export default function TichuClient() {
             {players.map((p) => (
               <div
                 key={p.user_id}
-                className={`flex justify-between rounded-xl border p-3 ${teams[p.team].border}`}
+                className={`flex justify-between rounded-xl border p-3 ${(individual ? individualColors[p.seat % 4] : teams[p.team]).border} ${individual ? individualColors[p.seat % 4].bg : ""}`}
               >
                 <span>
                   {p.name}{" "}
@@ -2096,6 +2105,7 @@ export default function TichuClient() {
           <div className="absolute left-1/2 top-1 -translate-x-1/2">
             <Avatar
               p={topPlayer}
+              individual={individual}
               active={room.turn_seat === topPlayer?.seat}
               lead={playing && room.last_trick_seat === topPlayer?.seat}
               bubble={topPlayer && bubbles[topPlayer.user_id]}
@@ -2104,6 +2114,7 @@ export default function TichuClient() {
           <div className="absolute left-2 top-1/2 -translate-y-1/2">
             <Avatar
               p={leftPlayer}
+              individual={individual}
               active={room.turn_seat === leftPlayer?.seat}
               lead={playing && room.last_trick_seat === leftPlayer?.seat}
               bubble={leftPlayer && bubbles[leftPlayer.user_id]}
@@ -2112,6 +2123,7 @@ export default function TichuClient() {
           <div className="absolute right-2 top-1/2 -translate-y-1/2">
             <Avatar
               p={rightPlayer}
+              individual={individual}
               active={room.turn_seat === rightPlayer?.seat}
               lead={playing && room.last_trick_seat === rightPlayer?.seat}
               bubble={rightPlayer && bubbles[rightPlayer.user_id]}
@@ -2120,6 +2132,7 @@ export default function TichuClient() {
           <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
             <Avatar
               p={bottom}
+              individual={individual}
               active={room.turn_seat === bottom?.seat}
               lead={playing && room.last_trick_seat === bottom?.seat}
               bubble={bottom && bubbles[bottom.user_id]}
@@ -2135,7 +2148,7 @@ export default function TichuClient() {
             )}
             {leader && (
               <p
-                className={`mx-auto mb-2 w-fit rounded-full border border-amber-300/40 bg-zinc-950/90 px-3 py-1 text-[11px] font-black ${teams[leader.team].text}`}
+                className={`mx-auto mb-2 w-fit rounded-full border border-amber-300/40 bg-zinc-950/90 px-3 py-1 text-[11px] font-black ${(individual ? individualColors[leader.seat % 4] : teams[leader.team]).text}`}
               >
                 <span className="mr-1 text-amber-300">리드</span>·{" "}
                 {leader.is_bot
@@ -2348,12 +2361,28 @@ export default function TichuClient() {
         <section className="mt-4 rounded-3xl border p-6 text-center">
           <h2 className="text-2xl font-black">{room.round_no}라운드 종료</h2>
           <Score room={room} players={players} />
+          <div className="mx-auto mt-4 grid max-w-sm grid-cols-2 gap-2 text-xs">
+            {players.map((p) => (
+              <span key={p.user_id} className={`rounded-lg border px-2 py-2 font-bold ${(individual ? individualColors[p.seat % 4] : teams[p.team]).border} ${p.ready ? "text-emerald-300" : "text-zinc-500"}`}>
+                {p.name} · {p.ready ? "준비 완료" : "준비 중"}
+              </span>
+            ))}
+          </div>
+          {!spectator && (
+            <button
+              onClick={() => void act("tichu_toggle_ready", { p_room: roomId })}
+              className={`mt-4 w-full max-w-sm rounded-xl px-8 py-3 font-black ${me.ready ? "bg-emerald-400 text-black" : "bg-white/10 text-white"}`}
+            >
+              {me.ready ? "준비 취소" : "다음 라운드 준비"}
+            </button>
+          )}
           {host ? (
             <button
+              disabled={!allReady}
               onClick={() => void act("tichu_start_room", { p_room: roomId })}
-              className="mt-4 rounded-xl bg-amber-300 px-8 py-3 font-black text-black"
+              className="mt-2 w-full max-w-sm rounded-xl bg-amber-300 px-8 py-3 font-black text-black disabled:cursor-not-allowed disabled:opacity-30"
             >
-              다음 라운드 시작
+              {allReady ? "다음 라운드 시작" : "모두 준비하면 시작 가능"}
             </button>
           ) : (
             <p className="mt-5 text-sm text-zinc-400">
@@ -2521,9 +2550,9 @@ function Score({ room, players }: { room: Room; players: Player[] }) {
         {[...players]
           .sort((a, b) => b.score - a.score)
           .map((p, index) => (
-            <div key={p.user_id} className="flex items-center justify-between rounded-xl bg-white/[.04] p-3">
+            <div key={p.user_id} className={`flex items-center justify-between rounded-xl border p-3 ${individualColors[p.seat % 4].border} ${individualColors[p.seat % 4].bg}`}>
               <span>{index + 1}위 · {p.name}</span>
-              <b className="text-amber-300">{p.score}점</b>
+              <b className={individualColors[p.seat % 4].text}>{p.score}점</b>
             </div>
           ))}
       </div>
