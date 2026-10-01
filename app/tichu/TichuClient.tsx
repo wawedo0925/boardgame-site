@@ -2259,11 +2259,15 @@ export default function TichuClient() {
       {chatOpen && (
         <div className="pointer-events-none fixed inset-0 z-50 p-3 pt-[max(5rem,env(safe-area-inset-top))]">
           <aside
-            className="pointer-events-auto mx-auto flex h-[min(18rem,38dvh)] w-[52vw] min-w-[17rem] max-w-xs flex-col overflow-hidden rounded-2xl border border-white/70 p-3 text-zinc-950 shadow-2xl backdrop-blur-md"
-            style={{ backgroundColor: `rgba(255,255,255,${chatOpacity / 100})` }}
+            className="pointer-events-auto mx-auto flex h-[min(18rem,38dvh)] w-[52vw] min-w-[17rem] max-w-xs flex-col overflow-hidden rounded-2xl border p-3"
+            style={{
+              backgroundColor: `rgba(255,255,255,${chatOpacity / 100})`,
+              borderColor: `rgba(255,255,255,${(chatOpacity / 100) * 0.75})`,
+              boxShadow: `0 24px 48px rgba(0,0,0,${(chatOpacity / 100) * 0.45})`,
+            }}
           >
             <div className="flex items-center justify-between">
-              <div>
+              <div style={{ opacity: Math.min(1, 0.55 + chatOpacity / 200) }}>
                 <h2 className="text-sm font-black">실시간 채팅</h2>
                 <p className="text-[9px] text-zinc-500">
                   방이 닫히면 대화도 사라집니다.
@@ -2271,12 +2275,20 @@ export default function TichuClient() {
               </div>
               <button
                 onClick={() => setChatOpen(false)}
-                className="order-first mr-2 shrink-0 rounded-lg border border-zinc-300 bg-white/70 px-2 py-1"
+                className="order-first mr-2 shrink-0 rounded-lg border px-2 py-1"
+                style={{
+                  backgroundColor: `rgba(255,255,255,${(chatOpacity / 100) * 0.7})`,
+                  borderColor: `rgba(212,212,216,${chatOpacity / 100})`,
+                  color: `rgba(9,9,11,${Math.min(1, 0.55 + chatOpacity / 200)})`,
+                }}
               >
                 ✕
               </button>
             </div>
-            <label className="mt-2 flex items-center gap-2 text-[10px] font-bold text-zinc-600">
+            <label
+              className="mt-2 flex items-center gap-2 text-[10px] font-bold text-zinc-600"
+              style={{ opacity: Math.min(1, 0.55 + chatOpacity / 200) }}
+            >
               <span className="shrink-0">투명도</span>
               <input
                 type="range"
@@ -2291,14 +2303,33 @@ export default function TichuClient() {
             </label>
             <div className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
               {chats.length === 0 && (
-                <p className="py-8 text-center text-sm text-zinc-500">
+                <p
+                  className="py-8 text-center text-sm text-zinc-600"
+                  style={{ opacity: Math.min(1, 0.55 + chatOpacity / 200) }}
+                >
                   아직 채팅이 없습니다.
                 </p>
               )}
               {chats.map((c) => (
-                <div key={c.id} className="rounded-lg bg-zinc-100/90 px-2 py-1.5">
-                  <b className="text-[10px] text-sky-700">{c.user}</b>
-                  <p className="break-words text-xs text-zinc-900">{c.text}</p>
+                <div
+                  key={c.id}
+                  className="rounded-lg px-2 py-1.5"
+                  style={{
+                    backgroundColor: `rgba(244,244,245,${(chatOpacity / 100) * 0.8})`,
+                  }}
+                >
+                  <b
+                    className="text-[10px] text-sky-700"
+                    style={{ opacity: Math.min(1, 0.62 + chatOpacity / 250) }}
+                  >
+                    {c.user}
+                  </b>
+                  <p
+                    className="break-words text-xs text-zinc-900"
+                    style={{ opacity: Math.min(1, 0.62 + chatOpacity / 250) }}
+                  >
+                    {c.text}
+                  </p>
                 </div>
               ))}
               <div ref={chatEnd} />
@@ -2326,11 +2357,20 @@ export default function TichuClient() {
                   send();
                 }}
                 placeholder="메시지 입력"
-                className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white/85 p-2 text-sm text-zinc-950 placeholder:text-zinc-400"
+                className="min-w-0 flex-1 rounded-lg border p-2 text-sm placeholder:text-zinc-500"
+                style={{
+                  backgroundColor: `rgba(255,255,255,${(chatOpacity / 100) * 0.85})`,
+                  borderColor: `rgba(212,212,216,${chatOpacity / 100})`,
+                  color: `rgba(9,9,11,${Math.min(1, 0.62 + chatOpacity / 250)})`,
+                }}
               />
               <button
                 onClick={send}
-                className="rounded-lg bg-sky-400 px-2.5 text-xs font-black text-zinc-950"
+                className="rounded-lg px-2.5 text-xs font-black"
+                style={{
+                  backgroundColor: `rgba(56,189,248,${(chatOpacity / 100) * 0.9})`,
+                  color: `rgba(9,9,11,${Math.min(1, 0.62 + chatOpacity / 250)})`,
+                }}
               >
                 전송
               </button>
