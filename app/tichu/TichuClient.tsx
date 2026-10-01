@@ -146,6 +146,11 @@ function spokenRank(value: number) {
     } as Record<number, string>
   )[Math.floor(value)] || String(Math.floor(value));
 }
+function rankSymbol(value: number) {
+  return ({ 11: "J", 12: "Q", 13: "K", 14: "A" } as Record<number, string>)[
+    value
+  ] || String(value);
+}
 function combo(cards: number[]): Combo | null {
   if (
     !cards.length ||
@@ -2095,7 +2100,7 @@ export default function TichuClient() {
                     onClick={() => setWish(n)}
                     className={`h-7 min-w-7 shrink-0 rounded-md px-1 text-[11px] font-black ${wish === n ? "bg-sky-300 text-zinc-950" : "bg-white/10 text-zinc-300"}`}
                   >
-                    {n === 0 ? "없음" : n === 14 ? "A" : n}
+                    {n === 0 ? "없음" : rankSymbol(n)}
                   </button>
                 ),
               )}
@@ -2103,7 +2108,7 @@ export default function TichuClient() {
           )}
           {room.wish_rank && (
             <p className="mt-1 text-xs font-black text-sky-300">
-              현재 소원: {room.wish_rank === 14 ? "A" : room.wish_rank}
+              현재 소원: {rankSymbol(room.wish_rank)}
             </p>
           )}
         </section>
