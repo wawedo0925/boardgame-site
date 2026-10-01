@@ -1966,7 +1966,7 @@ export default function TichuClient() {
         </section>
       )}
       {(grand || exchange || playing) && (
-        <section className="relative mt-2 min-h-[16.5rem] rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_center,#18342d,#09090b_72%)] sm:min-h-[18rem]">
+        <section className="relative mt-2 min-h-[18.5rem] rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_center,#18342d,#09090b_72%)] sm:min-h-[19rem]">
           {(snap.spectator_names ?? []).length > 0 && (
             <div className="absolute left-4 top-4 z-10 max-w-[42%] rounded-xl border border-sky-300/20 bg-zinc-950/85 px-3 py-2 text-[11px] shadow-lg backdrop-blur-sm">
               <span className="block font-black text-sky-300">관전 중</span>
@@ -2218,7 +2218,7 @@ export default function TichuClient() {
             </p>
           )}
           {snap.received.length > 0 && !exchange && (
-            <p className="mt-2 text-center text-xs text-zinc-500">
+            <p className="mt-2 text-center text-sm font-semibold text-zinc-300">
               {snap.received
                 .map((x) => `${x.from_name} → ${label(x.card)}`)
                 .join(" · ")}
@@ -2319,10 +2319,7 @@ export default function TichuClient() {
               {chats.map((c) => (
                 <div
                   key={c.id}
-                  className="rounded-lg px-2 py-1.5"
-                  style={{
-                    backgroundColor: `rgba(244,244,245,${(chatOpacity / 100) * 0.8})`,
-                  }}
+                  className="px-1 py-1"
                 >
                   <b
                     className="text-[10px] text-sky-700"
