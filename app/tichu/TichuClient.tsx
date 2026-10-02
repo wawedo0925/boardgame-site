@@ -1149,6 +1149,12 @@ export default function TichuClient() {
                       ? next.players.find(
                           (p) => p.user_id === next.room.dragon_target,
                         )?.name
+                      : undefined,
+                  dogTargetName =
+                    kind === "dog"
+                      ? next.players.find(
+                          (p) => p.seat === next.room.turn_seat,
+                        )?.name
                       : undefined;
                 soundFx(kind, spokenCall);
                 if (dragonTargetName)
@@ -1158,11 +1164,21 @@ export default function TichuClient() {
                 void channel.current?.send({
                   type: "broadcast",
                   event: "card",
-                  payload: { kind, spokenCall, dragonTargetName },
+                  payload: {
+                    kind,
+                    spokenCall,
+                    dragonTargetName,
+                    dogTargetName,
+                    individual: next.room.game_mode === "INDIVIDUAL",
+                  },
                 });
               if (kind === "dog") {
                 showDogCard();
-                setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
+                setAnnouncement(
+                  next.room.game_mode === "INDIVIDUAL" && dogTargetName
+                    ? `🐶 멍멍! ${dogTargetName.replace(/^연습\s*/, "")}님에게 선이 넘어갑니다`
+                    : "🐶 멍멍! 팀원에게 턴이 넘어갑니다",
+                );
                   setTimeout(() => setAnnouncement(""), 2000);
                 }
               }
@@ -1251,7 +1267,15 @@ export default function TichuClient() {
           showDragonRecipient(payload.dragonTargetName.replace(/^연습\s*/, ""));
         if (kind === "dog") {
           showDogCard();
-          setAnnouncement("🐶 멍멍! 팀원에게 턴이 넘어갑니다");
+          const dogTargetName =
+            typeof payload.dogTargetName === "string"
+              ? payload.dogTargetName.replace(/^연습\s*/, "")
+              : null;
+          setAnnouncement(
+            payload.individual && dogTargetName
+              ? `🐶 멍멍! ${dogTargetName}님에게 선이 넘어갑니다`
+              : "🐶 멍멍! 팀원에게 턴이 넘어갑니다",
+          );
           setTimeout(() => setAnnouncement(""), 2000);
         }
       })
