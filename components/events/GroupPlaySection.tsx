@@ -58,6 +58,29 @@ const preferenceLabel = (participant?: GroupParticipant) =>
     ? PREFERENCE_META[participant.game_preference].label
     : "게임 취향 미선택";
 const draftId = () => `draft-${Date.now()}-${Math.random()}`;
+const createDefaultGroups = (participants: GroupParticipant[]): GroupDraft[] => {
+  const presentParticipants = participants.filter(participant => participant.attendance_status === "PRESENT");
+  const assignedIds = new Set<string>();
+
+  return ["우영", "아라", "병준", null].map((ownerName, index) => {
+    const owner = ownerName
+      ? presentParticipants.find(participant => {
+          const name = participantLabel(participant).split("/")[0].trim();
+          return name === ownerName && !assignedIds.has(participant.user_id);
+        })
+      : undefined;
+
+    if (owner) assignedIds.add(owner.user_id);
+
+    return {
+      id: draftId(),
+      name: defaultGroupName(index),
+      sessionId: null,
+      ruleMasterUserId: null,
+      userIds: owner ? [owner.user_id] : [],
+    };
+  });
+};
 
 export default function GroupPlaySection({ eventId, participants, currentUserId, canManage, isClosed = false }: Props) {
   const supabase = useMemo(() => createClient(), []);
@@ -78,10 +101,12 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
 
   const load = useCallback(async () => {
     const [groups, eventGames] = await Promise.all([getEventGroups(supabase, eventId), getEventGames(supabase, eventId)]);
-    setDrafts(groups.map(group => ({ id: group.id, name: group.name, sessionId: null, ruleMasterUserId: group.rule_master_user_id, userIds: group.members.map(member => member.user_id) })));
+    setDrafts(groups.length
+      ? groups.map(group => ({ id: group.id, name: group.name, sessionId: null, ruleMasterUserId: group.rule_master_user_id, userIds: group.members.map(member => member.user_id) }))
+      : editable ? createDefaultGroups(participants) : []);
     setSavedGroups(Object.fromEntries(groups.map(group => [group.id, groupSignature({id:group.id,name:group.name,sessionId:null,ruleMasterUserId:group.rule_master_user_id,userIds:group.members.map(member=>member.user_id)})])));
     setGames(eventGames);
-  }, [eventId, supabase]);
+  }, [editable, eventId, participants, supabase]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
@@ -213,13 +238,20 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   }
 
   async function reset() {
-    if (!editable || !confirm("조 편성만 초기화할까요? 입력한 게임과 점수 기록은 유지됩니다.")) return;
-    await clearGroups(supabase, eventId);
-    await load();
+    if (!editable || !confirm("조 편성을 초기화할까요?\n\n현재 조와 조원 배정이 삭제되고 기본 4개 조로 돌아갑니다. 입력한 게임과 점수 기록은 유지됩니다.")) return;
+    try {
+      setBusy(true);
+      await clearGroups(supabase, eventId);
+      await load();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "조 편성을 초기화하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function resetPlayRecords() {
-    if (!editable || !confirm("입력한 모든 게임, 판, 점수와 이벤트 통계를 삭제할까요? 이미 작성된 해당 판의 평가도 함께 삭제되며 되돌릴 수 없습니다.")) return;
+    if (!editable || !confirm("플레이 기록을 정말 전체 초기화할까요?\n\n입력한 모든 게임, 판, 점수, 이벤트 통계와 해당 판의 평가가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")) return;
     try {
       setBusy(true);
       await clearEventPlayRecords(supabase, eventId);
