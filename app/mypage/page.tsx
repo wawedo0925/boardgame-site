@@ -237,6 +237,7 @@ export default function MyPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [isProfileExpanded, setIsProfileExpanded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
@@ -747,13 +748,25 @@ export default function MyPage() {
                 </h2>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsAccountModalOpen(true)}
-                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-amber-400/40 hover:text-amber-300"
-              >
-                계정 정보
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {!isEditing && (
+                  <button
+                    type="button"
+                    aria-expanded={isProfileExpanded}
+                    onClick={() => setIsProfileExpanded((expanded) => !expanded)}
+                    className="rounded-2xl border border-amber-400/30 bg-amber-400/[0.06] px-4 py-2.5 text-sm font-semibold text-amber-300 transition hover:bg-amber-400/10"
+                  >
+                    {isProfileExpanded ? "− 접기" : "+ 더보기"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsAccountModalOpen(true)}
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-amber-400/40 hover:text-amber-300"
+                >
+                  계정 정보
+                </button>
+              </div>
             </div>
 
             {isEditing ? (
@@ -914,7 +927,7 @@ export default function MyPage() {
                   )}
                 </div>
               </form>
-            ) : (
+            ) : isProfileExpanded ? (
               <div className="mt-8">
                 <div className="rounded-3xl border border-amber-400/20 bg-amber-400/[0.05] p-6">
                   <p className="text-sm text-zinc-500">사이트 표시 이름</p>
@@ -954,7 +967,7 @@ export default function MyPage() {
                   </div>
                 </dl>
               </div>
-            )}
+            ) : null}
 
             {message && (
               <p className="mt-6 rounded-2xl border border-green-400/20 bg-green-400/10 px-4 py-3 text-sm text-green-300">
