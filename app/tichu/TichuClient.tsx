@@ -233,6 +233,13 @@ function combo(cards: number[]): Combo | null {
   }
   return null;
 }
+function canBeatLead(made: Combo | null, lead: Combo | null) {
+  if (!made) return false;
+  if (!lead) return true;
+  if (made.bomb)
+    return !lead.bomb || made.size > lead.size || (made.size === lead.size && made.strength > lead.strength);
+  return !lead.bomb && made.kind === lead.kind && made.size === lead.size && made.strength > lead.strength;
+}
 function comboCall(cards: number[]) {
   const made = combo(cards);
   if (!made || made.kind === "single") return undefined;
@@ -1702,6 +1709,20 @@ export default function TichuClient() {
       : [],
     myTurn = !spectator && room.turn_seat === me.seat,
     picked = combo(selected),
+    selectedCombo =
+      picked && selected.length === 1 && selected[0] === 54
+        ? {
+            ...picked,
+            strength:
+              room.lead?.kind === "single"
+                ? Math.min(14.5, room.lead.strength + 0.5)
+                : 1.5,
+          }
+        : picked,
+    legalPick =
+      !!selectedCombo &&
+      canBeatLead(selectedCombo, room.lead) &&
+      !(selected.includes(53) && room.lead !== null),
     leader = players.find((p) => p.seat === room.last_trick_seat),
     waiting = room.status === "WAITING",
     grand = room.status === "GRAND",
@@ -1730,16 +1751,7 @@ export default function TichuClient() {
       return;
     }
     const targetPlayer = selected.includes(55) || (individual && selected.includes(53)) ? specialTarget : null,
-      playCombo =
-        selected.length === 1 && selected[0] === 54
-          ? {
-              ...picked,
-              strength:
-                room.lead?.kind === "single"
-                  ? Math.min(14.5, room.lead.strength + 0.5)
-                  : 1.5,
-            }
-          : picked;
+      playCombo = selectedCombo;
     setDragonPicker(false);
     await act("tichu_play", {
       p_room: roomId,
@@ -2175,11 +2187,11 @@ export default function TichuClient() {
                 패스
               </button>
               <button
-                disabled={(!myTurn && !picked?.bomb) || !picked || busy}
+                disabled={(!myTurn && !selectedCombo?.bomb) || !legalPick || busy}
                 onClick={() => void play()}
                 className="w-[5.5rem] rounded-xl bg-amber-300 px-2 py-3 text-sm font-black text-black disabled:opacity-30"
               >
-                {!myTurn && picked?.bomb ? "폭탄" : "카드 내기"}
+                {!myTurn && selectedCombo?.bomb ? "폭탄" : "카드 내기"}
               </button>
             </div>
           )}
@@ -2342,8 +2354,8 @@ export default function TichuClient() {
               })}
           </div>
           {picked && (
-            <p className="text-center text-xs text-sky-300">
-              {picked.kind} · {picked.size}장
+            <p className={`text-center text-xs ${legalPick ? "text-sky-300" : "font-bold text-red-300"}`}>
+              {legalPick ? `${picked.kind} · ${picked.size}장` : "현재 조합보다 강한 같은 종류의 패를 선택해 주세요"}
             </p>
           )}
           {snap.received.length > 0 && !exchange && (
