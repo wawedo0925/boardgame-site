@@ -48,7 +48,16 @@ export default function ClocktowerResultPanel(props: Props) {
   async function add() {
     if (busy) return;
     setBusy(true); setError("");
-    try { await command("add", { after_id: plays.at(-1)?.id ?? null }); router.refresh(); }
+    try {
+      const firstPlay = plays.length === 0;
+      const added = await command("add", { after_id: plays.at(-1)?.id ?? null });
+      if (firstPlay) {
+        const opened = await command("open", { play_id: added.id });
+        router.push(`/events/${eventId}/clocktower?room=${opened.room_id}`);
+        return;
+      }
+      router.refresh();
+    }
     catch (error) { setError(errorOf(error)); }
     finally { setBusy(false); }
   }
@@ -60,7 +69,7 @@ export default function ClocktowerResultPanel(props: Props) {
     {loading ? <p className="text-zinc-400">기록을 불러오는 중…</p> : <>
       {plays.map(play => <PlayCard key={play.id} {...props} play={play} command={command} hasActiveRoom={hasActiveRoom} />)}
       {!plays.length && !canManage && <p className="rounded-2xl border border-white/10 p-5 text-zinc-400">이야기꾼이 첫 판을 준비하면 이곳에 입장 버튼이 표시됩니다.</p>}
-      {canManage && (!plays.length || isMainAdmin) && !isClosed && <div><button onClick={() => void add()} disabled={busy} className={button}>{busy ? "준비 중…" : plays.length ? "한판 더" : "첫번째 시계탑 준비하기"}</button>{hasActiveRoom && <p className="mt-2 text-sm text-zinc-400">다음 게임 카드는 미리 추가할 수 있습니다. 새 마을은 현재 게임 종료 후 열 수 있습니다.</p>}</div>}
+      {canManage && (!plays.length || isMainAdmin) && !isClosed && <div><button onClick={() => void add()} disabled={busy} className={button}>{busy ? (plays.length ? "준비 중…" : "이야기꾼 방 만드는 중…") : plays.length ? "한판 더" : "첫번째 시계탑 준비하기"}</button>{hasActiveRoom && <p className="mt-2 text-sm text-zinc-400">다음 게임 카드는 미리 추가할 수 있습니다. 새 마을은 현재 게임 종료 후 열 수 있습니다.</p>}</div>}
     </>}
   </section>;
 }

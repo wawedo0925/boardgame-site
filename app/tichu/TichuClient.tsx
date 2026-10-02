@@ -621,7 +621,7 @@ function Avatar({
   return (
     <div className="relative">
       <div
-        className={`relative mx-auto flex h-[4.4rem] w-[7.5rem] items-center gap-2 rounded-xl border-[3px] bg-zinc-900/95 p-1.5 shadow-xl transition ${active ? `${theme.border} scale-105 animate-pulse shadow-[0_0_28px_rgba(250,204,21,.55)] ring-2 ring-amber-300 ring-offset-2 ring-offset-zinc-950` : individual ? theme.border : "border-white/10"}`}
+        className={`relative mx-auto flex h-[4.4rem] w-[7.5rem] items-center gap-2 rounded-xl border-[3px] bg-zinc-900/95 p-1.5 shadow-xl transition ${active ? `${theme.border} scale-105 animate-pulse shadow-[0_0_28px_rgba(255,255,255,.5)] ring-2 ring-white ring-offset-2 ring-offset-zinc-950` : individual ? theme.border : "border-white/10"}`}
       >
         {active && (
           <span className="absolute -left-2 -top-2 z-10 rounded-full border-2 border-zinc-950 bg-amber-300 px-2 py-1 text-[10px] font-black text-black shadow-lg">
