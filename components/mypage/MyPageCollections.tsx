@@ -8,10 +8,12 @@ const EventPlayHistory = dynamic(() => import("./EventPlayHistory"), { loading }
 const MurderMysteryHistory = dynamic(() => import("./MurderMysteryHistory"), { loading });
 const Achievements = dynamic(() => import("./Achievements"), { loading });
 const PersonalGames = dynamic(() => import("./PersonalGames"), { loading });
+const TichuHistory = dynamic(() => import("./TichuHistory"), { loading });
 const panels = [
   ["favorites", "⭐", "좋아하는 보드게임", "내 평가 4점 이상 · 5점 게임부터"],
   ["gm", "🎲", "GM 가능 보드게임", "보유 게임 · 메모 · 놓치기 쉬운 룰 · 플레이 팁"],
   ["events", "📅", "이벤트 플레이 기록", "참여한 모임과 게임 결과"],
+  ["tichu", "🐉", "티츄 기록", "팀전·개인전 판수 · 티츄 선언 성공률"],
   ["mysteries", "🔎", "내 머더미스터리 기록", "플레이 및 GM 기록"],
   ["achievements", "🏅", "업적 배지", "달성한 업적과 진행 현황"],
 ] as const;
@@ -39,6 +41,7 @@ export default function MyPageCollections({ userId }: { userId: string }) {
         {active === "favorites" && <PersonalGames userId={userId} kind="FAVORITE"/>}
         {active === "gm" && <PersonalGames userId={userId} kind="GM"/>}
         {active === "events" && <EventPlayHistory/>}
+        {active === "tichu" && <TichuHistory userId={userId}/>}
         {active === "mysteries" && <MurderMysteryHistory/>}
         {active === "achievements" && <Achievements userId={userId}/>}
       </div>

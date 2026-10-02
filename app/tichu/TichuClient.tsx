@@ -327,6 +327,7 @@ const skinColors = [
     "#62a9e8",
     "#8b65c6",
     "#65b77b",
+    "#f472b6",
   ],
   hairColorNames = [
     "기본",
@@ -337,6 +338,7 @@ const skinColors = [
     "파랑",
     "보라",
     "초록",
+    "핑크",
   ],
   outfitColors = [
     "#5aa7e8",
@@ -577,7 +579,7 @@ function AvatarArt({
         <span
           className="absolute inset-0 opacity-90"
           style={{
-            backgroundColor: hairColors[Math.max(0, Math.min(7, hairColor))],
+            backgroundColor: hairColors[Math.max(0, Math.min(hairColors.length - 1, hairColor))],
             WebkitMaskImage: "url('/tichu-avatar-hair-mask-v4.png')",
             maskImage: "url('/tichu-avatar-hair-mask-v4.png')",
             WebkitMaskSize: "400% 400%",
@@ -1503,14 +1505,14 @@ export default function TichuClient() {
                 onClick={() => setGameMode("TEAM")}
                 className={`rounded-xl border p-3 font-black ${gameMode === "TEAM" ? "border-sky-300 bg-sky-300 text-zinc-950" : "border-white/15 bg-zinc-900 text-zinc-300"}`}
               >
-                팀전 (2 대 2)
+                팀전
               </button>
               <button
                 type="button"
                 onClick={() => setGameMode("INDIVIDUAL")}
                 className={`rounded-xl border p-3 font-black ${gameMode === "INDIVIDUAL" ? "border-amber-300 bg-amber-300 text-zinc-950" : "border-white/15 bg-zinc-900 text-zinc-300"}`}
               >
-                개인전 (1·1·1·1)
+                개인전
               </button>
             </div>
           </div>

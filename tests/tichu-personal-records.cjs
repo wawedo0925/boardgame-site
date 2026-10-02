@@ -1,0 +1,42 @@
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const { PGlite } = require('../.local-reference/clocktower/test-runtime/node_modules/@electric-sql/pglite');
+const ts = require('typescript');
+require.extensions['.ts'] = (m, f) => m._compile(ts.transpileModule(fs.readFileSync(f, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, f);
+const { summarizeTichu } = require('../lib/tichu-records.ts');
+(async () => {
+  const db = new PGlite();
+  await db.exec(`create role anon; create role authenticated; create schema auth; create table auth.users(id uuid primary key); create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$; create table profiles(id uuid primary key references auth.users,activity_name text,gender text,updated_at timestamptz default now()); grant usage on schema auth to authenticated;`);
+  for (const file of fs.readdirSync('supabase/migrations').filter(f => f.includes('tichu')).sort()) await db.exec(fs.readFileSync(`supabase/migrations/${file}`, 'utf8'));
+  const ids = [1,2,3,4].map(n => `00000000-0000-0000-0000-00000000000${n}`);
+  for (const id of ids) await db.exec(`insert into auth.users values('${id}'); insert into profiles(id,activity_name) values('${id}','멤버');`);
+  await db.exec(`select set_config('request.jwt.claim.sub','${ids[0]}',false); select tichu_set_avatar(0,1,8,0,0,0,0);`);
+  assert.equal((await db.query(`select tichu_hair_color from profiles where id='${ids[0]}'`)).rows[0].tichu_hair_color,8,'pink hair must persist');
+  async function round(mode, bot, number) {
+    const room = (await db.query(`insert into tichu_rooms(code,title,host_id,game_mode,status,round_no) values('${number}','test','${ids[0]}','${mode}','PLAYING',1) returning id`)).rows[0].id;
+    for (let i=0;i<4;i++) await db.exec(`insert into tichu_players(room_id,user_id,seat,team,is_bot,small_called,grand_called) values('${room}','${ids[i]}',${i},${i%2},${bot && i===3},${i===0},${i===1}); insert into tichu_hands values('${room}','${ids[i]}','{}');`);
+    await db.exec(`insert into tichu_finished values('${room}','${ids[0]}',1),('${room}','${ids[1]}',2),('${room}','${ids[2]}',3); select tichu_end_round('${room}');`);
+    return room;
+  }
+  const team = await round('TEAM',false,1);
+  const individual = await round('INDIVIDUAL',false,2);
+  await round('TEAM',true,3); await round('INDIVIDUAL',true,4);
+  let rows = (await db.query('select * from tichu_personal_rounds')).rows;
+  assert.equal(rows.length,8, 'AI rounds must be excluded entirely');
+  const mine = rows.filter(r=>r.user_id===ids[0]);
+  assert(mine.every(r=>r.declaration==='SMALL' && r.declaration_success));
+  assert(rows.filter(r=>r.user_id===ids[1]).every(r=>r.declaration==='GRAND' && !r.declaration_success));
+  const summary = summarizeTichu(mine);
+  assert.equal(summary.rounds,2); assert.equal(summary.small.rate,100); assert.equal(summary.grand.rate,null);
+  assert.equal(summarizeTichu([{...mine[0],declaration_success:false},mine[1]]).small.rate,50);
+  assert.equal(summarizeTichu([]).rounds,0);
+  const hist = (await db.query(`select round_history from tichu_rooms where id='${individual}'`)).rows[0].round_history;
+  assert.equal(mine.find(r=>r.game_mode==='INDIVIDUAL').score,hist[0].individual[ids[0]]);
+  await db.exec(`update tichu_rooms set round_history=round_history where id='${team}'; delete from tichu_rooms where id in ('${team}','${individual}');`);
+  assert.equal((await db.query('select * from tichu_personal_rounds')).rows.length,8,'records survive room deletion without duplicates');
+  await db.exec(`select set_config('request.jwt.claim.sub','${ids[0]}',false); set role authenticated;`);
+  assert.equal((await db.query('select * from tichu_personal_rounds')).rows.length,2,'only own records visible');
+  await assert.rejects(db.exec('delete from tichu_personal_rounds'), /permission denied/);
+  await db.close();
+  console.log('PASS: real round scoring, both modes, AI exclusion, calls, private immutable history, room deletion and summary');
+})().catch(e=>{console.error(e);process.exit(1);});
