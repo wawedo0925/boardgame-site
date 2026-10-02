@@ -621,8 +621,13 @@ function Avatar({
   return (
     <div className="relative">
       <div
-        className={`relative mx-auto flex h-[4.4rem] w-[7.5rem] items-center gap-2 rounded-xl border-[3px] bg-zinc-900/95 p-1.5 shadow-xl transition ${active ? `${theme.border} scale-105 shadow-[0_0_24px_rgba(125,211,252,.4)]` : individual ? theme.border : "border-white/10"}`}
+        className={`relative mx-auto flex h-[4.4rem] w-[7.5rem] items-center gap-2 rounded-xl border-[3px] bg-zinc-900/95 p-1.5 shadow-xl transition ${active ? `${theme.border} scale-105 animate-pulse shadow-[0_0_28px_rgba(250,204,21,.55)] ring-2 ring-amber-300 ring-offset-2 ring-offset-zinc-950` : individual ? theme.border : "border-white/10"}`}
       >
+        {active && (
+          <span className="absolute -left-2 -top-2 z-10 rounded-full border-2 border-zinc-950 bg-amber-300 px-2 py-1 text-[10px] font-black text-black shadow-lg">
+            현재 차례
+          </span>
+        )}
         {lead && (
           <span className="absolute -right-2 -top-2 z-10 animate-pulse rounded-full border-2 border-zinc-950 bg-amber-300 px-2 py-1 text-[10px] font-black text-black shadow-lg">
             리드
@@ -1724,6 +1729,7 @@ export default function TichuClient() {
       canBeatLead(selectedCombo, room.lead) &&
       !(selected.includes(53) && room.lead !== null),
     leader = players.find((p) => p.seat === room.last_trick_seat),
+    turnPlayer = players.find((p) => p.seat === room.turn_seat),
     waiting = room.status === "WAITING",
     grand = room.status === "GRAND",
     exchange = room.status === "EXCHANGE",
@@ -2155,10 +2161,20 @@ export default function TichuClient() {
           </div>
           <div className="absolute left-1/2 top-1/2 max-w-[40%] -translate-x-1/2 -translate-y-1/2 text-center">
             {playing && (
-              <div
-                className={`mx-auto mb-2 w-fit rounded-full px-3 py-1 text-lg font-black ${left <= 5 ? "bg-red-500 text-white" : "bg-white/10"}`}
-              >
-                {left}초
+              <div className="mx-auto mb-2 w-fit">
+                {turnPlayer && (
+                  <p className="mb-1 whitespace-nowrap rounded-full border border-amber-300/50 bg-amber-300 px-3 py-1 text-[11px] font-black text-zinc-950 shadow-[0_0_18px_rgba(250,204,21,.35)]">
+                    {turnPlayer.is_bot
+                      ? turnPlayer.name.replace(/^연습\s*/, "")
+                      : turnPlayer.name}
+                    님 차례
+                  </p>
+                )}
+                <div
+                  className={`mx-auto w-fit rounded-full px-3 py-1 text-lg font-black ${left <= 5 ? "bg-red-500 text-white" : "bg-white/10"}`}
+                >
+                  {left}초
+                </div>
               </div>
             )}
             {leader && (
@@ -2246,25 +2262,30 @@ export default function TichuClient() {
           <div className="mt-3 grid grid-cols-3 gap-2">
             {players
               .filter((p) => p.user_id !== me.user_id)
-              .map((p) => (
-                <button
-                  key={p.user_id}
-                  disabled={
-                    selected.length !== 1 || snap.my_gifts[p.user_id] != null
-                  }
-                  onClick={() =>
-                    void act("tichu_give_card", {
-                      p_room: roomId,
-                      p_target: p.user_id,
-                      p_card: selected[0],
-                    })
-                  }
-                  className={`rounded-xl border p-2 disabled:opacity-30 ${teams[p.team].border}`}
-                >
-                  {p.name}
-                  {snap.my_gifts[p.user_id] != null && " ✓"}
-                </button>
-              ))}
+              .map((p) => {
+                const targetClasses = individual
+                  ? `${individualColors[p.seat % 4].border} ${individualColors[p.seat % 4].bg} ${individualColors[p.seat % 4].text}`
+                  : teams[p.team].border;
+                return (
+                  <button
+                    key={p.user_id}
+                    disabled={
+                      selected.length !== 1 || snap.my_gifts[p.user_id] != null
+                    }
+                    onClick={() =>
+                      void act("tichu_give_card", {
+                        p_room: roomId,
+                        p_target: p.user_id,
+                        p_card: selected[0],
+                      })
+                    }
+                    className={`rounded-xl border p-2 font-bold disabled:opacity-30 ${targetClasses}`}
+                  >
+                    {p.name}
+                    {snap.my_gifts[p.user_id] != null && " ✓"}
+                  </button>
+                );
+              })}
           </div>
         </section>
       )}
