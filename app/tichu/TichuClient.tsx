@@ -71,6 +71,7 @@ type Room = {
   wish_rank: number | null;
   dragon_target: string | null;
   spectators_allowed: boolean;
+  bot_boost_enabled: boolean;
 };
 type Snap = {
   room: Room;
@@ -1312,7 +1313,8 @@ export default function TichuClient() {
       await botAct();
       if (!stopped) retry = setTimeout(run, 3000);
     };
-    const timer = setTimeout(() => void run(), 2300);
+    const delay = snap.room.bot_boost_enabled ? 0 : 2300;
+    const timer = setTimeout(() => void run(), delay);
     return () => {
       stopped = true;
       clearTimeout(timer);
@@ -2217,6 +2219,20 @@ export default function TichuClient() {
                 .map((c) => <Card key={c} card={c} tiny />)}
             </div>
           </div>
+          {host && players.some((p) => p.is_bot) && (
+            <button
+              disabled={busy}
+              onClick={() =>
+                void act("tichu_set_bot_boost", {
+                  p_room: roomId,
+                  p_enabled: !room.bot_boost_enabled,
+                })
+              }
+              className={`absolute bottom-20 left-3 z-10 rounded-xl border px-3 py-2 text-[11px] font-black shadow-lg transition disabled:opacity-40 sm:bottom-5 ${room.bot_boost_enabled ? "border-amber-300 bg-amber-300 text-black" : "border-amber-300/40 bg-zinc-950/90 text-amber-200"}`}
+            >
+              ⚡ AI 부스터 {room.bot_boost_enabled ? "ON" : "OFF"}
+            </button>
+          )}
           {playing && !spectator && (
             <div className="absolute inset-x-3 bottom-5 flex items-center justify-between sm:inset-x-auto sm:right-3 sm:justify-start sm:gap-2">
               <button
