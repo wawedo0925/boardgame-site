@@ -25,7 +25,7 @@ type Player = {
   name: string;
   gender: string | null;
   is_bot?: boolean;
-  bot_difficulty?: "beginner" | "intermediate" | "advanced";
+  bot_difficulty?: "beginner" | "intermediate" | "advanced" | "god";
   avatar: number;
   skin: number;
   hairColor: number;
@@ -719,7 +719,7 @@ export default function TichuClient() {
     [avatarOpen, setAvatarOpen] = useState(false),
     [tutorialOpen, setTutorialOpen] = useState(false),
     [botDifficulty, setBotDifficulty] = useState<
-      "beginner" | "intermediate" | "advanced"
+      "beginner" | "intermediate" | "advanced" | "god"
     >("beginner"),
     [dragonPicker, setDragonPicker] = useState(false),
     [gameMode, setGameMode] = useState<"TEAM" | "INDIVIDUAL">("TEAM"),
@@ -1991,7 +1991,9 @@ export default function TichuClient() {
                   {p.name}{" "}
                   {p.is_bot && (
                     <small className="rounded-full bg-violet-400/15 px-2 py-0.5 text-violet-300">
-                      {p.bot_difficulty === "advanced"
+                      {p.bot_difficulty === "god"
+                        ? "신 AI"
+                        : p.bot_difficulty === "advanced"
                         ? "고급 AI"
                         : p.bot_difficulty === "intermediate"
                           ? "중급 AI"
@@ -2047,6 +2049,7 @@ export default function TichuClient() {
                 <option value="beginner">초급</option>
                 <option value="intermediate">중급</option>
                 <option value="advanced">고급</option>
+                <option value="god">신</option>
               </select>
               <button
                 onClick={() =>
@@ -2097,12 +2100,13 @@ export default function TichuClient() {
           <p className="mb-2 text-center text-sm font-black text-violet-200">
             추가할 AI 난이도 선택
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {(
               [
                 ["beginner", "초급"],
                 ["intermediate", "중급"],
                 ["advanced", "고급"],
+                ["god", "신"],
               ] as const
             ).map(([difficulty, label]) => (
               <button
