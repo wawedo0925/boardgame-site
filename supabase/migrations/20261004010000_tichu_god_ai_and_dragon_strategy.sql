@@ -91,7 +91,7 @@ declare
   fn text;
   marker text := '-- tichu teammate support policy: all AI levels protect a teammate''s call.';
   god_logic text := E'  -- God AI searches all legal combinations before the regular fallback logic.\n  if bot.bot_difficulty = ''god'' and not wish_legal then\n    chosen := public.tichu_god_best_play(hand_cards, room_row.lead);\n    if cardinality(chosen) > 0 then\n      play_cards := chosen;\n      wish_combo := public.tichu_classify_cards(play_cards, room_row.lead);\n      play_kind := wish_combo->>''kind'';\n      play_size := (wish_combo->>''size'')::int;\n      play_strength := (wish_combo->>''strength'')::numeric;\n      play_bomb := (wish_combo->>''bomb'')::boolean;\n    end if;\n  end if;\n\n  ';
-  old_dragon text := 'order by cardinality(oh.cards), opp.seat limit 1';
+  old_dragon text := 'order by cardinality(oh.cards),opp.seat limit 1';
   new_dragon text := 'order by (opp.grand_called or opp.small_called), cardinality(oh.cards) desc, opp.seat limit 1';
 begin
   select pg_get_functiondef('public.tichu_bot_tick(uuid)'::regprocedure) into fn;
