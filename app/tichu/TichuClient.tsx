@@ -2135,7 +2135,7 @@ export default function TichuClient() {
         </section>
       )}
       {(grand || exchange || playing) && (
-        <section className="relative mt-2 min-h-[18.5rem] rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_center,#18342d,#09090b_72%)] sm:min-h-[19rem]">
+        <section className="relative mt-2 min-h-[24rem] rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_center,#18342d,#09090b_72%)] sm:min-h-[24rem]">
           {(snap.spectator_names ?? []).length > 0 && (
             <div className="absolute left-4 top-4 z-10 max-w-[42%] rounded-xl border border-sky-300/20 bg-zinc-950/85 px-3 py-2 text-[11px] shadow-lg backdrop-blur-sm">
               <span className="block font-black text-sky-300">관전 중</span>
