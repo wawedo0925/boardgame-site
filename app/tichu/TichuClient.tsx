@@ -113,6 +113,29 @@ const suits = ["●", "◆", "★", "▲"],
     { border: "border-blue-400", text: "text-blue-300", bg: "bg-blue-400/10" },
     { border: "border-emerald-400", text: "text-emerald-300", bg: "bg-emerald-400/10" },
   ];
+const botDifficultyStyles = {
+  beginner: {
+    button: "border-yellow-300 bg-yellow-300/10 text-yellow-50",
+    label: "text-yellow-300",
+    detail: "text-yellow-200/70",
+  },
+  intermediate: {
+    button: "border-blue-400 bg-blue-400/10 text-blue-50",
+    label: "text-blue-300",
+    detail: "text-blue-200/70",
+  },
+  advanced: {
+    button: "border-red-400 bg-red-400/10 text-red-50",
+    label: "text-red-300",
+    detail: "text-red-200/70",
+  },
+  god: {
+    button:
+      "border-amber-300 bg-amber-300/15 text-amber-100 shadow-[0_0_18px_rgba(252,211,77,0.22)]",
+    label: "text-amber-300",
+    detail: "text-amber-200/70",
+  },
+} as const;
 function rank(c: number) {
   return c < 52
     ? Math.floor(c / 4) + 2
@@ -2118,20 +2141,12 @@ export default function TichuClient() {
                     p_difficulty: difficulty,
                   })
                 }
-                className={`rounded-xl border px-2 py-3 text-sm font-black disabled:opacity-40 ${
-                  difficulty === "god"
-                    ? "border-amber-300 bg-amber-300/15 text-amber-100 shadow-[0_0_18px_rgba(252,211,77,0.22)]"
-                    : "border-violet-300/40 bg-zinc-950 text-white"
-                }`}
+                className={`rounded-xl border px-2 py-3 text-sm font-black disabled:opacity-40 ${botDifficultyStyles[difficulty].button}`}
               >
-                <span
-                  className={`block ${difficulty === "god" ? "text-amber-300" : "text-violet-300"}`}
-                >
+                <span className={`block ${botDifficultyStyles[difficulty].label}`}>
                   {label}
                 </span>
-                <small
-                  className={`text-[10px] ${difficulty === "god" ? "text-amber-200/70" : "text-zinc-500"}`}
-                >
+                <small className={`text-[10px] ${botDifficultyStyles[difficulty].detail}`}>
                   AI 추가
                 </small>
               </button>
