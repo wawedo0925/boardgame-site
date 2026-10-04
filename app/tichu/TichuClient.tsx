@@ -2118,10 +2118,22 @@ export default function TichuClient() {
                     p_difficulty: difficulty,
                   })
                 }
-                className="rounded-xl border border-violet-300/40 bg-zinc-950 px-2 py-3 text-sm font-black text-white disabled:opacity-40"
+                className={`rounded-xl border px-2 py-3 text-sm font-black disabled:opacity-40 ${
+                  difficulty === "god"
+                    ? "border-amber-300 bg-amber-300/15 text-amber-100 shadow-[0_0_18px_rgba(252,211,77,0.22)]"
+                    : "border-violet-300/40 bg-zinc-950 text-white"
+                }`}
               >
-                <span className="block text-violet-300">{label}</span>
-                <small className="text-[10px] text-zinc-500">AI 추가</small>
+                <span
+                  className={`block ${difficulty === "god" ? "text-amber-300" : "text-violet-300"}`}
+                >
+                  {label}
+                </span>
+                <small
+                  className={`text-[10px] ${difficulty === "god" ? "text-amber-200/70" : "text-zinc-500"}`}
+                >
+                  AI 추가
+                </small>
               </button>
             ))}
           </div>
