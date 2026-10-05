@@ -25,7 +25,7 @@ type Player = {
   name: string;
   gender: string | null;
   is_bot?: boolean;
-  bot_difficulty?: "beginner" | "intermediate" | "advanced" | "god";
+  bot_difficulty?: "beginner" | "intermediate" | "advanced" | "god" | "deity";
   avatar: number;
   skin: number;
   hairColor: number;
@@ -134,6 +134,12 @@ const botDifficultyStyles = {
       "border-amber-300 bg-amber-300/15 text-amber-100 shadow-[0_0_18px_rgba(252,211,77,0.22)]",
     label: "text-amber-300",
     detail: "text-amber-200/70",
+  },
+  deity: {
+    button:
+      "border-fuchsia-200 bg-gradient-to-br from-amber-300/20 via-fuchsia-400/15 to-sky-400/20 text-white shadow-[0_0_24px_rgba(244,114,182,0.3)]",
+    label: "text-fuchsia-100",
+    detail: "text-fuchsia-100/70",
   },
 } as const;
 function rank(c: number) {
@@ -742,12 +748,19 @@ export default function TichuClient() {
     [avatarOpen, setAvatarOpen] = useState(false),
     [tutorialOpen, setTutorialOpen] = useState(false),
     [botDifficulty, setBotDifficulty] = useState<
-      "beginner" | "intermediate" | "advanced" | "god"
+      "beginner" | "intermediate" | "advanced" | "god" | "deity"
     >("beginner"),
+    [deityName, setDeityName] = useState("티츄신"),
     [dragonPicker, setDragonPicker] = useState(false),
     [gameMode, setGameMode] = useState<"TEAM" | "INDIVIDUAL">("TEAM"),
     [chatPosition, setChatPosition] = useState<{ x: number; y: number } | null>(null),
     [chatSize, setChatSize] = useState({ width: 288, height: 288 });
+
+  useEffect(() => {
+    void supabase.rpc("tichu_deity_name").then(({ data }) => {
+      if (typeof data === "string" && data.trim()) setDeityName(data.trim());
+    });
+  }, [supabase, roomId]);
 
   useEffect(() => {
     document.body.classList.toggle("tichu-in-room", Boolean(roomId));
@@ -2014,7 +2027,9 @@ export default function TichuClient() {
                   {p.name}{" "}
                   {p.is_bot && (
                     <small className="rounded-full bg-violet-400/15 px-2 py-0.5 text-violet-300">
-                      {p.bot_difficulty === "god"
+                      {p.bot_difficulty === "deity"
+                        ? deityName
+                        : p.bot_difficulty === "god"
                         ? "신 AI"
                         : p.bot_difficulty === "advanced"
                         ? "고급 AI"
@@ -2073,6 +2088,7 @@ export default function TichuClient() {
                 <option value="intermediate">중급</option>
                 <option value="advanced">고급</option>
                 <option value="god">신</option>
+                {individual && <option value="deity">{deityName}</option>}
               </select>
               <button
                 onClick={() =>
@@ -2123,18 +2139,19 @@ export default function TichuClient() {
           <p className="mb-2 text-center text-sm font-black text-violet-200">
             추가할 AI 난이도 선택
           </p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {(
               [
                 ["beginner", "초급"],
                 ["intermediate", "중급"],
                 ["advanced", "고급"],
                 ["god", "신"],
+                ...(individual ? [["deity", deityName] as const] : []),
               ] as const
             ).map(([difficulty, label]) => (
               <button
                 key={difficulty}
-                disabled={busy}
+                disabled={busy || (difficulty === "deity" && players.some((p) => p.bot_difficulty === "deity"))}
                 onClick={() =>
                   void act("tichu_add_bot", {
                     p_room: roomId,
