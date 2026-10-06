@@ -115,9 +115,9 @@ const suits = ["●", "◆", "★", "▲"],
   ];
 const botDifficultyStyles = {
   beginner: {
-    button: "border-yellow-300 bg-yellow-300/10 text-yellow-50",
-    label: "text-yellow-300",
-    detail: "text-yellow-200/70",
+    button: "border-white/80 bg-white/10 text-white",
+    label: "text-white",
+    detail: "text-zinc-300",
   },
   intermediate: {
     button: "border-blue-400 bg-blue-400/10 text-blue-50",
