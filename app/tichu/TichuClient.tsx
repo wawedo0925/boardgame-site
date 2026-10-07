@@ -1071,8 +1071,13 @@ export default function TichuClient() {
     const { data } = await supabase.rpc("tichu_lobby");
     setRooms((data || []) as Lobby[]);
   }, [supabase]),
-    load = useCallback(async () => {
-      if (!roomId || loadInFlight.current) return;
+    load = useCallback(async (waitForCurrent = false) => {
+      if (!roomId) return;
+      if (loadInFlight.current) {
+        if (!waitForCurrent) return;
+        while (loadInFlight.current)
+          await new Promise((resolve) => setTimeout(resolve, 20));
+      }
       loadInFlight.current = true;
       try {
         const [
@@ -1125,7 +1130,10 @@ export default function TichuClient() {
         try {
           await rpc(name, args);
           setSelected([]);
-          await load();
+          // Mutations must refresh after any older poll has completed. Without
+          // this, the undo RPC can succeed while the previous exchange state
+          // remains on screen and makes the button look broken.
+          await load(true);
           await lobby();
           refresh();
         } catch {}
