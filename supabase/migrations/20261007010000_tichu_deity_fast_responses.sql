@@ -136,7 +136,12 @@ begin
   ) into fn;
 
   if strpos(fn, 'tichu_deity_quick_response') = 0 then
-    changed := replace(fn, E'begin\n  base_play :=', E'begin\n  -- Fast path for the overwhelmingly common responses. This also guarantees\n  -- that a higher pair/triple is selected before any exhaustive search.\n  if p_lead is not null then\n    best := public.tichu_deity_quick_response(p_hand, p_lead, p_wish_rank);\n    if cardinality(best) > 0 then return best; end if;\n  end if;\n\n  base_play :=');
+    changed := regexp_replace(
+      fn,
+      '\mbegin\s+base_play\s*:=',
+      E'begin\n  -- Fast path for the overwhelmingly common responses. This also guarantees\n  -- that a higher pair/triple is selected before any exhaustive search.\n  if p_lead is not null then\n    best := public.tichu_deity_quick_response(p_hand, p_lead, p_wish_rank);\n    if cardinality(best) > 0 then return best; end if;\n  end if;\n\n  base_play :=',
+      'i'
+    );
     if changed = fn then
       raise exception '티츄신 빠른 응답 로직 삽입 지점을 찾지 못했습니다.';
     end if;
