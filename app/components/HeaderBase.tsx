@@ -261,6 +261,9 @@ export default function Header() {
         </Link>
 
         <nav className="hidden items-center gap-6 lg:flex">
+          {siteRole === "MAIN_ADMIN" && (
+            <Link href="/hideout" className="whitespace-nowrap text-sm font-bold text-amber-300 transition hover:text-amber-200">나의 아지트</Link>
+          )}
           {menuItems.map((menu) => (
             <Link
               key={menu.href}

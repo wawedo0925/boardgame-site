@@ -48,6 +48,7 @@ export default async function AdminPage() {
 
         <MurderPreferenceToggle />
         <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <Link href="/hideout" className="rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-950/50 to-zinc-950 p-6 transition hover:border-amber-300"><p className="text-xs font-bold tracking-widest text-amber-400">PRIVATE BETA</p><h2 className="mt-2 text-xl font-black">나의 아지트</h2><p className="mt-2 text-sm text-zinc-400">아바타를 꾸미고 플레이한 게임과 가구를 내 공간에 전시합니다.</p></Link>
           <Link href="/admin/inquiries" className="rounded-2xl border border-amber-900 bg-amber-950/30 p-6 transition hover:border-amber-500"><h2 className="text-xl font-black">문의/제보 관리</h2><p className="mt-2 text-sm text-zinc-400">멤버의 문의와 제보를 확인하고 답변하거나 확인 완료로 처리합니다.</p></Link>
           <Link href="/admin/clocktower-missions" className="rounded-2xl border border-violet-900 bg-violet-950/30 p-6 transition hover:border-violet-400">
             <h2 className="text-xl font-black">시계탑 미션 수정</h2>
