@@ -30,6 +30,35 @@ const FURNITURE = {
 } as const;
 
 const FURNITURE_ROW: Record<keyof Furniture, number> = { chair: 0, lamp: 1, rug: 2, plant: 3 };
+const SHELF_SLOTS = [
+  { left: "17.0%", top: "19.0%", width: "9.2%", height: "9.4%" },
+  { left: "27.9%", top: "17.4%", width: "9.0%", height: "9.2%" },
+  { left: "38.8%", top: "15.4%", width: "8.6%", height: "8.9%" },
+  { left: "17.0%", top: "29.9%", width: "9.2%", height: "9.4%" },
+  { left: "27.9%", top: "28.1%", width: "9.0%", height: "9.2%" },
+  { left: "38.8%", top: "26.0%", width: "8.6%", height: "8.9%" },
+] as const;
+
+const GAME_PALETTES = [
+  ["#5b1021", "#d64b45", "#f5cf72"], ["#10253d", "#18789a", "#8fe3d1"],
+  ["#253512", "#78952f", "#e8d66c"], ["#31144b", "#8d3c8e", "#f3a1be"],
+  ["#3c2412", "#c16d24", "#f0cc82"], ["#172b25", "#2f7565", "#e7bd65"],
+] as const;
+
+function gameHash(name: string) {
+  return [...name].reduce((value, char) => ((value * 31) + char.charCodeAt(0)) >>> 0, 17);
+}
+
+function ShelfGame({ game, slot }: { game?: Game; slot: (typeof SHELF_SLOTS)[number] }) {
+  if (!game) return null;
+  const hash = gameHash(game.name);
+  const colors = GAME_PALETTES[hash % GAME_PALETTES.length];
+  const symbol = ["◆", "●", "▲", "✦", "⬡", "♟"][hash % 6];
+  return <div className="absolute grid place-items-center overflow-hidden rounded-[5%] border border-amber-100/45 text-center shadow-[0_4px_8px_rgba(0,0,0,.65)]" style={{ ...slot, backgroundColor: colors[0], backgroundImage: `linear-gradient(135deg,transparent 46%,${colors[1]} 47% 58%,transparent 59%),repeating-linear-gradient(0deg,transparent 0 8px,${colors[2]}22 8px 10px)` }} title={game.name}>
+    <span aria-hidden="true" className="absolute text-[12px] text-white/25 sm:text-xl">{symbol}</span>
+    <span className="relative z-10 max-w-[90%] break-keep text-[5px] font-black leading-[1.05] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,.9)] sm:text-[8px]">{game.name}</span>
+  </div>;
+}
 
 function FurnitureSprite({ kind, id, className = "" }: { kind: keyof Furniture; id: string; className?: string }) {
   const item = FURNITURE[kind].find((candidate) => candidate.id === id);
@@ -88,20 +117,18 @@ export default function HideoutEditor() {
 
         <div className="mt-8 grid gap-5 lg:grid-cols-[1.45fr_.75fr]">
           <div className="relative aspect-square overflow-hidden rounded-[2rem] border border-amber-300/30 bg-[#17120f] shadow-[0_30px_90px_rgba(0,0,0,.55)]">
-            <Image src="/hideout/cozy-room-v1.png" alt="따뜻한 보드게임 아지트" fill priority sizes="(min-width: 1024px) 680px, 100vw" className="object-cover" />
+            <Image src="/hideout/cozy-room-v2.png" alt="따뜻한 보드게임 아지트" fill priority sizes="(min-width: 1024px) 680px, 100vw" className="object-cover" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/10" />
             <div className="absolute left-[4%] top-[4%] rounded-full border border-amber-200/30 bg-black/55 px-3 py-1.5 text-[10px] font-bold text-amber-100 shadow-lg backdrop-blur sm:text-xs">LV. 1 · 첫 번째 아지트</div>
 
-            <div className="absolute left-[17%] top-[17.5%] grid h-[24%] w-[31%] grid-cols-3 grid-rows-2 gap-[4%] p-[1%]">
-              {selectedGames.map((game, index) => <div key={index} className={`grid min-h-0 place-items-center overflow-hidden rounded-[8%] border text-center font-black leading-tight shadow-lg ${game ? "border-amber-200/40 bg-gradient-to-br from-amber-600 via-rose-900 to-zinc-950 px-1 text-[6px] text-amber-50 sm:text-[9px]" : "border-white/5 bg-black/10 text-transparent"}`}>{game?.name ?? "+"}</div>)}
-            </div>
+            {selectedGames.map((game, index) => <ShelfGame key={index} game={game} slot={SHELF_SLOTS[index]} />)}
 
-            <FurnitureSprite kind="rug" id={furniture.rug} className="absolute bottom-[8%] left-[29%] h-[28%] w-[42%] opacity-95 drop-shadow-2xl" />
-            <FurnitureSprite kind="plant" id={furniture.plant} className="absolute bottom-[8%] left-[4%] h-[28%] w-[25%] drop-shadow-2xl" />
-            <FurnitureSprite kind="chair" id={furniture.chair} className="absolute bottom-[7%] right-[3%] h-[31%] w-[29%] drop-shadow-2xl" />
-            <FurnitureSprite kind="lamp" id={furniture.lamp} className="absolute right-[4%] top-[5%] h-[23%] w-[20%] drop-shadow-2xl" />
+            <FurnitureSprite kind="rug" id={furniture.rug} className="absolute bottom-[7%] left-[29%] z-[1] h-[25%] w-[42%] opacity-90 drop-shadow-[0_8px_8px_rgba(0,0,0,.35)]" />
+            <FurnitureSprite kind="plant" id={furniture.plant} className="absolute bottom-[15%] left-[7%] z-[3] h-[21%] w-[19%] drop-shadow-[0_12px_8px_rgba(0,0,0,.55)]" />
+            <FurnitureSprite kind="chair" id={furniture.chair} className="absolute bottom-[11%] right-[6%] z-[3] h-[25%] w-[23%] drop-shadow-[0_14px_10px_rgba(0,0,0,.6)]" />
+            <FurnitureSprite kind="lamp" id={furniture.lamp} className="absolute bottom-[28%] right-[24%] z-[2] h-[17%] w-[15%] drop-shadow-[0_10px_8px_rgba(0,0,0,.55)]" />
 
-            <div className="absolute bottom-[15%] left-1/2 grid -translate-x-1/2 place-items-center">
+            <div className="absolute bottom-[13%] left-1/2 z-[4] grid -translate-x-1/2 place-items-center">
               <div className="rounded-full border-2 border-amber-200/80 bg-zinc-900 p-1 shadow-[0_10px_30px_rgba(0,0,0,.65)]"><MemberAvatar look={look} size="h-16 w-16 sm:h-24 sm:w-24" /></div>
               <p className="mt-1 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[10px] font-bold backdrop-blur sm:text-xs">{data.ownerName}</p>
             </div>
