@@ -27,6 +27,7 @@ type Room = {
   can_roll: boolean;
   last_roll: number | null;
   winner_team: number | null;
+  finish_order: number[];
   revision: number;
 };
 type Player = {
@@ -922,6 +923,7 @@ function Game({
           const remaining = pieces.filter(
             (piece) => piece.team === p.team && nodeOf(piece) !== 99,
           ).length;
+          const finishedRank = (room.finish_order ?? []).indexOf(p.team) + 1;
           return (
             <div
               key={p.id}
@@ -936,7 +938,11 @@ function Game({
                 className="mt-1 flex min-h-3 items-center justify-center gap-1"
                 aria-label={`남은 말 ${remaining}개`}
               >
-                {remaining > 0 ? (
+                {finishedRank > 0 ? (
+                  <span className="text-[10px] font-black text-amber-200">
+                    {finishedRank}위 완주
+                  </span>
+                ) : remaining > 0 ? (
                   Array.from({ length: remaining }, (_, index) => (
                     <span
                       key={index}
@@ -955,13 +961,33 @@ function Game({
       </div>
       {room.status === "FINISHED" ? (
         <section className="mt-5 rounded-3xl border border-amber-300/50 bg-amber-300/10 p-10 text-center">
-          <p className="text-lg text-amber-200">게임 종료</p>
-          <h2
-            className={`mt-2 text-4xl font-black ${teamStyles[room.winner_team ?? 0].text}`}
-          >
-            {teamStyles[room.winner_team ?? 0].name}팀 승리!
-          </h2>
-          <p className="mt-4 text-zinc-300">말 4개를 모두 먼저 완주했습니다.</p>
+          <p className="text-lg text-amber-200">최종 순위</p>
+          <div className="mx-auto mt-5 grid max-w-xl gap-3">
+            {(room.finish_order ?? []).map((team, index) => {
+              const names = players
+                .filter((player) => player.team === team)
+                .map((player) => player.name)
+                .join("/");
+              return (
+                <div
+                  key={team}
+                  className={`flex items-center justify-between rounded-2xl border bg-black/35 px-5 py-4 ${teamStyles[team].border}`}
+                >
+                  <strong className={teamStyles[team].text}>
+                    {index + 1}위 · {names}
+                  </strong>
+                  <span className="text-sm text-zinc-300">
+                    {index === (room.finish_order ?? []).length - 1
+                      ? "미완주"
+                      : "완주"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-5 text-zinc-300">
+            마지막 한 팀을 제외한 모든 팀이 완주했습니다.
+          </p>
         </section>
       ) : (
         <>
