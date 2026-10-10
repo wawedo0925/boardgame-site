@@ -33,6 +33,13 @@ const randomStartMigration = fs.readFileSync(
   ),
   "utf8",
 );
+const rematchMigration = fs.readFileSync(
+  path.join(
+    root,
+    "supabase/migrations/20261011130000_yutnori_rematch_ready.sql",
+  ),
+  "utf8",
+);
 
 test("supports every requested player mode", () => {
   for (const mode of ["INDIVIDUAL", "TEAM_2V2", "TEAM_3X2"]) {
@@ -98,4 +105,14 @@ test("shuffles the full player order for every new yut game", () => {
   assert.match(randomStartMigration, /set seat=s\.new_seat/);
   assert.match(randomStartMigration, /turn_seat=0/);
   assert.match(randomStartMigration, /finish_order='\{\}'/);
+});
+
+test("requires every player to ready up before the host starts a rematch", () => {
+  assert.match(rematchMigration, /function public\.yut_toggle_rematch/);
+  assert.match(rematchMigration, /function public\.yut_start_rematch/);
+  assert.match(rematchMigration, /not ready/);
+  assert.match(rematchMigration, /set ready=is_bot/);
+  assert.match(client, /action\("yut_toggle_rematch"\)/);
+  assert.match(client, /action\("yut_start_rematch"\)/);
+  assert.match(client, /모두 준비하면 시작 가능/);
 });

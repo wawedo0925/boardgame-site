@@ -873,8 +873,12 @@ function Game({
   leave: () => void;
 }) {
   const [routeChoice, setRouteChoice] = useState<Piece | null>(null);
-  const myTurn = current?.id === me.id,
-    selectedMove = room.pending_moves[0];
+  const mePlayer = players.find((player) => player.id === me.id),
+    myTurn = current?.id === me.id,
+    selectedMove = room.pending_moves[0],
+    host = room.host_id === mePlayer?.user_id,
+    everyoneReady =
+      players.length > 0 && players.every((player) => player.ready);
   const movable = pieces.filter(
     (p) =>
       p.team === me.team &&
@@ -1008,6 +1012,43 @@ function Game({
           <p className="mt-5 text-zinc-300">
             마지막 한 팀을 제외한 모든 팀이 완주했습니다.
           </p>
+          <div className="mx-auto mt-7 grid max-w-xl gap-2 sm:grid-cols-2">
+            {players.map((player) => (
+              <div
+                key={player.id}
+                className={`rounded-xl border px-4 py-3 text-sm font-black ${teamStyles[player.team].border}`}
+              >
+                <span className={teamStyles[player.team].text}>
+                  {player.name}
+                </span>
+                <span
+                  className={`ml-2 ${player.ready ? "text-emerald-300" : "text-zinc-500"}`}
+                >
+                  {player.ready ? "준비 완료" : "대기 중"}
+                </span>
+              </div>
+            ))}
+          </div>
+          {!mePlayer?.is_bot && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => action("yut_toggle_rematch")}
+              className={`mt-6 rounded-2xl px-8 py-4 font-black ${me.ready ? "bg-zinc-700 text-white" : "bg-emerald-400 text-black"}`}
+            >
+              {me.ready ? "다시 하기 취소" : "다시 하기"}
+            </button>
+          )}
+          {host && (
+            <button
+              type="button"
+              disabled={busy || !everyoneReady}
+              onClick={() => action("yut_start_rematch")}
+              className="ml-2 mt-6 rounded-2xl bg-amber-400 px-8 py-4 font-black text-black disabled:opacity-30"
+            >
+              {everyoneReady ? "새 게임 시작" : "모두 준비하면 시작 가능"}
+            </button>
+          )}
         </section>
       ) : (
         <>
