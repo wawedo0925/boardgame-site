@@ -242,7 +242,8 @@ export default function YutClient() {
     [notice, setNotice] = useState(""),
     [captureNotice, setCaptureNotice] = useState(""),
     [turnNotice, setTurnNotice] = useState(""),
-    [moveAnimation, setMoveAnimation] = useState<MoveAnimation | null>(null);
+    [moveAnimation, setMoveAnimation] = useState<MoveAnimation | null>(null),
+    [tutorialOpen, setTutorialOpen] = useState(false);
   const roomId = snap?.room.id ?? null,
     botBusy = useRef(false),
     autoBusy = useRef(false),
@@ -371,11 +372,17 @@ export default function YutClient() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUserId(data.user?.id ?? null);
+      if (data.user?.id && localStorage.getItem("yut-tutorial-seen") !== "1")
+        setTutorialOpen(true);
       const saved = localStorage.getItem("yut-room");
       if (saved) loadRoom(saved);
       else loadLobby();
     });
   }, [loadLobby, loadRoom]);
+  const closeTutorial = () => {
+    localStorage.setItem("yut-tutorial-seen", "1");
+    setTutorialOpen(false);
+  };
   useEffect(() => {
     snapRef.current = snap;
   }, [snap]);
@@ -548,56 +555,68 @@ export default function YutClient() {
     );
   if (!snap)
     return (
-      <LobbyView
-        lobby={lobby}
-        mode={mode}
-        setMode={setMode}
-        playerCount={playerCount}
-        setPlayerCount={setPlayerCount}
-        title={title}
-        setTitle={setTitle}
-        busy={busy}
-        notice={notice}
-        create={create}
-        join={async (id, mine) => {
-          try {
-            if (!mine) await rpc("yut_join_room", { p_room: id });
-            await openRoom(id);
-          } catch {}
-        }}
-      />
+      <>
+        <LobbyView
+          lobby={lobby}
+          mode={mode}
+          setMode={setMode}
+          playerCount={playerCount}
+          setPlayerCount={setPlayerCount}
+          title={title}
+          setTitle={setTitle}
+          busy={busy}
+          notice={notice}
+          onTutorial={() => setTutorialOpen(true)}
+          create={create}
+          join={async (id, mine) => {
+            try {
+              if (!mine) await rpc("yut_join_room", { p_room: id });
+              await openRoom(id);
+            } catch {}
+          }}
+        />
+        <YutTutorial open={tutorialOpen} onClose={closeTutorial} />
+      </>
     );
   const { room, players, pieces, me } = snap,
     current = players.find((p) => p.seat === room.turn_seat),
     host = room.host_id === userId;
   if (room.status === "WAITING")
     return (
-      <Waiting
-        room={room}
-        players={players}
-        me={me}
-        host={host}
-        busy={busy}
-        notice={notice}
-        action={action}
-        leave={leave}
-      />
+      <>
+        <Waiting
+          room={room}
+          players={players}
+          me={me}
+          host={host}
+          busy={busy}
+          notice={notice}
+          onTutorial={() => setTutorialOpen(true)}
+          action={action}
+          leave={leave}
+        />
+        <YutTutorial open={tutorialOpen} onClose={closeTutorial} />
+      </>
     );
   return (
-    <Game
-      room={room}
-      players={players}
-      pieces={pieces}
-      me={me}
-      current={current}
-      busy={busy}
-      notice={notice}
-      captureNotice={captureNotice}
-      turnNotice={turnNotice}
-      moveAnimation={moveAnimation}
-      action={action}
-      leave={exitGame}
-    />
+    <>
+      <Game
+        room={room}
+        players={players}
+        pieces={pieces}
+        me={me}
+        current={current}
+        busy={busy}
+        notice={notice}
+        captureNotice={captureNotice}
+        turnNotice={turnNotice}
+        moveAnimation={moveAnimation}
+        onTutorial={() => setTutorialOpen(true)}
+        action={action}
+        leave={exitGame}
+      />
+      <YutTutorial open={tutorialOpen} onClose={closeTutorial} />
+    </>
   );
 }
 
@@ -611,6 +630,7 @@ function LobbyView({
   setTitle,
   busy,
   notice,
+  onTutorial,
   create,
   join,
 }: {
@@ -623,6 +643,7 @@ function LobbyView({
   setTitle: (s: string) => void;
   busy: boolean;
   notice: string;
+  onTutorial: () => void;
   create: () => void;
   join: (id: string, mine: boolean) => void;
 }) {
@@ -632,7 +653,16 @@ function LobbyView({
         <p className="text-xs font-black tracking-[.3em] text-amber-300">
           KOREAN TRADITIONAL GAME
         </p>
-        <h1 className="mt-2 text-4xl font-black">윷놀이</h1>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <h1 className="text-4xl font-black">윷놀이</h1>
+          <button
+            type="button"
+            onClick={onTutorial}
+            className="rounded-xl border border-amber-300/50 bg-amber-300/10 px-4 py-2 text-sm font-black text-amber-200"
+          >
+            ? <span className="hidden sm:inline">조작법</span>
+          </button>
+        </div>
         <p className="mt-3 text-zinc-300">
           윷을 던지고, 업고, 잡고, 지름길로 먼저 네 말을 완주하세요.
         </p>
@@ -730,6 +760,7 @@ function Waiting({
   host,
   busy,
   notice,
+  onTutorial,
   action,
   leave,
 }: {
@@ -739,6 +770,7 @@ function Waiting({
   host: boolean;
   busy: boolean;
   notice: string;
+  onTutorial: () => void;
   action: (n: string, a?: Record<string, unknown>) => void;
   leave: () => void;
 }) {
@@ -752,6 +784,14 @@ function Waiting({
           <h1 className="text-3xl font-black">{room.title}</h1>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onTutorial}
+            aria-label="윷놀이 조작법"
+            className="grid h-10 min-w-10 place-items-center rounded-xl border border-amber-300/40 px-2 text-sm font-black text-amber-200"
+          >
+            ? <span className="hidden sm:inline">조작법</span>
+          </button>
           <RoomChat
             roomId={room.id}
             name={players.find((player) => player.id === me.id)?.name ?? "멤버"}
@@ -857,6 +897,7 @@ function Game({
   captureNotice,
   turnNotice,
   moveAnimation,
+  onTutorial,
   action,
   leave,
 }: {
@@ -870,6 +911,7 @@ function Game({
   captureNotice: string;
   turnNotice: string;
   moveAnimation: MoveAnimation | null;
+  onTutorial: () => void;
   action: (n: string, a?: Record<string, unknown>) => void;
   leave: () => void;
 }) {
@@ -931,6 +973,14 @@ function Game({
           <h1 className="text-2xl font-black">{room.title}</h1>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onTutorial}
+            aria-label="윷놀이 조작법"
+            className="grid h-10 min-w-10 place-items-center rounded-xl border border-amber-300/40 px-2 text-xs font-black text-amber-200"
+          >
+            ? <span className="hidden sm:inline">조작법</span>
+          </button>
           <RoomChat
             roomId={room.id}
             name={players.find((player) => player.id === me.id)?.name ?? "멤버"}
@@ -1684,6 +1734,138 @@ function RoomChat({ roomId, name }: { roomId: string; name: string }) {
     </>
   );
 }
+const tutorialSteps = [
+  {
+    icon: "🎲",
+    title: "내 차례에 윷 던지기",
+    description:
+      "화면에 ‘내 차례’ 알림이 뜨면 오른쪽의 윷 던지기를 누르세요. 5초 동안 누르지 않으면 자동으로 던집니다.",
+    tip: "도·개·걸은 1·2·3칸, 윷·모는 4·5칸이며 윷·모가 나오면 한 번 더 던져요.",
+  },
+  {
+    icon: "👆",
+    title: "움직일 말 선택하기",
+    description:
+      "나온 결과를 확인한 뒤 게임판에서 움직일 말을 직접 누르세요. 아직 출발하지 않은 말은 ‘새 말 출발’을 누르면 됩니다.",
+    tip: "15초 동안 고르지 않으면 유리한 말을 자동으로 움직여요.",
+  },
+  {
+    icon: "↗️",
+    title: "갈림길 방향 고르기",
+    description:
+      "모서리나 중앙에서 말이 멈추면 이동 가능한 방향에 화살표가 나타납니다. 원하는 화살표를 눌러 바깥길이나 지름길을 선택하세요.",
+    tip: "말은 선택한 경로를 따라 칸마다 이동하는 모습이 표시돼요.",
+  },
+  {
+    icon: "💥",
+    title: "업기와 상대 말 잡기",
+    description:
+      "같은 팀 말과 같은 칸에 도착하면 함께 업혀 움직입니다. 상대 말이 있는 칸에 도착하면 그 말을 잡고 윷을 한 번 더 던집니다.",
+    tip: "잡기 알림과 효과음은 게임판 중앙에 표시돼요.",
+  },
+  {
+    icon: "↩️",
+    title: "우리 방의 빽도 규칙",
+    description:
+      "첫 칸의 말이 빽도를 맞으면 출발 지역으로 돌아갑니다. 그 말이 다시 빽도를 맞으면 바로 완주합니다.",
+    tip: "잡혀서 출발로 돌아온 말은 이 특수 완주 규칙에 포함되지 않아요.",
+  },
+] as const;
+
+function YutTutorial({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [step, setStep] = useState(0);
+  if (!open) return null;
+  const item = tutorialSteps[step],
+    last = step === tutorialSteps.length - 1,
+    close = () => {
+      setStep(0);
+      onClose();
+    };
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="yut-tutorial-title"
+      className="fixed inset-0 z-[100] grid place-items-center bg-black/80 p-4 backdrop-blur-sm"
+    >
+      <section className="w-full max-w-md overflow-hidden rounded-3xl border border-amber-300/40 bg-[#101713] shadow-2xl shadow-black">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <div>
+            <p className="text-[10px] font-black tracking-[.25em] text-amber-300">
+              YUTNORI TUTORIAL
+            </p>
+            <h2 id="yut-tutorial-title" className="mt-1 text-xl font-black">
+              윷놀이 조작법
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={close}
+            aria-label="튜토리얼 닫기"
+            className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-lg text-zinc-300"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="p-5">
+          <div
+            className="flex gap-2"
+            aria-label={`${step + 1}/${tutorialSteps.length} 단계`}
+          >
+            {tutorialSteps.map((_, index) => (
+              <span
+                key={index}
+                className={`h-1.5 flex-1 rounded-full ${index <= step ? "bg-amber-300" : "bg-white/10"}`}
+              />
+            ))}
+          </div>
+          <div className="mt-6 rounded-3xl border border-white/10 bg-black/30 p-6 text-center">
+            <span className="text-5xl" aria-hidden="true">
+              {item.icon}
+            </span>
+            <p className="mt-4 text-xs font-black text-amber-300">
+              {step + 1}단계
+            </p>
+            <h3 className="mt-1 text-2xl font-black">{item.title}</h3>
+            <p className="mt-4 text-sm leading-6 text-zinc-200">
+              {item.description}
+            </p>
+          </div>
+          <p className="mt-4 rounded-2xl bg-emerald-400/10 px-4 py-3 text-xs leading-5 text-emerald-200">
+            💡 {item.tip}
+          </p>
+          <div className="mt-5 flex gap-2">
+            {step > 0 && (
+              <button
+                type="button"
+                onClick={() => setStep((current) => current - 1)}
+                className="rounded-xl border border-white/15 px-5 py-3 font-bold text-zinc-200"
+              >
+                이전
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() =>
+                last ? close() : setStep((current) => current + 1)
+              }
+              className="flex-1 rounded-xl bg-amber-400 px-5 py-3 font-black text-black"
+            >
+              {last ? "게임 시작하기" : "다음"}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function Rules() {
   return (
     <details className="mt-5 rounded-2xl border border-white/10 bg-white/[.025] p-4 text-sm text-zinc-300">

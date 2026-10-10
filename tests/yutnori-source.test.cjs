@@ -87,6 +87,16 @@ test("supports the house-rule back-do finish from the returned start spot", () =
   assert.match(backdoFinishMigration, /back_at_start=returned_start/);
 });
 
+test("offers a replayable first-visit controls tutorial", () => {
+  assert.match(client, /function YutTutorial/);
+  assert.match(client, /yut-tutorial-seen/);
+  assert.match(client, /aria-label="윷놀이 조작법"/);
+  assert.match(client, /내 차례에 윷 던지기/);
+  assert.match(client, /움직일 말 선택하기/);
+  assert.match(client, /갈림길 방향 고르기/);
+  assert.match(client, /우리 방의 빽도 규칙/);
+});
+
 test("continues play until only the last-place team remains", () => {
   assert.match(finishOrderMigration, /add column if not exists finish_order/);
   assert.match(finishOrderMigration, /new\.status:='PLAYING'/);
