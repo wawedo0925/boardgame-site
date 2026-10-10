@@ -1154,6 +1154,7 @@ function YutBoard({
   ];
   const groups = new Map<string, Piece[]>();
   for (const piece of pieces) {
+    if (nodeOf(piece) === 99) continue;
     const key = `${piece.team}-${nodeOf(piece)}`;
     groups.set(key, [...(groups.get(key) ?? []), piece]);
   }
@@ -1337,7 +1338,9 @@ function AnimatedYutPiece({
     const timer = setTimeout(() => setStep((current) => current + 1), 260);
     return () => clearTimeout(timer);
   }, [animation.nodes.length, step]);
-  const [x, y] = boardPos[animation.nodes[step]] ?? [50, 104];
+  const currentNode = animation.nodes[step];
+  if (currentNode === 99) return null;
+  const [x, y] = boardPos[currentNode] ?? [50, 104];
   return (
     <div
       aria-label={`${label} 이동 중`}
