@@ -669,19 +669,14 @@ function LobbyView({
       </section>
       <section className="mt-6 rounded-3xl border border-white/10 bg-white/[.035] p-5">
         <h2 className="text-xl font-black">새 게임 만들기</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           {(Object.keys(modeInfo) as Mode[]).map((m) => (
             <button
               key={m}
               onClick={() => setMode(m)}
-              className={`rounded-2xl border p-4 text-left ${mode === m ? "border-amber-300 bg-amber-300/15" : "border-white/10 bg-black/20"}`}
+              className={`min-w-0 rounded-xl border px-1.5 py-3 text-center text-sm font-black whitespace-nowrap sm:px-3 sm:text-base ${mode === m ? "border-amber-300 bg-amber-300/15 text-amber-300" : "border-white/10 bg-black/20"}`}
             >
-              <b className={mode === m ? "text-amber-300" : ""}>
-                {modeInfo[m].label}
-              </b>
-              <span className="mt-1 block text-xs text-zinc-400">
-                {modeInfo[m].detail}
-              </span>
+              {modeInfo[m].label.replaceAll(" ", "")}
             </button>
           ))}
         </div>
