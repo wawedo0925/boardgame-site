@@ -109,10 +109,10 @@ export function StandingMemberAvatar({
     <span className={`relative block shrink-0 ${size}`} aria-label="서 있는 멤버 아바타">
       <span className="absolute bottom-[1%] left-1/2 h-[6%] w-[62%] -translate-x-1/2 rounded-full bg-black/35 blur-[2px]" />
       <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat drop-shadow-[0_6px_5px_rgba(0,0,0,.55)]" style={{ backgroundImage: "url('/avatars/base/body.png')" }} />
-      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/hair/${asset}.png')` }} />
+      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/aligned/hair/${asset}.png')` }} />
       {hairColor > 0 && <span aria-hidden="true" className="absolute inset-0 opacity-85" style={{
         backgroundColor: HAIR_COLORS[hairColor],
-        WebkitMaskImage: `url('/avatars/hair/${asset}.png')`, maskImage: `url('/avatars/hair/${asset}.png')`,
+        WebkitMaskImage: `url('/avatars/aligned/hair/${asset}.png')`, maskImage: `url('/avatars/aligned/hair/${asset}.png')`,
         WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskPosition: "center", maskPosition: "center",
         WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat", mixBlendMode: "color",
       }} />}
@@ -120,10 +120,10 @@ export function StandingMemberAvatar({
         {face}
         <circle cx="154" cy="99" r="4" className="fill-white stroke-none"/><circle cx="218" cy="99" r="4" className="fill-white stroke-none"/>
       </svg>
-      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/bottoms/${bottom}.png')` }} />
-      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/tops/${top}.png')` }} />
-      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/shoes/${shoes}.png')` }} />
-      {hat > 0 && <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/hats/${String(hat).padStart(2, "0")}.png')` }} />}
+      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/aligned/bottoms/${bottom}.png')` }} />
+      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/aligned/tops/${top}.png')` }} />
+      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/aligned/shoes/${shoes}.png')` }} />
+      {hat > 0 && <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/aligned/hats/${String(hat).padStart(2, "0")}.png')` }} />}
     </span>
   );
 }
