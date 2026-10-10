@@ -9,7 +9,7 @@ const layouts = {
   hats: { width: 300, height: 210, top: 8 },
   tops: { width: 170, height: 108, top: 170 },
   bottoms: { width: 164, height: 86, top: 254 },
-  shoes: { width: 112, height: 50, top: 326 },
+  shoes: { width: 96, height: 42, top: 332 },
 };
 
 for (const [category, layout] of Object.entries(layouts)) {

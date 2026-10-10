@@ -20,7 +20,11 @@ for (let index = 0; index < sources.length; index += 1) {
   const face = await sharp(input)
     .extract({ left: cellLeft + 58, top: 103, width: cellRight - cellLeft - 116, height: 142 })
     .resize(150, 108, { fit: "fill" })
-    .composite([{ input: Buffer.from(`<svg width="150" height="108"><ellipse cx="75" cy="54" rx="73" ry="52" fill="white"/></svg>`), blend: "dest-in" }])
+    .composite([{ input: Buffer.from(`<svg width="150" height="108">
+      <ellipse cx="47" cy="70" rx="19" ry="21" fill="white"/>
+      <ellipse cx="103" cy="70" rx="19" ry="21" fill="white"/>
+      <ellipse cx="75" cy="91" rx="24" ry="13" fill="white"/>
+    </svg>`), blend: "dest-in" }])
     .png()
     .toBuffer();
   await sharp({ create: { width: 384, height: 384, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
