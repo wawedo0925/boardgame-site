@@ -12,7 +12,7 @@ const games = [
     title: "티츄",
     description: "팀전과 개인전, 다양한 난이도의 AI와 즐기는 실시간 티츄",
     details: ["4인 플레이", "팀전 · 개인전", "AI 대전"],
-    icon: "🀄",
+    icon: "tichu",
     color: "from-sky-500/25 via-cyan-400/5 to-transparent",
     border: "hover:border-sky-300/70",
     button: "bg-sky-300 text-slate-950",
@@ -23,7 +23,7 @@ const games = [
     title: "윷놀이",
     description: "잡기와 업기, 지름길의 재미를 담은 온라인 윷놀이",
     details: ["개인 2~4인", "2대2 · 2대2대2", "AI 대전"],
-    icon: "🎴",
+    icon: "yut",
     color: "from-amber-400/25 via-emerald-400/5 to-transparent",
     border: "hover:border-amber-300/70",
     button: "bg-amber-300 text-zinc-950",
@@ -63,7 +63,25 @@ export default function GameWorldPage() {
                     <h2 className="mt-2 text-4xl font-black">{game.title}</h2>
                   </div>
                   <span className="grid h-20 w-20 place-items-center rounded-3xl border border-white/10 bg-black/30 text-5xl shadow-xl transition group-hover:scale-105">
-                    {game.icon}
+                    {game.icon === "tichu" ? (
+                      "🀄"
+                    ) : (
+                      <span
+                        className="relative block h-12 w-14 rotate-[-8deg]"
+                        aria-label="윷가락 네 개"
+                      >
+                        {[0, 1, 2, 3].map((stick) => (
+                          <span
+                            key={stick}
+                            className="absolute top-1 h-10 w-2.5 rounded-full border border-amber-100/70 bg-gradient-to-r from-amber-100 via-amber-300 to-amber-600 shadow-md"
+                            style={{
+                              left: `${stick * 13}px`,
+                              transform: `rotate(${stick % 2 ? 8 : -5}deg) translateY(${stick % 2 ? 2 : 0}px)`,
+                            }}
+                          />
+                        ))}
+                      </span>
+                    )}
                   </span>
                 </div>
 
