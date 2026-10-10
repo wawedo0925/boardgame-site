@@ -38,12 +38,19 @@ begin
     elsif p_center_route='RIGHT' then route2:='diag2'; step2:=13+mv;
     else raise exception '중앙에서 이동할 방향을 선택해 주세요.';
     end if;
+  elsif node0=5 and pc.route='outer' and mv>0 then
+    if p_center_route='OUTER' then route2:='outer'; step2:=pc.step_index+mv;
+    elsif p_center_route='DIAGONAL' then route2:='diag1'; step2:=5+mv;
+    else raise exception '오른쪽 위에서 이동할 방향을 선택해 주세요.';
+    end if;
+  elsif node0=10 and pc.route='outer' and mv>0 then
+    if p_center_route='OUTER' then route2:='outer'; step2:=pc.step_index+mv;
+    elsif p_center_route='DIAGONAL' then route2:='diag2'; step2:=10+mv;
+    else raise exception '왼쪽 위에서 이동할 방향을 선택해 주세요.';
+    end if;
   else
     route2:=pc.route;
     step2:=greatest(0,pc.step_index+mv);
-    if mv>0 and pc.route='outer' and node0=5 then route2:='diag1'; step2:=5+mv;
-    elsif mv>0 and pc.route='outer' and node0=10 then route2:='diag2'; step2:=10+mv;
-    end if;
   end if;
 
   node2:=public.yut_node(route2,step2);
