@@ -26,6 +26,13 @@ const hostRoomCleanupMigration = fs.readFileSync(
   ),
   "utf8",
 );
+const randomStartMigration = fs.readFileSync(
+  path.join(
+    root,
+    "supabase/migrations/20261011120000_yutnori_random_start.sql",
+  ),
+  "utf8",
+);
 
 test("supports every requested player mode", () => {
   for (const mode of ["INDIVIDUAL", "TEAM_2V2", "TEAM_3X2"]) {
@@ -83,4 +90,12 @@ test("removes a host's previous room when leaving or creating another", () => {
   );
   assert.match(client, /snapRef\.current\?\.room\.host_id === userId/);
   assert.match(client, /rpc\("yut_leave_room", \{ p_room: roomId \}\)/);
+});
+
+test("shuffles the full player order for every new yut game", () => {
+  assert.match(randomStartMigration, /order by random\(\)/);
+  assert.match(randomStartMigration, /set seat=seat\+100/);
+  assert.match(randomStartMigration, /set seat=s\.new_seat/);
+  assert.match(randomStartMigration, /turn_seat=0/);
+  assert.match(randomStartMigration, /finish_order='\{\}'/);
 });

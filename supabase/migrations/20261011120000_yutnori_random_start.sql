@@ -1,0 +1,29 @@
+create or replace function public.yut_start_room(p_room uuid) returns void
+language plpgsql security definer set search_path=public as $$
+declare r yut_rooms%rowtype; teams int;
+begin
+  select * into r from yut_rooms where id=p_room for update;
+  if r.host_id<>auth.uid() or r.status<>'WAITING' then raise exception '방장만 시작할 수 있습니다.'; end if;
+  if (select count(*) from yut_players where room_id=p_room)<>r.max_players then raise exception '모든 자리를 채워 주세요.'; end if;
+  if exists(select 1 from yut_players where room_id=p_room and not ready and user_id<>r.host_id) then raise exception '모두 준비해야 합니다.'; end if;
+
+  -- Move seats out of the constrained range first, then assign a completely
+  -- shuffled turn order. Team membership stays unchanged.
+  update yut_players set seat=seat+100 where room_id=p_room;
+  with shuffled as (
+    select id,(row_number() over(order by random())-1)::int as new_seat
+    from yut_players
+    where room_id=p_room
+  )
+  update yut_players p set seat=s.new_seat
+  from shuffled s
+  where p.id=s.id;
+
+  teams:=case when r.mode='INDIVIDUAL' then r.max_players when r.mode='TEAM_2V2' then 2 else 3 end;
+  delete from yut_pieces where room_id=p_room;
+  insert into yut_pieces(room_id,team,piece_no) select p_room,t,p from generate_series(0,teams-1)t cross join generate_series(0,3)p;
+  update yut_rooms
+  set status='PLAYING',turn_seat=0,pending_moves='{}',can_roll=true,
+      last_roll=null,winner_team=null,finish_order='{}',revision=revision+1,updated_at=now()
+  where id=p_room;
+end $$;
