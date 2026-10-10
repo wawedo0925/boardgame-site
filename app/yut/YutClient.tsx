@@ -57,6 +57,7 @@ type MoveAnimation = {
   pieceNos: number[];
   nodes: number[];
 };
+type Chat = { id: string; user: string; text: string; at: number };
 
 const supabase = createClient();
 const teamStyles = [
@@ -742,12 +743,18 @@ function Waiting({
           </p>
           <h1 className="text-3xl font-black">{room.title}</h1>
         </div>
-        <button
-          onClick={leave}
-          className="rounded-xl border border-red-400/30 px-4 py-2 text-red-300"
-        >
-          방 나가기
-        </button>
+        <div className="flex items-center gap-2">
+          <RoomChat
+            roomId={room.id}
+            name={players.find((player) => player.id === me.id)?.name ?? "멤버"}
+          />
+          <button
+            onClick={leave}
+            className="rounded-xl border border-red-400/30 px-4 py-2 text-red-300"
+          >
+            방 나가기
+          </button>
+        </div>
       </header>
       <section className="mt-6 rounded-3xl border border-white/10 bg-white/[.035] p-5">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -910,13 +917,19 @@ function Game({
           </p>
           <h1 className="text-2xl font-black">{room.title}</h1>
         </div>
-        <button
-          type="button"
-          onClick={leave}
-          className="rounded-xl border border-red-400/40 px-4 py-2 text-sm font-bold text-red-300 transition hover:bg-red-400/10"
-        >
-          게임 나가기
-        </button>
+        <div className="flex items-center gap-2">
+          <RoomChat
+            roomId={room.id}
+            name={players.find((player) => player.id === me.id)?.name ?? "멤버"}
+          />
+          <button
+            type="button"
+            onClick={leave}
+            className="rounded-xl border border-red-400/40 px-4 py-2 text-sm font-bold text-red-300 transition hover:bg-red-400/10"
+          >
+            게임 나가기
+          </button>
+        </div>
       </header>
       <div className="mt-3 flex w-full gap-1.5 overflow-x-auto">
         {players.map((p) => {
@@ -1358,6 +1371,306 @@ function AnimatedYutPiece({
         </span>
       )}
     </div>
+  );
+}
+
+function RoomChat({ roomId, name }: { roomId: string; name: string }) {
+  const channel = useRef<ReturnType<typeof supabase.channel> | null>(null),
+    endRef = useRef<HTMLDivElement | null>(null),
+    inputRef = useRef<HTMLInputElement | null>(null),
+    composingRef = useRef(false);
+  const [open, setOpen] = useState(false),
+    [opacity, setOpacity] = useState(90),
+    [text, setText] = useState(""),
+    [chats, setChats] = useState<Chat[]>([]),
+    [position, setPosition] = useState<{ x: number; y: number } | null>(null),
+    [size, setSize] = useState({ width: 288, height: 288 });
+
+  useEffect(() => {
+    const roomChannel = supabase.channel(`yut:${roomId}`, {
+      config: { broadcast: { self: false } },
+    });
+    roomChannel
+      .on("broadcast", { event: "chat" }, ({ payload }) => {
+        const item = payload as Chat;
+        setChats((current) => [...current.slice(-99), item]);
+      })
+      .subscribe();
+    channel.current = roomChannel;
+    return () => {
+      channel.current = null;
+      void supabase.removeChannel(roomChannel);
+    };
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => {
+      endRef.current?.scrollIntoView({ block: "end" });
+      inputRef.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open, chats]);
+
+  const openChat = () => {
+    const width = Math.min(size.width, window.innerWidth - 24),
+      height = Math.min(size.height, window.innerHeight - 96);
+    setSize({ width, height });
+    setPosition((current) =>
+      current
+        ? {
+            x: Math.max(
+              12,
+              Math.min(current.x, window.innerWidth - width - 12),
+            ),
+            y: Math.max(
+              12,
+              Math.min(current.y, window.innerHeight - height - 12),
+            ),
+          }
+        : { x: Math.max(12, (window.innerWidth - width) / 2), y: 80 },
+    );
+    setOpen(true);
+  };
+
+  const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (
+      !position ||
+      (event.target as HTMLElement).closest("button,input,label")
+    )
+      return;
+    const startX = event.clientX,
+      startY = event.clientY,
+      origin = position;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const move = (next: PointerEvent) =>
+      setPosition({
+        x: Math.max(
+          12,
+          Math.min(
+            origin.x + next.clientX - startX,
+            window.innerWidth - size.width - 12,
+          ),
+        ),
+        y: Math.max(
+          12,
+          Math.min(
+            origin.y + next.clientY - startY,
+            window.innerHeight - size.height - 12,
+          ),
+        ),
+      });
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  };
+
+  const startResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!position) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX,
+      startY = event.clientY,
+      origin = size;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const move = (next: PointerEvent) =>
+      setSize({
+        width: Math.max(
+          240,
+          Math.min(
+            origin.width + next.clientX - startX,
+            window.innerWidth - position.x - 12,
+          ),
+        ),
+        height: Math.max(
+          208,
+          Math.min(
+            origin.height + next.clientY - startY,
+            window.innerHeight - position.y - 12,
+          ),
+        ),
+      });
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  };
+
+  const send = () => {
+    const message = text.trim().slice(0, 200);
+    if (!message) return;
+    const item: Chat = {
+      id: crypto.randomUUID(),
+      user: name,
+      text: message,
+      at: Date.now(),
+    };
+    setChats((current) => [...current.slice(-99), item]);
+    void channel.current?.send({
+      type: "broadcast",
+      event: "chat",
+      payload: item,
+    });
+    setText("");
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={openChat}
+        aria-label="실시간 채팅 열기"
+        className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-lg"
+      >
+        💬
+      </button>
+      {open && (
+        <div className="pointer-events-none fixed inset-0 z-[70]">
+          <aside
+            className="pointer-events-auto fixed flex min-h-[13rem] min-w-[15rem] flex-col overflow-hidden rounded-2xl border p-3"
+            style={{
+              left: position?.x ?? 12,
+              top: position?.y ?? 80,
+              width: size.width,
+              height: size.height,
+              backgroundColor: `rgba(255,255,255,${opacity / 100})`,
+              borderColor: `rgba(255,255,255,${(opacity / 100) * 0.75})`,
+              boxShadow: `0 24px 48px rgba(0,0,0,${(opacity / 100) * 0.45})`,
+            }}
+          >
+            <div
+              onPointerDown={startDrag}
+              className="flex cursor-move touch-none items-center justify-between select-none"
+              title="드래그해서 채팅창 이동"
+            >
+              <button
+                type="button"
+                aria-label="채팅 닫기"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => setOpen(false)}
+                className="order-first relative z-20 mr-2 grid h-9 w-9 shrink-0 place-items-center rounded-lg border text-base"
+                style={{
+                  backgroundColor: `rgba(255,255,255,${(opacity / 100) * 0.7})`,
+                  borderColor: `rgba(212,212,216,${opacity / 100})`,
+                  color: `rgba(9,9,11,${Math.min(1, 0.55 + opacity / 200)})`,
+                }}
+              >
+                ✕
+              </button>
+              <div
+                className="min-w-0 flex-1"
+                style={{ opacity: Math.min(1, 0.55 + opacity / 200) }}
+              >
+                <h2 className="text-sm font-black text-zinc-950">
+                  실시간 채팅
+                </h2>
+                <p className="text-[9px] text-zinc-600">
+                  방이 닫히면 대화도 사라집니다.
+                </p>
+              </div>
+            </div>
+            <label
+              className="mt-2 flex items-center gap-2 text-[10px] font-bold text-zinc-600"
+              style={{ opacity: Math.min(1, 0.55 + opacity / 200) }}
+            >
+              <span className="shrink-0">투명도</span>
+              <input
+                type="range"
+                min={5}
+                max={100}
+                value={opacity}
+                onChange={(event) => setOpacity(Number(event.target.value))}
+                className="h-4 min-w-0 flex-1 accent-emerald-500"
+                aria-label="채팅창 투명도"
+              />
+              <span className="w-7 text-right">{opacity}%</span>
+            </label>
+            <div className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
+              {chats.length === 0 && (
+                <p
+                  className="py-8 text-center text-sm text-zinc-600"
+                  style={{ opacity: Math.min(1, 0.55 + opacity / 200) }}
+                >
+                  아직 채팅이 없습니다.
+                </p>
+              )}
+              {chats.map((chat) => (
+                <div key={chat.id} className="px-1 py-1">
+                  <b
+                    className="text-[10px] text-emerald-700"
+                    style={{ opacity: Math.min(1, 0.62 + opacity / 250) }}
+                  >
+                    {chat.user}
+                  </b>
+                  <p
+                    className="break-words text-xs text-zinc-950"
+                    style={{ opacity: Math.min(1, 0.62 + opacity / 250) }}
+                  >
+                    {chat.text}
+                  </p>
+                </div>
+              ))}
+              <div ref={endRef} />
+            </div>
+            <div className="mt-2 flex shrink-0 gap-1.5">
+              <input
+                ref={inputRef}
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                onCompositionStart={() => {
+                  composingRef.current = true;
+                }}
+                onCompositionEnd={() => {
+                  composingRef.current = false;
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    event.key !== "Enter" ||
+                    composingRef.current ||
+                    event.nativeEvent.isComposing ||
+                    event.nativeEvent.keyCode === 229
+                  )
+                    return;
+                  event.preventDefault();
+                  send();
+                }}
+                maxLength={200}
+                placeholder="메시지 입력"
+                className="min-w-0 flex-1 rounded-lg border p-2 text-sm placeholder:text-zinc-500"
+                style={{
+                  backgroundColor: `rgba(255,255,255,${(opacity / 100) * 0.85})`,
+                  borderColor: `rgba(212,212,216,${opacity / 100})`,
+                  color: `rgba(9,9,11,${Math.min(1, 0.62 + opacity / 250)})`,
+                }}
+              />
+              <button
+                type="button"
+                onClick={send}
+                className="rounded-lg px-2.5 text-xs font-black"
+                style={{
+                  backgroundColor: `rgba(16,185,129,${(opacity / 100) * 0.9})`,
+                  color: `rgba(9,9,11,${Math.min(1, 0.62 + opacity / 250)})`,
+                }}
+              >
+                전송
+              </button>
+            </div>
+            <button
+              type="button"
+              aria-label="채팅창 크기 조절"
+              title="드래그해서 채팅창 크기 조절"
+              onPointerDown={startResize}
+              className="absolute bottom-0 right-0 h-6 w-6 cursor-se-resize touch-none text-zinc-600 after:absolute after:bottom-1 after:right-1 after:h-2.5 after:w-2.5 after:border-b-2 after:border-r-2 after:border-current"
+            />
+          </aside>
+        </div>
+      )}
+    </>
   );
 }
 function Rules() {

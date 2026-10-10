@@ -54,3 +54,13 @@ test("continues play until only the last-place team remains", () => {
   assert.match(client, /최종 순위/);
   assert.match(client, /마지막 한 팀을 제외한 모든 팀이 완주했습니다/);
 });
+
+test("provides Tichu-style room chat in waiting and playing views", () => {
+  assert.match(client, /function RoomChat/);
+  assert.match(client, /supabase\.channel\(`yut:\$\{roomId\}`/);
+  assert.match(client, /event: "chat"/);
+  assert.match(client, /채팅창 투명도/);
+  assert.match(client, /startDrag/);
+  assert.match(client, /startResize/);
+  assert.equal((client.match(/<RoomChat/g) ?? []).length, 2);
+});
