@@ -38,15 +38,15 @@ function errText(error:unknown){return error instanceof Error?error.message:"요
 export default function YutClient(){
   const [userId,setUserId]=useState<string|null>(null),[lobby,setLobby]=useState<Lobby[]>([]),[snap,setSnap]=useState<Snap|null>(null);
   const [mode,setMode]=useState<Mode>("INDIVIDUAL"),[playerCount,setPlayerCount]=useState(4),[title,setTitle]=useState(""),[busy,setBusy]=useState(false),[notice,setNotice]=useState("");
-  const [botPulse,setBotPulse]=useState(0);
-  const roomId=snap?.room.id??null, botBusy=useRef(false);
+  const roomId=snap?.room.id??null, botBusy=useRef(false),snapRef=useRef<Snap|null>(null);
   const rpc=useCallback(async(name:string,args:Record<string,unknown>={})=>{setBusy(true);setNotice("");try{const {data,error}=await supabase.rpc(name,args);if(error)throw error;return data;}catch(e){setNotice(errText(e));throw e;}finally{setBusy(false)}},[]);
   const loadLobby=useCallback(async()=>{const {data}=await supabase.rpc("yut_lobby");setLobby((data??[]) as Lobby[])},[]);
   const loadRoom=useCallback(async(id:string)=>{const {data,error}=await supabase.rpc("yut_snapshot",{p_room:id});if(error||!data){localStorage.removeItem("yut-room");setSnap(null);return}setSnap(data as Snap)},[]);
   useEffect(()=>{supabase.auth.getUser().then(({data})=>{setUserId(data.user?.id??null);const saved=localStorage.getItem("yut-room");if(saved)loadRoom(saved);else loadLobby()})},[loadLobby,loadRoom]);
+  useEffect(()=>{snapRef.current=snap},[snap]);
   useEffect(()=>{const timer=setInterval(()=>roomId?loadRoom(roomId):loadLobby(),1000);return()=>clearInterval(timer)},[roomId,loadRoom,loadLobby]);
   useEffect(()=>{document.body.classList.toggle("game-in-room",Boolean(roomId));return()=>document.body.classList.remove("game-in-room")},[roomId]);
-  useEffect(()=>{const current=snap?.players.find(p=>p.seat===snap.room.turn_seat);if(!roomId||snap?.room.status!=="PLAYING"||!current?.is_bot||botBusy.current)return;botBusy.current=true;const timer=setTimeout(async()=>{try{const {error}=await supabase.rpc("yut_bot_tick",{p_room:roomId});if(error)setNotice(`AI 진행 오류: ${error.message}`);await loadRoom(roomId)}finally{botBusy.current=false;setBotPulse(value=>value+1)}},220);return()=>clearTimeout(timer)},[snap,roomId,loadRoom,botPulse]);
+  useEffect(()=>{if(!roomId)return;const timer=setInterval(async()=>{const latest=snapRef.current,current=latest?.players.find(p=>p.seat===latest.room.turn_seat);if(latest?.room.status!=="PLAYING"||!current?.is_bot||botBusy.current)return;botBusy.current=true;try{const {error}=await supabase.rpc("yut_bot_tick",{p_room:roomId});if(error)setNotice(`AI 진행 오류: ${error.message}`);await loadRoom(roomId)}finally{botBusy.current=false}},1000);return()=>clearInterval(timer)},[roomId,loadRoom]);
   const openRoom=async(id:string)=>{localStorage.setItem("yut-room",id);await loadRoom(id)};
   const create=async()=>{const id=await rpc("yut_create_room",{p_title:title||null,p_mode:mode,p_max_players:playerCount});if(id)await openRoom(id as string)};
   const action=async(name:string,args:Record<string,unknown>={})=>{if(!roomId)return;try{await rpc(name,{p_room:roomId,...args});await loadRoom(roomId)}catch{}}
