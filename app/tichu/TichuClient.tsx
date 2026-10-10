@@ -1370,7 +1370,7 @@ export default function TichuClient() {
       ? 0
       : highSingleFastDecision
         ? 350
-        : 2300;
+        : 1500;
     const timer = setTimeout(() => void run(), delay);
     return () => {
       stopped = true;
