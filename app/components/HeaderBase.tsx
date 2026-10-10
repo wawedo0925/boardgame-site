@@ -13,6 +13,7 @@ const menuItems = [
   { name: "보드게임", href: "/boardgames" },
   { name: "머더미스터리", href: "/murder-mystery" },
   { name: "티츄", href: "/tichu" },
+  { name: "윷놀이", href: "/yut" },
   { name: "게임 평가", href: "/reviews" },
   { name: "게임 랭킹", href: "/rankings" },
   { name: "마이페이지", href: "/mypage" },
