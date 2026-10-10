@@ -120,35 +120,53 @@ begin
 end;
 $$;
 
--- Keep the current accumulated bot strategy and replace only the two target
--- decisions. This avoids reverting later AI strategy hotfixes.
-do $$
+-- The accumulated bot engine already calls this function for every God/Deity
+-- Dog play. Replacing the helper is safer than rewriting the full engine.
+create or replace function public.tichu_strategic_dog_target(p_room uuid, p_bot uuid)
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.tichu_ai_dog_target(p_room, p_bot)
+$$;
+
+-- Bot Dragon targeting is corrected at the room update boundary. Human Dragon
+-- choices are untouched because the last trick player is not a bot.
+create or replace function public.tichu_enforce_ai_dragon_target()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
 declare
-  fn text;
-  changed text;
-  old_dog text := E'if room_row.game_mode=''INDIVIDUAL'' then if bot.bot_difficulty in (''god'',''deity'') then next_seat:=public.tichu_strategic_dog_target(p_room,bot.user_id); else select p.seat into next_seat from tichu_players p join tichu_hands h using(room_id,user_id) where p.room_id=p_room and p.user_id<>bot.user_id and cardinality(h.cards)>0 order by ((p.seat-bot.seat+4)%4) limit 1; end if; if next_seat is null then perform tichu_end_round(p_room); return; end if; else select seat into next_seat from tichu_players where room_id=p_room and team=bot.team and user_id<>bot.user_id; end if;';
-  new_dog text := E'if room_row.game_mode=''INDIVIDUAL'' then next_seat:=public.tichu_ai_dog_target(p_room,bot.user_id); if next_seat is null then perform tichu_end_round(p_room); return; end if; else select seat into next_seat from tichu_players where room_id=p_room and team=bot.team and user_id<>bot.user_id; end if;';
+  actor public.tichu_players%rowtype;
 begin
-  select pg_get_functiondef('public.tichu_bot_tick(uuid)'::regprocedure) into fn;
-  changed := replace(fn, old_dog, new_dog);
-  if changed = fn and strpos(fn, 'tichu_ai_dog_target') = 0 then
-    raise exception 'AI 개 카드 대상 로직을 찾지 못했습니다.';
+  if new.game_mode <> 'INDIVIDUAL' or new.dragon_target is null
+    or new.last_trick_seat is null
+  then
+    return new;
   end if;
 
-  if strpos(changed, 'tichu_ai_dragon_target') = 0 then
-    changed := regexp_replace(
-      changed,
-      'if\s+55\s*=\s*any\s*\(play_cards\)\s+then\s+select\s+opp\.user_id\s+into\s+dragon_receiver.*?end\s+if;',
-      'if 55=any(play_cards) then dragon_receiver:=public.tichu_ai_dragon_target(p_room,bot.user_id); end if;',
-      'i'
-    );
+  select * into actor from public.tichu_players
+  where room_id = new.id and seat = new.last_trick_seat and is_bot;
+  if found and exists (
+    select 1
+    from jsonb_array_elements(coalesce(new.trick, '[]'::jsonb)) entry
+    cross join lateral jsonb_array_elements_text(entry->'cards') card
+    where card::int = 55
+  ) then
+    new.dragon_target := public.tichu_ai_dragon_target(new.id, actor.user_id);
   end if;
-  if strpos(changed, 'tichu_ai_dragon_target') = 0 then
-    raise exception 'AI 용 카드 대상 로직을 찾지 못했습니다.';
-  end if;
-  execute changed;
+  return new;
 end;
 $$;
+
+drop trigger if exists tichu_enforce_ai_dragon_target_trigger on public.tichu_rooms;
+create trigger tichu_enforce_ai_dragon_target_trigger
+before update of dragon_target on public.tichu_rooms
+for each row execute function public.tichu_enforce_ai_dragon_target();
 
 -- Fix the human opening distribution as three exclusive buckets. Only the
 -- 20% power bucket may contain one A/Phoenix/Dragon; both King buckets contain
@@ -213,6 +231,7 @@ $$;
 revoke all on function public.tichu_normalize_deity_seats(uuid) from public, anon, authenticated;
 revoke all on function public.tichu_ai_dog_target(uuid,uuid) from public, anon, authenticated;
 revoke all on function public.tichu_ai_dragon_target(uuid,uuid) from public, anon, authenticated;
+revoke all on function public.tichu_enforce_ai_dragon_target() from public, anon, authenticated;
 revoke all on function public.tichu_add_bot(uuid,text) from public,anon;
 grant execute on function public.tichu_add_bot(uuid,text) to authenticated;
 
