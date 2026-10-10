@@ -7,6 +7,7 @@ import MemberAvatar, {
   EXPRESSION_NAMES,
   HAIR_COLORS,
   HAIR_COLOR_NAMES,
+  StandingMemberAvatar,
   type MemberAvatarLook,
 } from "@/components/avatar/MemberAvatar";
 
@@ -128,9 +129,9 @@ export default function HideoutEditor() {
             <FurnitureSprite kind="chair" id={furniture.chair} className="absolute bottom-[11%] right-[6%] z-[3] h-[25%] w-[23%] drop-shadow-[0_14px_10px_rgba(0,0,0,.6)]" />
             <FurnitureSprite kind="lamp" id={furniture.lamp} className="absolute bottom-[28%] right-[24%] z-[2] h-[17%] w-[15%] drop-shadow-[0_10px_8px_rgba(0,0,0,.55)]" />
 
-            <div className="absolute bottom-[13%] left-1/2 z-[4] grid -translate-x-1/2 place-items-center">
-              <div className="rounded-full border-2 border-amber-200/80 bg-zinc-900 p-1 shadow-[0_10px_30px_rgba(0,0,0,.65)]"><MemberAvatar look={look} size="h-16 w-16 sm:h-24 sm:w-24" /></div>
-              <p className="mt-1 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[10px] font-bold backdrop-blur sm:text-xs">{data.ownerName}</p>
+            <div className="absolute bottom-[8%] left-1/2 z-[4] grid -translate-x-1/2 place-items-center">
+              <StandingMemberAvatar look={look} size="h-28 w-20 sm:h-44 sm:w-28" />
+              <p className="-mt-1 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[10px] font-bold shadow-lg backdrop-blur sm:text-xs">{data.ownerName}</p>
             </div>
           </div>
 
