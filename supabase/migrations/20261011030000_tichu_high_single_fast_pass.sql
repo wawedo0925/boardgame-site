@@ -46,7 +46,7 @@ declare
   changed text;
 begin
   foreach signature in array array[
-    'public.tichu_god_counted_play(uuid,uuid,int,int[],jsonb)'::regprocedure,
+    'public.tichu_god_counted_play(uuid,uuid,int,int[],jsonb,int)'::regprocedure,
     'public.tichu_deity_best_play(uuid,uuid,int,int[],jsonb,int)'::regprocedure
   ] loop
     select pg_get_functiondef(signature) into fn;
