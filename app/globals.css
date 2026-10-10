@@ -25,7 +25,8 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-body.tichu-in-room [data-site-header] {
+body.tichu-in-room [data-site-header],
+body.game-in-room [data-site-header] {
   display: none;
 }
 
