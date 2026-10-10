@@ -40,6 +40,13 @@ const rematchMigration = fs.readFileSync(
   ),
   "utf8",
 );
+const backdoFinishMigration = fs.readFileSync(
+  path.join(
+    root,
+    "supabase/migrations/20261011140000_yutnori_backdo_finish.sql",
+  ),
+  "utf8",
+);
 
 test("supports every requested player mode", () => {
   for (const mode of ["INDIVIDUAL", "TEAM_2V2", "TEAM_3X2"]) {
@@ -61,10 +68,23 @@ test("shows board-centered notices and animates pieces across route nodes", () =
   assert.match(client, /function movementNodes/);
   assert.match(client, /function AnimatedYutPiece/);
   assert.match(client, /transition-\[left,top\]/);
-  assert.match(client, /piece\.step_index === 0 \|\| nodeOf\(piece\) === 99/);
+  assert.match(client, /piece\.step_index === 0 && !piece\.back_at_start/);
   assert.match(client, /if \(currentNode === 99\) return null/);
   assert.match(client, /absolute left-1\/2 top-1\/2 z-50/);
   assert.doesNotMatch(client, /fixed left-1\/2 top-20 z-50/);
+});
+
+test("supports the house-rule back-do finish from the returned start spot", () => {
+  assert.match(client, /back_at_start: boolean/);
+  assert.match(client, /!p\.back_at_start/);
+  assert.doesNotMatch(client, /움직일 말을 골라 주세요/);
+  assert.match(backdoFinishMigration, /add column if not exists back_at_start/);
+  assert.match(
+    backdoFinishMigration,
+    /mv<0 and pc\.step_index=0 and pc\.back_at_start/,
+  );
+  assert.match(backdoFinishMigration, /route2:='outer'; step2:=21/);
+  assert.match(backdoFinishMigration, /back_at_start=returned_start/);
 });
 
 test("continues play until only the last-place team remains", () => {

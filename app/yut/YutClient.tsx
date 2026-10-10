@@ -44,6 +44,7 @@ type Piece = {
   piece_no: number;
   route: "outer" | "diag1" | "diag2";
   step_index: number;
+  back_at_start: boolean;
 };
 type Snap = {
   room: Room;
@@ -883,10 +884,11 @@ function Game({
     (p) =>
       p.team === me.team &&
       nodeOf(p) !== 99 &&
-      !(selectedMove === -1 && p.step_index === 0),
+      !(selectedMove === -1 && p.step_index === 0 && !p.back_at_start),
   );
   const waitingPiece = pieces.find(
-    (piece) => piece.team === me.team && nodeOf(piece) === 0,
+    (piece) =>
+      piece.team === me.team && nodeOf(piece) === 0 && !piece.back_at_start,
   );
   const movePiece = (piece: Piece) => {
     if (!myTurn || room.pending_moves.length === 0 || busy) return;
@@ -1114,49 +1116,6 @@ function Game({
                   윷 던지기
                 </button>
               )}
-              {myTurn && room.pending_moves.length > 0 && (
-                <div className="mt-5 rounded-xl border border-white/10 bg-black/30 p-3">
-                  <p className="text-sm font-black text-white">
-                    움직일 말을 골라 주세요
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    {movable.map((piece) => (
-                      <button
-                        type="button"
-                        key={piece.piece_no}
-                        disabled={busy}
-                        onClick={() => movePiece(piece)}
-                        className={`min-h-12 rounded-xl border-2 bg-zinc-900 px-2 font-black text-white shadow-md ${teamStyles[me.team].border} disabled:opacity-50`}
-                      >
-                        <span className="block truncate">
-                          {players
-                            .filter((p) => p.team === me.team)
-                            .sort(
-                              (a, b) =>
-                                Number(b.id === me.id) - Number(a.id === me.id),
-                            )
-                            .map((p) => p.name)
-                            .join("/")}
-                        </span>
-                        <span className="block text-[10px] font-medium text-zinc-300">
-                          {piece.piece_no + 1}번 ·{" "}
-                          {nodeOf(piece) === 0
-                            ? "출발"
-                            : `${nodeOf(piece)}번 지점`}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  {movable.length === 0 && (
-                    <p className="mt-3 text-sm font-bold text-amber-300">
-                      이 결과로 움직일 수 있는 말이 없습니다.
-                    </p>
-                  )}
-                  <p className="mt-2 text-xs text-zinc-400">
-                    판 위의 이름표를 직접 눌러도 이동합니다.
-                  </p>
-                </div>
-              )}
               {!myTurn && (
                 <p className="mt-5 text-sm text-zinc-400">
                   상대의 차례를 기다리는 중입니다.
@@ -1215,7 +1174,11 @@ function YutBoard({
   ];
   const groups = new Map<string, Piece[]>();
   for (const piece of pieces) {
-    if (piece.step_index === 0 || nodeOf(piece) === 99) continue;
+    if (
+      (piece.step_index === 0 && !piece.back_at_start) ||
+      nodeOf(piece) === 99
+    )
+      continue;
     const key = `${piece.team}-${nodeOf(piece)}`;
     groups.set(key, [...(groups.get(key) ?? []), piece]);
   }
