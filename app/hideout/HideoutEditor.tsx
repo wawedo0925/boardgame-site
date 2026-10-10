@@ -33,7 +33,7 @@ const MOVABLE_PARTS: AvatarMovablePart[] = ["hair", "hat", "top", "bottom", "sho
 const DEFAULT_ROOM_POSITIONS: Record<RoomItemKey, RoomItemPosition> = { shelf:{x:25,y:31}, sofa:{x:73,y:39}, table:{x:52,y:53}, frames:{x:76,y:20}, clock:{x:88,y:24}, sconce:{x:94,y:34}, chair:{x:82,y:72}, lamp:{x:67,y:67}, rug:{x:48,y:76}, plant:{x:16,y:67} };
 const DEFAULT_FURNITURE: Furniture = { chair: "green", lamp: "classic", rug: "forest", plant: "monstera", wall: "walnut-parquet", floor: "walnut-parquet", shelfStyle: "classic", sofaStyle: "classic", tableStyle: "classic", positions: DEFAULT_ROOM_POSITIONS, flips: {}, avatarPosition: { x:50, y:78 } };
 const ROOM_ITEM_LABELS: Record<RoomItemKey, string> = { shelf:"책장", sofa:"소파", table:"테이블 · 의자", frames:"액자", clock:"시계", sconce:"벽 조명", chair:"의자", lamp:"스탠드 조명", rug:"러그", plant:"화분" };
-const WALL_ALIGNED_ITEMS = new Set<RoomItemKey>(["shelf", "sofa", "frames", "clock", "sconce"]);
+const WALL_PERSPECTIVE_CORRECTION: Partial<Record<RoomItemKey, number>> = { shelf:2.5, sofa:1.5, frames:10, clock:0, sconce:0 };
 const WALL_OPTIONS = [{id:"walnut-parquet",name:"월넛 패널"},{id:"forest-oak",name:"포레스트"},{id:"cream-stone",name:"크림 벽"}] as const;
 const FLOOR_OPTIONS = [{id:"walnut-parquet",name:"월넛 마루"},{id:"forest-oak",name:"라이트 오크"},{id:"cream-stone",name:"차콜 스톤"}] as const;
 const ROOM_ITEM_STYLES = [
@@ -150,8 +150,9 @@ export default function HideoutEditor() {
   };
   const roomItemClass = (key: RoomItemKey) => selectedRoomItem === key ? "rounded-xl outline outline-2 outline-sky-300/80 drop-shadow-[0_0_10px_rgba(125,211,252,.7)]" : "";
   const isFlipped = (key: RoomItemKey) => furniture.flips?.[key] ?? false;
+  const roomItemWallAngle = (key: RoomItemKey) => (WALL_PERSPECTIVE_CORRECTION[key] ?? 0) * (roomPosition(key).x < 50 ? -1 : 1);
   const roomItemImageStyle = (key: RoomItemKey) => {
-    const wallAngle = WALL_ALIGNED_ITEMS.has(key) ? (roomPosition(key).x < 50 ? -4.5 : 4.5) : 0;
+    const wallAngle = roomItemWallAngle(key);
     return { transform: `skewY(${wallAngle}deg) scaleX(${isFlipped(key) ? -1 : 1})`, transformOrigin: "center" };
   };
   const toggleRoomItemFlip = () => setFurniture((old) => ({ ...old, flips: { ...old.flips, [selectedRoomItem]: !old.flips?.[selectedRoomItem] } }));
@@ -186,7 +187,7 @@ export default function HideoutEditor() {
             <Image src={`/hideout/walls/${furniture.wall ?? "walnut-parquet"}.png`} alt="꾸밀 수 있는 보드게임 아지트 벽" fill priority sizes="(min-width: 1024px) 680px, 100vw" className="object-cover" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/10" />
             <div className="absolute left-[4%] top-[4%] rounded-full border border-amber-200/30 bg-black/55 px-3 py-1.5 text-[10px] font-bold text-amber-100 shadow-lg backdrop-blur sm:text-xs">LV. 1 · 첫 번째 아지트</div>
-            <div className={`absolute z-[2] h-[34%] w-[39%] cursor-move touch-none ${roomItemClass("shelf")}`} style={roomStyle("shelf")} {...roomDragProps("shelf")}><Image src={roomItemAsset("shelf",furniture.shelfStyle)} alt="책장" fill className="pointer-events-none object-contain drop-shadow-xl" style={roomItemImageStyle("shelf")}/><div className="pointer-events-none absolute inset-0" style={{transform:`skewY(${roomPosition("shelf").x < 50 ? -4.5 : 4.5}deg)`}}>{selectedGames.map((game,index)=><ShelfGame key={index} game={game} slot={MOVABLE_SHELF_SLOTS[isFlipped("shelf") ? (Math.floor(index / 3) * 3 + 2 - (index % 3)) : index]}/>)}</div></div>
+            <div className={`absolute z-[2] h-[34%] w-[39%] cursor-move touch-none ${roomItemClass("shelf")}`} style={roomStyle("shelf")} {...roomDragProps("shelf")}><Image src={roomItemAsset("shelf",furniture.shelfStyle)} alt="책장" fill className="pointer-events-none object-contain drop-shadow-xl" style={roomItemImageStyle("shelf")}/><div className="pointer-events-none absolute inset-0" style={{transform:`skewY(${roomItemWallAngle("shelf")}deg)`}}>{selectedGames.map((game,index)=><ShelfGame key={index} game={game} slot={MOVABLE_SHELF_SLOTS[isFlipped("shelf") ? (Math.floor(index / 3) * 3 + 2 - (index % 3)) : index]}/>)}</div></div>
             {([['sofa','소파','h-[25%] w-[38%]',roomItemAsset("sofa",furniture.sofaStyle)],['table','게임 테이블','h-[30%] w-[38%]',roomItemAsset("table",furniture.tableStyle)],['frames','액자','h-[22%] w-[24%]','/hideout/room-items/frames.png'],['clock','시계','h-[14%] w-[14%]','/hideout/room-items/clock.png'],['sconce','벽 조명','h-[16%] w-[15%]','/hideout/room-items/sconce.png']] as const).map(([key,label,size,src])=><div key={key} className={`absolute z-[2] cursor-move touch-none ${size} ${roomItemClass(key)}`} style={roomStyle(key)} {...roomDragProps(key)}><Image src={src} alt={label} fill className="pointer-events-none object-contain drop-shadow-xl" style={roomItemImageStyle(key)}/></div>)}
             {([['rug','h-[25%] w-[42%] z-[1]'],['plant','h-[21%] w-[19%] z-[3]'],['chair','h-[25%] w-[23%] z-[3]'],['lamp','h-[17%] w-[15%] z-[3]']] as const).map(([key,size])=><div key={key} className={`absolute cursor-move touch-none ${size} ${roomItemClass(key)}`} style={roomStyle(key)} {...roomDragProps(key)}><FurnitureSprite kind={key} id={furniture[key]} flipped={isFlipped(key)} className="h-full w-full drop-shadow-xl"/></div>)}
 
