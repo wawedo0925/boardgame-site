@@ -18,6 +18,7 @@ export type MemberAvatarLook = {
   shoes?: number;
   hat?: number;
   positions?: Partial<Record<AvatarMovablePart, AvatarPartPosition>>;
+  scales?: Partial<Record<AvatarMovablePart, number>>;
 };
 
 export const HAIR_COLORS = [
@@ -107,9 +108,10 @@ export function StandingMemberAvatar({
   const hat = Math.max(0, Math.min(16, Number(look.hat) || 0));
   const expression = Math.max(0, Math.min(7, Number(look.expression) || 0));
   const positionFor = (part: AvatarMovablePart) => look.positions?.[part] ?? { x: 0, y: 0 };
+  const scaleFor = (part: AvatarMovablePart) => Math.max(0.6, Math.min(1.4, look.scales?.[part] ?? 1));
   const layerStyle = (part: AvatarMovablePart) => {
     const position = positionFor(part);
-    return { transform: `translate(${(position.x / 384) * 100}%, ${(position.y / 384) * 100}%)` };
+    return { transform: `translate(${(position.x / 384) * 100}%, ${(position.y / 384) * 100}%) scale(${scaleFor(part)})` };
   };
   const dragProps = (part: AvatarMovablePart) => editablePart === part && onPositionChange ? {
     onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
