@@ -254,9 +254,9 @@ begin
       'for target in select * from tichu_players where room_id=p_room and user_id<>bot.user_id order by seat loop',
       'for target in select * from tichu_players where room_id=p_room and user_id<>bot.user_id order by case when public.tichu_is_deity_challenge(p_room) and not is_bot then 0 else 1 end,seat loop'
     );
-    changed := replace(
+    changed := regexp_replace(
       changed,
-      'c limit 1; chosen:=array_append(chosen,gift_card);',
+      'c\s+limit\s+1;\s*chosen:=array_append\(chosen,gift_card\);',
       E'c limit 1;\n        if public.tichu_is_deity_challenge(p_room) and not target.is_bot\n          and bot.bot_difficulty in (''god'',''deity'') then\n          gift_card:=public.tichu_deity_exchange_gift(\n            p_room,bot.user_id,target.user_id,hand_cards,chosen\n          );\n        end if;\n        chosen:=array_append(chosen,gift_card);'
     );
   end if;
