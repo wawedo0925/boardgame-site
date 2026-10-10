@@ -1357,7 +1357,20 @@ export default function TichuClient() {
       await botAct();
       if (!stopped) retry = setTimeout(run, 3000);
     };
-    const delay = snap.room.bot_boost_enabled ? 0 : 2300;
+    const highSingleFastDecision =
+      snap.room.status === "PLAYING" &&
+      current?.is_bot &&
+      snap.room.lead?.kind === "single" &&
+      !snap.room.lead.bomb &&
+      snap.room.lead.strength >= 14;
+    // An A or Dragon lead normally has no ordinary reply. Start the server-side
+    // counter check immediately so an AI with neither a higher single nor a
+    // bomb passes in under a second instead of waiting through the normal beat.
+    const delay = snap.room.bot_boost_enabled
+      ? 0
+      : highSingleFastDecision
+        ? 350
+        : 2300;
     const timer = setTimeout(() => void run(), delay);
     return () => {
       stopped = true;
