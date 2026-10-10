@@ -1,5 +1,10 @@
 "use client";
 
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+
+export type AvatarMovablePart = "hair" | "hat" | "top" | "bottom" | "shoes";
+export type AvatarPartPosition = { x: number; y: number };
+
 export type MemberAvatarLook = {
   hair: number;
   skin: number;
@@ -12,6 +17,7 @@ export type MemberAvatarLook = {
   bottom?: number;
   shoes?: number;
   hat?: number;
+  positions?: Partial<Record<AvatarMovablePart, AvatarPartPosition>>;
 };
 
 export const HAIR_COLORS = [
@@ -82,10 +88,16 @@ export default function MemberAvatar({
 export function StandingMemberAvatar({
   look,
   size = "h-36 w-24",
+  editablePart,
+  onPositionChange,
 }: {
   look: Partial<MemberAvatarLook>;
   size?: string;
+  editablePart?: AvatarMovablePart;
+  onPositionChange?: (part: AvatarMovablePart, position: AvatarPartPosition) => void;
 }) {
+  const rootRef = useRef<HTMLSpanElement>(null);
+  const [drag, setDrag] = useState<{ part: AvatarMovablePart; pointerX: number; pointerY: number; start: AvatarPartPosition } | null>(null);
   const preset = Math.max(0, Math.min(15, Number(look.hair) || 0));
   const hairColor = Math.max(0, Math.min(HAIR_COLORS.length - 1, Number(look.hairColor) || 0));
   const asset = String(preset + 1).padStart(2, "0");
@@ -104,26 +116,51 @@ export function StandingMemberAvatar({
     <><ellipse key="l" cx="160" cy="105" rx="15" ry="20"/><path key="r" d="M209 106Q224 94 239 106"/><path key="m" d="M181 139Q192 149 203 139"/><path key="t" d="M194 145Q202 153 207 143"/></>,
     <><path key="l" d="M145 107Q160 116 175 107"/><path key="r" d="M209 107Q224 116 239 107"/><path key="m" d="M184 141Q192 145 200 141"/></>,
   ][expression];
+  const positionFor = (part: AvatarMovablePart) => look.positions?.[part] ?? { x: 0, y: 0 };
+  const layerStyle = (part: AvatarMovablePart) => {
+    const position = positionFor(part);
+    return { transform: `translate(${(position.x / 384) * 100}%, ${(position.y / 384) * 100}%)` };
+  };
+  const dragProps = (part: AvatarMovablePart) => editablePart === part && onPositionChange ? {
+    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setDrag({ part, pointerX: event.clientX, pointerY: event.clientY, start: positionFor(part) });
+    },
+    onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
+      const bounds = rootRef.current?.getBoundingClientRect();
+      if (!drag || drag.part !== part || !bounds) return;
+      const x = Math.max(-96, Math.min(96, Math.round(drag.start.x + ((event.clientX - drag.pointerX) / bounds.width) * 384)));
+      const y = Math.max(-96, Math.min(96, Math.round(drag.start.y + ((event.clientY - drag.pointerY) / bounds.height) * 384)));
+      onPositionChange(part, { x, y });
+    },
+    onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+      setDrag(null);
+    },
+    onPointerCancel: () => { setDrag(null); },
+  } : {};
+  const layerClass = (part: AvatarMovablePart) => `absolute inset-0 bg-contain bg-center bg-no-repeat ${editablePart === part ? "z-20 cursor-move touch-none drop-shadow-[0_0_5px_rgba(56,189,248,.9)]" : ""}`;
 
   return (
-    <span className={`relative block shrink-0 ${size}`} aria-label="서 있는 멤버 아바타">
+    <span ref={rootRef} className={`relative block shrink-0 ${size}`} aria-label="서 있는 멤버 아바타">
       <span className="absolute bottom-[1%] left-1/2 h-[6%] w-[62%] -translate-x-1/2 rounded-full bg-black/35 blur-[2px]" />
       <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat drop-shadow-[0_6px_5px_rgba(0,0,0,.55)]" style={{ backgroundImage: "url('/avatars/base/body.png')" }} />
-      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/aligned/hair/${asset}.png')` }} />
-      {hairColor > 0 && <span aria-hidden="true" className="absolute inset-0 opacity-85" style={{
+      <span aria-hidden="true" className={layerClass("hair")} style={{ backgroundImage: `url('/avatars/aligned/hair/${asset}.png')`, ...layerStyle("hair") }} {...dragProps("hair")} />
+      {hairColor > 0 && <span aria-hidden="true" className={`pointer-events-none absolute inset-0 opacity-85 ${editablePart === "hair" ? "z-[21]" : ""}`} style={{
         backgroundColor: HAIR_COLORS[hairColor],
         WebkitMaskImage: `url('/avatars/aligned/hair/${asset}.png')`, maskImage: `url('/avatars/aligned/hair/${asset}.png')`,
         WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskPosition: "center", maskPosition: "center",
-        WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat", mixBlendMode: "color",
+        WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat", mixBlendMode: "color", ...layerStyle("hair"),
       }} />}
       <svg aria-hidden="true" viewBox="0 0 384 384" className="absolute inset-0 h-full w-full fill-[#2d2230] stroke-[#2d2230] stroke-[5] [stroke-linecap:round] [stroke-linejoin:round]">
         {face}
         <circle cx="154" cy="99" r="4" className="fill-white stroke-none"/><circle cx="218" cy="99" r="4" className="fill-white stroke-none"/>
       </svg>
-      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/aligned/bottoms/${bottom}.png')` }} />
-      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/aligned/tops/${top}.png')` }} />
-      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/aligned/shoes/${shoes}.png')` }} />
-      {hat > 0 && <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/aligned/hats/${String(hat).padStart(2, "0")}.png')` }} />}
+      <span aria-hidden="true" className={layerClass("bottom")} style={{ backgroundImage: `url('/avatars/aligned/bottoms/${bottom}.png')`, ...layerStyle("bottom") }} {...dragProps("bottom")} />
+      <span aria-hidden="true" className={layerClass("top")} style={{ backgroundImage: `url('/avatars/aligned/tops/${top}.png')`, ...layerStyle("top") }} {...dragProps("top")} />
+      <span aria-hidden="true" className={layerClass("shoes")} style={{ backgroundImage: `url('/avatars/aligned/shoes/${shoes}.png')`, ...layerStyle("shoes") }} {...dragProps("shoes")} />
+      {hat > 0 && <span aria-hidden="true" className={layerClass("hat")} style={{ backgroundImage: `url('/avatars/aligned/hats/${String(hat).padStart(2, "0")}.png')`, ...layerStyle("hat") }} {...dragProps("hat")} />}
     </span>
   );
 }

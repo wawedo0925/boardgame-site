@@ -8,6 +8,8 @@ import {
   HAIR_COLORS,
   HAIR_COLOR_NAMES,
   StandingMemberAvatar,
+  type AvatarMovablePart,
+  type AvatarPartPosition,
   type MemberAvatarLook,
 } from "@/components/avatar/MemberAvatar";
 
@@ -24,6 +26,7 @@ type HideoutData = {
 
 const DEFAULT_LOOK: MemberAvatarLook = { hair: 0, skin: 1, hairColor: 0, expression: 0, outfit: 0, accessory: 0, frame: 0, top: 0, bottom: 0, shoes: 0, hat: 0 };
 const HAT_OPTIONS = [0, 6, 13, 14, 15];
+const MOVABLE_PARTS: AvatarMovablePart[] = ["hair", "hat", "top", "bottom", "shoes"];
 const DEFAULT_FURNITURE: Furniture = { chair: "green", lamp: "classic", rug: "forest", plant: "monstera" };
 const FURNITURE = {
   chair: [{ id: "green", name: "녹색 의자", col: 0 }, { id: "sofa", name: "가죽 소파", col: 1 }, { id: "stool", name: "게임 체어", col: 2 }],
@@ -108,6 +111,14 @@ export default function HideoutEditor() {
     setSaving(false);
   }
 
+  function updatePartPosition(part: AvatarMovablePart, position: AvatarPartPosition) {
+    setLook((old) => ({ ...old, positions: { ...old.positions, [part]: position } }));
+  }
+
+  function resetPartPosition(part: AvatarMovablePart) {
+    setLook((old) => ({ ...old, positions: { ...old.positions, [part]: { x: 0, y: 0 } } }));
+  }
+
   if (!data) return <main className="min-h-screen bg-[#08090b] px-5 py-16 text-white"><div className="mx-auto h-96 max-w-6xl animate-pulse rounded-3xl bg-white/[0.04]"/><p className="mt-4 text-center text-sm text-zinc-500">{message || "아지트를 준비하고 있어요."}</p></main>;
 
   const selectedGames = shelf.map((id) => data.games.find((game) => game.id === id));
@@ -142,6 +153,11 @@ export default function HideoutEditor() {
             <div className="grid grid-cols-3 gap-2">{([ ["room","가구"], ["avatar","아바타"], ["shelf","책장"] ] as const).map(([id,label]) => <button key={id} onClick={() => setTab(id)} className={`rounded-xl px-3 py-2.5 text-sm font-bold ${tab === id ? "bg-amber-400 text-zinc-950" : "bg-white/5 text-zinc-400"}`}>{label}</button>)}</div>
             {tab === "room" && <div className="mt-5 space-y-5">{(Object.keys(FURNITURE) as (keyof Furniture)[]).map((kind) => <fieldset key={kind}><legend className="mb-2 text-xs font-bold text-zinc-500">{{chair:"의자",lamp:"조명",rug:"러그",plant:"화분"}[kind]}</legend><div className="grid grid-cols-3 gap-2">{FURNITURE[kind].map((item) => <button key={item.id} onClick={() => setFurniture((old) => ({...old,[kind]:item.id}))} className={`overflow-hidden rounded-xl border p-2 transition ${furniture[kind] === item.id ? "border-amber-400 bg-amber-400/10 shadow-[0_0_22px_rgba(251,191,36,.12)]" : "border-white/10 bg-white/[.03] hover:border-white/25"}`}><FurnitureSprite kind={kind} id={item.id} className="mx-auto aspect-square w-full"/><span className="mt-1 block text-[10px] text-zinc-400 sm:text-[11px]">{item.name}</span></button>)}</div></fieldset>)}</div>}
             {tab === "avatar" && <div className="mt-5 space-y-4">
+              <div className="rounded-2xl border border-sky-400/20 bg-gradient-to-b from-sky-400/10 to-transparent p-3">
+                <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black text-sky-300">직접 위치 맞추기</p><p className="mt-1 text-[10px] text-zinc-500">선택한 파츠를 캐릭터 위에서 끌어 움직이세요.</p></div>{MOVABLE_PARTS.includes(avatarPart as AvatarMovablePart) && <button onClick={() => resetPartPosition(avatarPart as AvatarMovablePart)} className="rounded-lg border border-white/10 px-2 py-1.5 text-[10px] font-bold text-zinc-400">위치 초기화</button>}</div>
+                <div className="mt-2 grid place-items-center rounded-xl bg-black/20 py-2"><StandingMemberAvatar look={look} size="h-64 w-44" editablePart={MOVABLE_PARTS.includes(avatarPart as AvatarMovablePart) ? avatarPart as AvatarMovablePart : undefined} onPositionChange={updatePartPosition}/></div>
+                {MOVABLE_PARTS.includes(avatarPart as AvatarMovablePart) && <p className="mt-2 text-center text-[10px] tabular-nums text-zinc-500">위치 X {look.positions?.[avatarPart as AvatarMovablePart]?.x ?? 0} · Y {look.positions?.[avatarPart as AvatarMovablePart]?.y ?? 0}</p>}
+              </div>
               <div className="grid grid-cols-3 gap-2">{([['hair','머리'],['expression','표정'],['hat','모자'],['top','상의'],['bottom','하의'],['shoes','신발']] as const).map(([id,label]) => <button key={id} onClick={() => setAvatarPart(id)} className={`rounded-xl px-2 py-2 text-xs font-bold ${avatarPart === id ? 'bg-sky-400 text-zinc-950' : 'bg-white/5 text-zinc-400'}`}>{label}</button>)}</div>
               {avatarPart === "hair" && <><div className="grid grid-cols-4 gap-2">{Array.from({length:16},(_,hair) => <button key={hair} onClick={() => setLook((old) => ({...old,hair}))} className={`grid min-h-24 place-items-center rounded-xl bg-white/[.03] p-1 ${look.hair === hair ? "ring-2 ring-amber-400" : "opacity-70"}`}><StandingMemberAvatar look={{...look,hair,hat:0}} size="h-24 w-16"/></button>)}</div><div><p className="mb-2 text-xs font-bold text-zinc-500">머리색</p><div className="grid grid-cols-5 gap-2">{HAIR_COLORS.map((color,index) => <button key={HAIR_COLOR_NAMES[index]} onClick={() => setLook((old) => ({...old,hairColor:index}))} title={HAIR_COLOR_NAMES[index]} className={`aspect-square rounded-full border-2 ${look.hairColor === index ? "border-white" : "border-white/10"}`} style={{background:index===0?"linear-gradient(135deg,#fde68a,#f9a8d4,#7dd3fc)":color}}/>)}</div></div></>}
               {avatarPart === "expression" && <div className="grid grid-cols-4 gap-2">{EXPRESSION_NAMES.map((name,expression) => <button key={name} onClick={() => setLook((old) => ({...old,expression}))} className={`grid place-items-center rounded-xl p-1 ${look.expression === expression ? "ring-2 ring-amber-400" : "opacity-70"}`}><StandingMemberAvatar look={{...look,expression}} size="h-24 w-16"/><span className="text-[10px] text-zinc-500">{name}</span></button>)}</div>}
