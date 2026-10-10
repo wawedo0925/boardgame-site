@@ -106,16 +106,6 @@ export function StandingMemberAvatar({
   const shoes = String(Math.max(0, Math.min(15, Number(look.shoes) || 0)) + 1).padStart(2, "0");
   const hat = Math.max(0, Math.min(16, Number(look.hat) || 0));
   const expression = Math.max(0, Math.min(7, Number(look.expression) || 0));
-  const face = [
-    <><ellipse key="l" cx="160" cy="105" rx="15" ry="20"/><ellipse key="r" cx="224" cy="105" rx="15" ry="20"/><path key="m" d="M181 139Q192 148 203 139"/></>,
-    <><path key="l" d="M145 106Q160 94 175 106"/><ellipse key="r" cx="224" cy="105" rx="15" ry="20"/><path key="m" d="M183 139Q192 146 201 139"/></>,
-    <><path key="l" d="M145 105Q160 119 175 105"/><path key="r" d="M209 105Q224 119 239 105"/><path key="m" d="M178 137Q192 157 206 137Z"/></>,
-    <><ellipse key="l" cx="160" cy="105" rx="17" ry="22"/><ellipse key="r" cx="224" cy="105" rx="17" ry="22"/><ellipse key="m" cx="192" cy="143" rx="7" ry="10"/></>,
-    <><path key="b1" d="M143 85L176 94"/><path key="b2" d="M241 85L208 94"/><ellipse key="l" cx="160" cy="108" rx="14" ry="18"/><ellipse key="r" cx="224" cy="108" rx="14" ry="18"/><path key="m" d="M181 147Q192 137 203 147"/></>,
-    <><path key="b1" d="M145 91Q160 82 175 91"/><path key="b2" d="M209 91Q224 82 239 91"/><ellipse key="l" cx="160" cy="108" rx="14" ry="18"/><ellipse key="r" cx="224" cy="108" rx="14" ry="18"/><path key="m" d="M181 148Q192 138 203 148"/></>,
-    <><ellipse key="l" cx="160" cy="105" rx="15" ry="20"/><path key="r" d="M209 106Q224 94 239 106"/><path key="m" d="M181 139Q192 149 203 139"/><path key="t" d="M194 145Q202 153 207 143"/></>,
-    <><path key="l" d="M145 107Q160 116 175 107"/><path key="r" d="M209 107Q224 116 239 107"/><path key="m" d="M184 141Q192 145 200 141"/></>,
-  ][expression];
   const positionFor = (part: AvatarMovablePart) => look.positions?.[part] ?? { x: 0, y: 0 };
   const layerStyle = (part: AvatarMovablePart) => {
     const position = positionFor(part);
@@ -146,6 +136,7 @@ export function StandingMemberAvatar({
     <span ref={rootRef} className={`relative block shrink-0 ${size}`} aria-label="서 있는 멤버 아바타">
       <span className="absolute bottom-[1%] left-1/2 h-[6%] w-[62%] -translate-x-1/2 rounded-full bg-black/35 blur-[2px]" />
       <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat drop-shadow-[0_6px_5px_rgba(0,0,0,.55)]" style={{ backgroundImage: "url('/avatars/base/body.png')" }} />
+      <span aria-hidden="true" className="absolute inset-0 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('/avatars/faces/${String(expression + 1).padStart(2, "0")}.png')` }} />
       <span aria-hidden="true" className={layerClass("hair")} style={{ backgroundImage: `url('/avatars/aligned/hair/${asset}.png')`, ...layerStyle("hair") }} {...dragProps("hair")} />
       {hairColor > 0 && <span aria-hidden="true" className={`pointer-events-none absolute inset-0 opacity-85 ${editablePart === "hair" ? "z-[21]" : ""}`} style={{
         backgroundColor: HAIR_COLORS[hairColor],
@@ -153,10 +144,6 @@ export function StandingMemberAvatar({
         WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskPosition: "center", maskPosition: "center",
         WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat", mixBlendMode: "color", ...layerStyle("hair"),
       }} />}
-      <svg aria-hidden="true" viewBox="0 0 384 384" className="absolute inset-0 h-full w-full fill-[#2d2230] stroke-[#2d2230] stroke-[5] [stroke-linecap:round] [stroke-linejoin:round]">
-        {face}
-        <circle cx="154" cy="99" r="4" className="fill-white stroke-none"/><circle cx="218" cy="99" r="4" className="fill-white stroke-none"/>
-      </svg>
       <span aria-hidden="true" className={layerClass("bottom")} style={{ backgroundImage: `url('/avatars/aligned/bottoms/${bottom}.png')`, ...layerStyle("bottom") }} {...dragProps("bottom")} />
       <span aria-hidden="true" className={layerClass("top")} style={{ backgroundImage: `url('/avatars/aligned/tops/${top}.png')`, ...layerStyle("top") }} {...dragProps("top")} />
       <span aria-hidden="true" className={layerClass("shoes")} style={{ backgroundImage: `url('/avatars/aligned/shoes/${shoes}.png')`, ...layerStyle("shoes") }} {...dragProps("shoes")} />

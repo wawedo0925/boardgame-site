@@ -7,9 +7,9 @@ const canvas = 384;
 const layouts = {
   hair: { width: 300, height: 250, top: 12 },
   hats: { width: 300, height: 210, top: 8 },
-  tops: { width: 205, height: 125, top: 160 },
-  bottoms: { width: 190, height: 100, top: 246 },
-  shoes: { width: 155, height: 68, top: 313 },
+  tops: { width: 170, height: 108, top: 170 },
+  bottoms: { width: 164, height: 86, top: 254 },
+  shoes: { width: 138, height: 60, top: 320 },
 };
 
 for (const [category, layout] of Object.entries(layouts)) {
