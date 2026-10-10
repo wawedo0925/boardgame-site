@@ -4,119 +4,1356 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Mode = "INDIVIDUAL" | "TEAM_2V2" | "TEAM_3X2";
-type Lobby = { id:string; code:string; title:string; mode:Mode; status:string; players:number; max_players:number; mine:boolean };
-type Room = { id:string; code:string; title:string; host_id:string; mode:Mode; status:string; max_players:number; turn_seat:number|null; pending_moves:number[]; can_roll:boolean; last_roll:number|null; winner_team:number|null; revision:number };
-type Player = { id:string; user_id:string|null; seat:number; team:number; name:string; ready:boolean; is_bot:boolean };
-type Piece = { team:number; piece_no:number; route:"outer"|"diag1"|"diag2"; step_index:number };
-type Snap = { room:Room; me:{id:string;seat:number;team:number;ready:boolean}; players:Player[]; pieces:Piece[] };
+type Lobby = {
+  id: string;
+  code: string;
+  title: string;
+  mode: Mode;
+  status: string;
+  players: number;
+  max_players: number;
+  mine: boolean;
+};
+type Room = {
+  id: string;
+  code: string;
+  title: string;
+  host_id: string;
+  mode: Mode;
+  status: string;
+  max_players: number;
+  turn_seat: number | null;
+  pending_moves: number[];
+  can_roll: boolean;
+  last_roll: number | null;
+  winner_team: number | null;
+  revision: number;
+};
+type Player = {
+  id: string;
+  user_id: string | null;
+  seat: number;
+  team: number;
+  name: string;
+  ready: boolean;
+  is_bot: boolean;
+};
+type Piece = {
+  team: number;
+  piece_no: number;
+  route: "outer" | "diag1" | "diag2";
+  step_index: number;
+};
+type Snap = {
+  room: Room;
+  me: { id: string; seat: number; team: number; ready: boolean };
+  players: Player[];
+  pieces: Piece[];
+};
+type MoveAnimation = {
+  id: number;
+  team: number;
+  pieceNos: number[];
+  nodes: number[];
+};
 
-const supabase=createClient();
-const teamStyles=[
-  {name:"빨강",bg:"bg-red-500",text:"text-red-300",border:"border-red-400"},
-  {name:"노랑",bg:"bg-amber-400",text:"text-amber-300",border:"border-amber-300"},
-  {name:"파랑",bg:"bg-sky-500",text:"text-sky-300",border:"border-sky-400"},
-  {name:"초록",bg:"bg-emerald-500",text:"text-emerald-300",border:"border-emerald-400"},
-  {name:"보라",bg:"bg-violet-500",text:"text-violet-300",border:"border-violet-400"},
-  {name:"분홍",bg:"bg-pink-500",text:"text-pink-300",border:"border-pink-400"},
+const supabase = createClient();
+const teamStyles = [
+  {
+    name: "빨강",
+    bg: "bg-red-500",
+    text: "text-red-300",
+    border: "border-red-400",
+  },
+  {
+    name: "노랑",
+    bg: "bg-amber-400",
+    text: "text-amber-300",
+    border: "border-amber-300",
+  },
+  {
+    name: "파랑",
+    bg: "bg-sky-500",
+    text: "text-sky-300",
+    border: "border-sky-400",
+  },
+  {
+    name: "초록",
+    bg: "bg-emerald-500",
+    text: "text-emerald-300",
+    border: "border-emerald-400",
+  },
+  {
+    name: "보라",
+    bg: "bg-violet-500",
+    text: "text-violet-300",
+    border: "border-violet-400",
+  },
+  {
+    name: "분홍",
+    bg: "bg-pink-500",
+    text: "text-pink-300",
+    border: "border-pink-400",
+  },
 ];
-const modeInfo:Record<Mode,{label:string;detail:string}>={
-  INDIVIDUAL:{label:"개인전",detail:"2~4명 · 각자 말 4개"},
-  TEAM_2V2:{label:"2 대 2",detail:"두 팀 · 팀별 말 4개"},
-  TEAM_3X2:{label:"2 대 2 대 2",detail:"세 팀 6명 · 팀별 말 4개"},
+const modeInfo: Record<Mode, { label: string; detail: string }> = {
+  INDIVIDUAL: { label: "개인전", detail: "2~4명 · 각자 말 4개" },
+  TEAM_2V2: { label: "2 대 2", detail: "두 팀 · 팀별 말 4개" },
+  TEAM_3X2: { label: "2 대 2 대 2", detail: "세 팀 6명 · 팀별 말 4개" },
 };
-const resultLabel:Record<number,string>={[-1]:"빽도",1:"도",2:"개",3:"걸",4:"윷",5:"모"};
-const boardPos:Record<number,[number,number]>={
-  0:[90,90],1:[90,74],2:[90,58],3:[90,42],4:[90,26],5:[90,10],6:[74,10],7:[58,10],8:[42,10],9:[26,10],10:[10,10],11:[10,26],12:[10,42],13:[10,58],14:[10,74],15:[10,90],16:[26,90],17:[42,90],18:[58,90],19:[74,90],20:[90,90],
-  21:[74,26],29:[62,38],22:[50,50],23:[38,62],24:[26,74],25:[26,26],26:[38,38],27:[62,62],28:[74,74],99:[50,104],
+const resultLabel: Record<number, string> = {
+  [-1]: "빽도",
+  1: "도",
+  2: "개",
+  3: "걸",
+  4: "윷",
+  5: "모",
 };
-function nodeOf(piece:Piece){
-  const paths={outer:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,99],diag1:[0,1,2,3,4,5,21,29,22,23,24,15,16,17,18,19,20,99],diag2:[0,1,2,3,4,5,6,7,8,9,10,25,26,22,27,28,20,99]};
-  return paths[piece.route][piece.step_index]??99;
+const boardPos: Record<number, [number, number]> = {
+  0: [90, 90],
+  1: [90, 74],
+  2: [90, 58],
+  3: [90, 42],
+  4: [90, 26],
+  5: [90, 10],
+  6: [74, 10],
+  7: [58, 10],
+  8: [42, 10],
+  9: [26, 10],
+  10: [10, 10],
+  11: [10, 26],
+  12: [10, 42],
+  13: [10, 58],
+  14: [10, 74],
+  15: [10, 90],
+  16: [26, 90],
+  17: [42, 90],
+  18: [58, 90],
+  19: [74, 90],
+  20: [90, 90],
+  21: [74, 26],
+  29: [62, 38],
+  22: [50, 50],
+  23: [38, 62],
+  24: [26, 74],
+  25: [26, 26],
+  26: [38, 38],
+  27: [62, 62],
+  28: [74, 74],
+  99: [50, 104],
+};
+const paths: Record<Piece["route"], number[]> = {
+  outer: [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+    99,
+  ],
+  diag1: [0, 1, 2, 3, 4, 5, 21, 29, 22, 23, 24, 15, 16, 17, 18, 19, 20, 99],
+  diag2: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25, 26, 22, 27, 28, 20, 99],
+};
+function nodeOf(piece: Piece) {
+  return paths[piece.route][piece.step_index] ?? 99;
 }
-function errText(error:unknown){return error instanceof Error?error.message:"요청을 처리하지 못했습니다."}
-function playCaptureSound(){
-  try{
-    const AudioContextClass=window.AudioContext||(window as typeof window&{webkitAudioContext?:typeof AudioContext}).webkitAudioContext;
-    if(!AudioContextClass)return;
-    const context=new AudioContextClass(),gain=context.createGain(),oscillator=context.createOscillator();
-    oscillator.type="triangle";oscillator.frequency.setValueAtTime(420,context.currentTime);oscillator.frequency.exponentialRampToValueAtTime(880,context.currentTime+.16);
-    gain.gain.setValueAtTime(.18,context.currentTime);gain.gain.exponentialRampToValueAtTime(.001,context.currentTime+.28);
-    oscillator.connect(gain);gain.connect(context.destination);oscillator.start();oscillator.stop(context.currentTime+.28);
-    oscillator.onended=()=>void context.close();
-  }catch{}
+function movementNodes(before: Piece, after: Piece) {
+  const destinationPath = paths[after.route],
+    startNode = nodeOf(before),
+    endIndex = Math.min(after.step_index, destinationPath.length - 1);
+  let startIndex =
+    before.route === after.route
+      ? Math.min(before.step_index, destinationPath.length - 1)
+      : destinationPath.lastIndexOf(startNode, endIndex);
+  if (startIndex < 0) startIndex = 0;
+  const direction = endIndex >= startIndex ? 1 : -1,
+    nodes: number[] = [];
+  for (
+    let index = startIndex;
+    direction > 0 ? index <= endIndex : index >= endIndex;
+    index += direction
+  )
+    nodes.push(destinationPath[index] ?? 99);
+  return nodes;
 }
-function playTurnSound(){
-  try{
-    const AudioContextClass=window.AudioContext||(window as typeof window&{webkitAudioContext?:typeof AudioContext}).webkitAudioContext;
-    if(!AudioContextClass)return;
-    const context=new AudioContextClass(),gain=context.createGain();
-    gain.gain.setValueAtTime(.001,context.currentTime);gain.gain.exponentialRampToValueAtTime(.16,context.currentTime+.02);gain.gain.exponentialRampToValueAtTime(.001,context.currentTime+.55);gain.connect(context.destination);
-    for(const [frequency,delay] of [[660,0],[990,.16]] as const){const oscillator=context.createOscillator();oscillator.type="sine";oscillator.frequency.value=frequency;oscillator.connect(gain);oscillator.start(context.currentTime+delay);oscillator.stop(context.currentTime+delay+.32)}
-    setTimeout(()=>void context.close(),700);
-  }catch{}
+function errText(error: unknown) {
+  return error instanceof Error ? error.message : "요청을 처리하지 못했습니다.";
+}
+function playCaptureSound() {
+  try {
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass(),
+      gain = context.createGain(),
+      oscillator = context.createOscillator();
+    oscillator.type = "triangle";
+    oscillator.frequency.setValueAtTime(420, context.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(
+      880,
+      context.currentTime + 0.16,
+    );
+    gain.gain.setValueAtTime(0.18, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.28);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.28);
+    oscillator.onended = () => void context.close();
+  } catch {}
+}
+function playTurnSound() {
+  try {
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass(),
+      gain = context.createGain();
+    gain.gain.setValueAtTime(0.001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.16, context.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.55);
+    gain.connect(context.destination);
+    for (const [frequency, delay] of [
+      [660, 0],
+      [990, 0.16],
+    ] as const) {
+      const oscillator = context.createOscillator();
+      oscillator.type = "sine";
+      oscillator.frequency.value = frequency;
+      oscillator.connect(gain);
+      oscillator.start(context.currentTime + delay);
+      oscillator.stop(context.currentTime + delay + 0.32);
+    }
+    setTimeout(() => void context.close(), 700);
+  } catch {}
 }
 
-export default function YutClient(){
-  const [userId,setUserId]=useState<string|null>(null),[lobby,setLobby]=useState<Lobby[]>([]),[snap,setSnap]=useState<Snap|null>(null);
-  const [mode,setMode]=useState<Mode>("INDIVIDUAL"),[playerCount,setPlayerCount]=useState(4),[title,setTitle]=useState(""),[busy,setBusy]=useState(false),[notice,setNotice]=useState(""),[captureNotice,setCaptureNotice]=useState(""),[turnNotice,setTurnNotice]=useState("");
-  const roomId=snap?.room.id??null,botBusy=useRef(false),autoBusy=useRef(false),snapRef=useRef<Snap|null>(null),botStateRef=useRef(""),botDueRef=useRef(0),autoStateRef=useRef(""),autoDueRef=useRef(0),captureKeyRef=useRef(""),wasMyTurnRef=useRef(false),captureTimerRef=useRef<ReturnType<typeof setTimeout>|null>(null),turnTimerRef=useRef<ReturnType<typeof setTimeout>|null>(null);
-  const rpc=useCallback(async(name:string,args:Record<string,unknown>={})=>{setBusy(true);setNotice("");try{const {data,error}=await supabase.rpc(name,args);if(error)throw error;return data;}catch(e){setNotice(errText(e));throw e;}finally{setBusy(false)}},[]);
-  const loadLobby=useCallback(async()=>{const {data}=await supabase.rpc("yut_lobby");setLobby((data??[]) as Lobby[])},[]);
-  const loadRoom=useCallback(async(id:string)=>{const {data,error}=await supabase.rpc("yut_snapshot",{p_room:id});if(error||!data){localStorage.removeItem("yut-room");snapRef.current=null;setSnap(null);return}const next=data as Snap,previous=snapRef.current;if(previous?.room.id===next.room.id){const victims=new Set<string>();for(const oldPiece of previous.pieces){const nextPiece=next.pieces.find(piece=>piece.team===oldPiece.team&&piece.piece_no===oldPiece.piece_no);if(nextPiece&&nodeOf(oldPiece)!==0&&nodeOf(oldPiece)!==99&&nodeOf(nextPiece)===0){for(const player of previous.players.filter(item=>item.team===oldPiece.team))victims.add(player.name)}}const captureKey=`${next.room.id}:${next.room.revision}:${[...victims].join("|")}`;if(victims.size&&captureKeyRef.current!==captureKey){captureKeyRef.current=captureKey;const capturer=previous.players.find(player=>player.seat===previous.room.turn_seat)?.name??"상대";setCaptureNotice(`${capturer}님이 ${[...victims].join(", ")}님의 말을 잡았습니다!`);playCaptureSound();if(captureTimerRef.current)clearTimeout(captureTimerRef.current);captureTimerRef.current=setTimeout(()=>setCaptureNotice(""),3000)}}snapRef.current=next;setSnap(next)},[]);
-  useEffect(()=>{supabase.auth.getUser().then(({data})=>{setUserId(data.user?.id??null);const saved=localStorage.getItem("yut-room");if(saved)loadRoom(saved);else loadLobby()})},[loadLobby,loadRoom]);
-  useEffect(()=>{snapRef.current=snap},[snap]);
-  useEffect(()=>{const isMyTurn=Boolean(snap&&snap.room.status==="PLAYING"&&snap.room.turn_seat===snap.me.seat);if(isMyTurn&&!wasMyTurnRef.current){setTurnNotice("내 차례입니다!");playTurnSound();if(turnTimerRef.current)clearTimeout(turnTimerRef.current);turnTimerRef.current=setTimeout(()=>setTurnNotice(""),1000)}wasMyTurnRef.current=isMyTurn},[snap]);
-  useEffect(()=>{const timer=setInterval(()=>roomId?loadRoom(roomId):loadLobby(),1000);return()=>clearInterval(timer)},[roomId,loadRoom,loadLobby]);
-  useEffect(()=>{document.body.classList.toggle("game-in-room",Boolean(roomId));return()=>document.body.classList.remove("game-in-room")},[roomId]);
-  useEffect(()=>{if(!roomId)return;botStateRef.current="";botDueRef.current=0;const timer=setInterval(async()=>{const latest=snapRef.current,current=latest?.players.find(p=>p.seat===latest.room.turn_seat);if(latest?.room.host_id!==userId||latest.room.status!=="PLAYING"||!current?.is_bot||botBusy.current){botStateRef.current="";botDueRef.current=0;return}const state=`${latest.room.turn_seat}:${latest.room.revision}`;if(botStateRef.current!==state){botStateRef.current=state;botDueRef.current=Date.now()+2000;return}if(Date.now()<botDueRef.current)return;botBusy.current=true;botDueRef.current=Number.POSITIVE_INFINITY;try{const {error}=await supabase.rpc("yut_bot_tick",{p_room:roomId});if(error)setNotice(`AI 진행 오류: ${error.message}`);await loadRoom(roomId)}finally{botBusy.current=false}},200);return()=>clearInterval(timer)},[roomId,userId,loadRoom]);
-  useEffect(()=>{if(!roomId)return;autoStateRef.current="";autoDueRef.current=0;const timer=setInterval(async()=>{const latest=snapRef.current,current=latest?.players.find(player=>player.seat===latest.room.turn_seat);if(latest?.room.status!=="PLAYING"||current?.id!==latest.me.id||current.is_bot||autoBusy.current){autoStateRef.current="";autoDueRef.current=0;return}const state=`${latest.room.turn_seat}:${latest.room.revision}:${latest.room.can_roll?"roll":"move"}`;if(autoStateRef.current!==state){autoStateRef.current=state;autoDueRef.current=Date.now()+(latest.room.can_roll?5000:15000);return}if(Date.now()<autoDueRef.current)return;autoBusy.current=true;autoDueRef.current=Number.POSITIVE_INFINITY;try{const {error}=await supabase.rpc("yut_auto_act",{p_room:roomId,p_expected_revision:latest.room.revision});if(error)setNotice(`자동 진행 오류: ${error.message}`);await loadRoom(roomId)}finally{autoBusy.current=false}},200);return()=>clearInterval(timer)},[roomId,loadRoom]);
-  useEffect(()=>()=>{if(captureTimerRef.current)clearTimeout(captureTimerRef.current);if(turnTimerRef.current)clearTimeout(turnTimerRef.current)},[]);
-  const openRoom=async(id:string)=>{localStorage.setItem("yut-room",id);await loadRoom(id)};
-  const create=async()=>{const id=await rpc("yut_create_room",{p_title:title||null,p_mode:mode,p_max_players:playerCount});if(id)await openRoom(id as string)};
-  const action=async(name:string,args:Record<string,unknown>={})=>{if(!roomId)return;try{await rpc(name,{p_room:roomId,...args});await loadRoom(roomId)}catch{}}
-  const leave=async()=>{if(!roomId)return;try{await rpc("yut_leave_room",{p_room:roomId});localStorage.removeItem("yut-room");setSnap(null);await loadLobby()}catch{}}
-  const exitGame=async()=>{localStorage.removeItem("yut-room");setSnap(null);await loadLobby()}
-  if(!userId)return <main className="mx-auto max-w-xl px-4 py-20 text-center"><h1 className="text-3xl font-black">윷놀이</h1><p className="mt-4 text-zinc-400">게임을 하려면 먼저 로그인해 주세요.</p><a href="/login" className="mt-8 inline-flex rounded-2xl bg-amber-400 px-8 py-4 font-black text-black">로그인</a></main>;
-  if(!snap)return <LobbyView lobby={lobby} mode={mode} setMode={setMode} playerCount={playerCount} setPlayerCount={setPlayerCount} title={title} setTitle={setTitle} busy={busy} notice={notice} create={create} join={async(id,mine)=>{try{if(!mine)await rpc("yut_join_room",{p_room:id});await openRoom(id)}catch{}}}/>;
-  const {room,players,pieces,me}=snap,current=players.find(p=>p.seat===room.turn_seat),host=room.host_id===userId;
-  if(room.status==="WAITING")return <Waiting room={room} players={players} me={me} host={host} busy={busy} notice={notice} action={action} leave={leave}/>;
-  return <Game room={room} players={players} pieces={pieces} me={me} current={current} busy={busy} notice={notice} captureNotice={captureNotice} turnNotice={turnNotice} action={action} leave={exitGame}/>;
+export default function YutClient() {
+  const [userId, setUserId] = useState<string | null>(null),
+    [lobby, setLobby] = useState<Lobby[]>([]),
+    [snap, setSnap] = useState<Snap | null>(null);
+  const [mode, setMode] = useState<Mode>("INDIVIDUAL"),
+    [playerCount, setPlayerCount] = useState(4),
+    [title, setTitle] = useState(""),
+    [busy, setBusy] = useState(false),
+    [notice, setNotice] = useState(""),
+    [captureNotice, setCaptureNotice] = useState(""),
+    [turnNotice, setTurnNotice] = useState(""),
+    [moveAnimation, setMoveAnimation] = useState<MoveAnimation | null>(null);
+  const roomId = snap?.room.id ?? null,
+    botBusy = useRef(false),
+    autoBusy = useRef(false),
+    snapRef = useRef<Snap | null>(null),
+    botStateRef = useRef(""),
+    botDueRef = useRef(0),
+    autoStateRef = useRef(""),
+    autoDueRef = useRef(0),
+    captureKeyRef = useRef(""),
+    wasMyTurnRef = useRef(false),
+    captureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null),
+    turnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null),
+    moveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rpc = useCallback(
+    async (name: string, args: Record<string, unknown> = {}) => {
+      setBusy(true);
+      setNotice("");
+      try {
+        const { data, error } = await supabase.rpc(name, args);
+        if (error) throw error;
+        return data;
+      } catch (e) {
+        setNotice(errText(e));
+        throw e;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [],
+  );
+  const loadLobby = useCallback(async () => {
+    const { data } = await supabase.rpc("yut_lobby");
+    setLobby((data ?? []) as Lobby[]);
+  }, []);
+  const loadRoom = useCallback(async (id: string) => {
+    const { data, error } = await supabase.rpc("yut_snapshot", { p_room: id });
+    if (error || !data) {
+      localStorage.removeItem("yut-room");
+      snapRef.current = null;
+      setSnap(null);
+      return;
+    }
+    const next = data as Snap,
+      previous = snapRef.current;
+    if (
+      previous?.room.id === next.room.id &&
+      previous.room.revision !== next.room.revision
+    ) {
+      const victims = new Set<string>();
+      for (const oldPiece of previous.pieces) {
+        const nextPiece = next.pieces.find(
+          (piece) =>
+            piece.team === oldPiece.team &&
+            piece.piece_no === oldPiece.piece_no,
+        );
+        if (
+          nextPiece &&
+          nodeOf(oldPiece) !== 0 &&
+          nodeOf(oldPiece) !== 99 &&
+          nodeOf(nextPiece) === 0
+        ) {
+          for (const player of previous.players.filter(
+            (item) => item.team === oldPiece.team,
+          ))
+            victims.add(player.name);
+        }
+      }
+      const actor = previous.players.find(
+        (player) => player.seat === previous.room.turn_seat,
+      );
+      const moved = actor
+        ? previous.pieces.filter(
+            (oldPiece) =>
+              oldPiece.team === actor.team &&
+              next.pieces.some(
+                (piece) =>
+                  piece.team === oldPiece.team &&
+                  piece.piece_no === oldPiece.piece_no &&
+                  (piece.route !== oldPiece.route ||
+                    piece.step_index !== oldPiece.step_index),
+              ),
+          )
+        : [];
+      if (moved.length) {
+        const before = moved[0],
+          after = next.pieces.find(
+            (piece) =>
+              piece.team === before.team && piece.piece_no === before.piece_no,
+          );
+        if (after) {
+          const nodes = movementNodes(before, after);
+          if (nodes.length > 1) {
+            const animation = {
+              id: next.room.revision,
+              team: before.team,
+              pieceNos: moved.map((piece) => piece.piece_no),
+              nodes,
+            };
+            setMoveAnimation(animation);
+            if (moveTimerRef.current) clearTimeout(moveTimerRef.current);
+            moveTimerRef.current = setTimeout(
+              () =>
+                setMoveAnimation((current) =>
+                  current?.id === animation.id ? null : current,
+                ),
+              nodes.length * 260 + 150,
+            );
+          }
+        }
+      }
+      const captureKey = `${next.room.id}:${next.room.revision}:${[...victims].join("|")}`;
+      if (victims.size && captureKeyRef.current !== captureKey) {
+        captureKeyRef.current = captureKey;
+        const capturer = actor?.name ?? "상대";
+        setCaptureNotice(
+          `${capturer}님이 ${[...victims].join(", ")}님의 말을 잡았습니다!`,
+        );
+        playCaptureSound();
+        if (captureTimerRef.current) clearTimeout(captureTimerRef.current);
+        captureTimerRef.current = setTimeout(() => setCaptureNotice(""), 3000);
+      }
+    }
+    snapRef.current = next;
+    setSnap(next);
+  }, []);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserId(data.user?.id ?? null);
+      const saved = localStorage.getItem("yut-room");
+      if (saved) loadRoom(saved);
+      else loadLobby();
+    });
+  }, [loadLobby, loadRoom]);
+  useEffect(() => {
+    snapRef.current = snap;
+  }, [snap]);
+  useEffect(() => {
+    const isMyTurn = Boolean(
+      snap &&
+      snap.room.status === "PLAYING" &&
+      snap.room.turn_seat === snap.me.seat,
+    );
+    if (isMyTurn && !wasMyTurnRef.current) {
+      setTurnNotice("내 차례입니다!");
+      playTurnSound();
+      if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+      turnTimerRef.current = setTimeout(() => setTurnNotice(""), 1000);
+    }
+    wasMyTurnRef.current = isMyTurn;
+  }, [snap]);
+  useEffect(() => {
+    const timer = setInterval(
+      () => (roomId ? loadRoom(roomId) : loadLobby()),
+      1000,
+    );
+    return () => clearInterval(timer);
+  }, [roomId, loadRoom, loadLobby]);
+  useEffect(() => {
+    document.body.classList.toggle("game-in-room", Boolean(roomId));
+    return () => document.body.classList.remove("game-in-room");
+  }, [roomId]);
+  useEffect(() => {
+    if (!roomId) return;
+    botStateRef.current = "";
+    botDueRef.current = 0;
+    const timer = setInterval(async () => {
+      const latest = snapRef.current,
+        current = latest?.players.find((p) => p.seat === latest.room.turn_seat);
+      if (
+        latest?.room.host_id !== userId ||
+        latest.room.status !== "PLAYING" ||
+        !current?.is_bot ||
+        botBusy.current
+      ) {
+        botStateRef.current = "";
+        botDueRef.current = 0;
+        return;
+      }
+      const state = `${latest.room.turn_seat}:${latest.room.revision}`;
+      if (botStateRef.current !== state) {
+        botStateRef.current = state;
+        botDueRef.current = Date.now() + 2000;
+        return;
+      }
+      if (Date.now() < botDueRef.current) return;
+      botBusy.current = true;
+      botDueRef.current = Number.POSITIVE_INFINITY;
+      try {
+        const { error } = await supabase.rpc("yut_bot_tick", {
+          p_room: roomId,
+        });
+        if (error) setNotice(`AI 진행 오류: ${error.message}`);
+        await loadRoom(roomId);
+      } finally {
+        botBusy.current = false;
+      }
+    }, 200);
+    return () => clearInterval(timer);
+  }, [roomId, userId, loadRoom]);
+  useEffect(() => {
+    if (!roomId) return;
+    autoStateRef.current = "";
+    autoDueRef.current = 0;
+    const timer = setInterval(async () => {
+      const latest = snapRef.current,
+        current = latest?.players.find(
+          (player) => player.seat === latest.room.turn_seat,
+        );
+      if (
+        latest?.room.status !== "PLAYING" ||
+        current?.id !== latest.me.id ||
+        current.is_bot ||
+        autoBusy.current
+      ) {
+        autoStateRef.current = "";
+        autoDueRef.current = 0;
+        return;
+      }
+      const state = `${latest.room.turn_seat}:${latest.room.revision}:${latest.room.can_roll ? "roll" : "move"}`;
+      if (autoStateRef.current !== state) {
+        autoStateRef.current = state;
+        autoDueRef.current = Date.now() + (latest.room.can_roll ? 5000 : 15000);
+        return;
+      }
+      if (Date.now() < autoDueRef.current) return;
+      autoBusy.current = true;
+      autoDueRef.current = Number.POSITIVE_INFINITY;
+      try {
+        const { error } = await supabase.rpc("yut_auto_act", {
+          p_room: roomId,
+          p_expected_revision: latest.room.revision,
+        });
+        if (error) setNotice(`자동 진행 오류: ${error.message}`);
+        await loadRoom(roomId);
+      } finally {
+        autoBusy.current = false;
+      }
+    }, 200);
+    return () => clearInterval(timer);
+  }, [roomId, loadRoom]);
+  useEffect(
+    () => () => {
+      if (captureTimerRef.current) clearTimeout(captureTimerRef.current);
+      if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+      if (moveTimerRef.current) clearTimeout(moveTimerRef.current);
+    },
+    [],
+  );
+  const openRoom = async (id: string) => {
+    localStorage.setItem("yut-room", id);
+    await loadRoom(id);
+  };
+  const create = async () => {
+    const id = await rpc("yut_create_room", {
+      p_title: title || null,
+      p_mode: mode,
+      p_max_players: playerCount,
+    });
+    if (id) await openRoom(id as string);
+  };
+  const action = async (name: string, args: Record<string, unknown> = {}) => {
+    if (!roomId) return;
+    try {
+      await rpc(name, { p_room: roomId, ...args });
+      await loadRoom(roomId);
+    } catch {}
+  };
+  const leave = async () => {
+    if (!roomId) return;
+    try {
+      await rpc("yut_leave_room", { p_room: roomId });
+      localStorage.removeItem("yut-room");
+      setSnap(null);
+      await loadLobby();
+    } catch {}
+  };
+  const exitGame = async () => {
+    localStorage.removeItem("yut-room");
+    setSnap(null);
+    await loadLobby();
+  };
+  if (!userId)
+    return (
+      <main className="mx-auto max-w-xl px-4 py-20 text-center">
+        <h1 className="text-3xl font-black">윷놀이</h1>
+        <p className="mt-4 text-zinc-400">
+          게임을 하려면 먼저 로그인해 주세요.
+        </p>
+        <a
+          href="/login"
+          className="mt-8 inline-flex rounded-2xl bg-amber-400 px-8 py-4 font-black text-black"
+        >
+          로그인
+        </a>
+      </main>
+    );
+  if (!snap)
+    return (
+      <LobbyView
+        lobby={lobby}
+        mode={mode}
+        setMode={setMode}
+        playerCount={playerCount}
+        setPlayerCount={setPlayerCount}
+        title={title}
+        setTitle={setTitle}
+        busy={busy}
+        notice={notice}
+        create={create}
+        join={async (id, mine) => {
+          try {
+            if (!mine) await rpc("yut_join_room", { p_room: id });
+            await openRoom(id);
+          } catch {}
+        }}
+      />
+    );
+  const { room, players, pieces, me } = snap,
+    current = players.find((p) => p.seat === room.turn_seat),
+    host = room.host_id === userId;
+  if (room.status === "WAITING")
+    return (
+      <Waiting
+        room={room}
+        players={players}
+        me={me}
+        host={host}
+        busy={busy}
+        notice={notice}
+        action={action}
+        leave={leave}
+      />
+    );
+  return (
+    <Game
+      room={room}
+      players={players}
+      pieces={pieces}
+      me={me}
+      current={current}
+      busy={busy}
+      notice={notice}
+      captureNotice={captureNotice}
+      turnNotice={turnNotice}
+      moveAnimation={moveAnimation}
+      action={action}
+      leave={exitGame}
+    />
+  );
 }
 
-function LobbyView({lobby,mode,setMode,playerCount,setPlayerCount,title,setTitle,busy,notice,create,join}:{lobby:Lobby[];mode:Mode;setMode:(m:Mode)=>void;playerCount:number;setPlayerCount:(n:number)=>void;title:string;setTitle:(s:string)=>void;busy:boolean;notice:string;create:()=>void;join:(id:string,mine:boolean)=>void}){
- return <main className="mx-auto w-full max-w-5xl px-4 py-8"><section className="rounded-3xl border border-white/10 bg-gradient-to-br from-amber-400/10 via-zinc-950 to-emerald-400/10 p-6 sm:p-9"><p className="text-xs font-black tracking-[.3em] text-amber-300">KOREAN TRADITIONAL GAME</p><h1 className="mt-2 text-4xl font-black">윷놀이</h1><p className="mt-3 text-zinc-300">윷을 던지고, 업고, 잡고, 지름길로 먼저 네 말을 완주하세요.</p></section>
- <section className="mt-6 rounded-3xl border border-white/10 bg-white/[.035] p-5"><h2 className="text-xl font-black">새 게임 만들기</h2><div className="mt-4 grid gap-3 sm:grid-cols-3">{(Object.keys(modeInfo) as Mode[]).map(m=><button key={m} onClick={()=>setMode(m)} className={`rounded-2xl border p-4 text-left ${mode===m?"border-amber-300 bg-amber-300/15":"border-white/10 bg-black/20"}`}><b className={mode===m?"text-amber-300":""}>{modeInfo[m].label}</b><span className="mt-1 block text-xs text-zinc-400">{modeInfo[m].detail}</span></button>)}</div>{mode==="INDIVIDUAL"&&<div className="mt-4 flex items-center gap-2"><span className="mr-2 text-sm text-zinc-400">참가 인원</span>{[2,3,4].map(n=><button key={n} onClick={()=>setPlayerCount(n)} className={`h-10 w-12 rounded-xl border font-bold ${playerCount===n?"border-amber-300 bg-amber-300 text-black":"border-white/10"}`}>{n}명</button>)}</div>}<div className="mt-4 flex flex-col gap-3 sm:flex-row"><input value={title} onChange={e=>setTitle(e.target.value)} placeholder="방 이름 (선택)" maxLength={30} className="min-h-12 flex-1 rounded-xl border border-white/10 bg-black/30 px-4 outline-none focus:border-amber-300"/><button disabled={busy} onClick={create} className="rounded-xl bg-amber-400 px-7 py-3 font-black text-black disabled:opacity-50">게임 만들기</button></div>{notice&&<p className="mt-3 text-sm text-red-300">{notice}</p>}</section>
- <section className="mt-6"><h2 className="text-xl font-black">참여 가능한 방</h2><div className="mt-3 grid gap-3">{lobby.length?lobby.map(r=><article key={r.id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.035] p-4"><div><b>{r.title}</b><p className="mt-1 text-xs text-zinc-400">{modeInfo[r.mode].label} · {r.players}/{r.max_players}명 · 코드 {r.code}{r.status!=="WAITING"?" · 진행 중":""}</p></div><button onClick={()=>join(r.id,r.mine)} className="shrink-0 rounded-xl border border-amber-300/60 px-4 py-2 font-bold text-amber-300">{r.mine?"돌아가기":"참가"}</button></article>):<p className="rounded-2xl border border-dashed border-white/10 py-10 text-center text-zinc-500">아직 열린 방이 없습니다.</p>}</div></section></main>
+function LobbyView({
+  lobby,
+  mode,
+  setMode,
+  playerCount,
+  setPlayerCount,
+  title,
+  setTitle,
+  busy,
+  notice,
+  create,
+  join,
+}: {
+  lobby: Lobby[];
+  mode: Mode;
+  setMode: (m: Mode) => void;
+  playerCount: number;
+  setPlayerCount: (n: number) => void;
+  title: string;
+  setTitle: (s: string) => void;
+  busy: boolean;
+  notice: string;
+  create: () => void;
+  join: (id: string, mine: boolean) => void;
+}) {
+  return (
+    <main className="mx-auto w-full max-w-5xl px-4 py-8">
+      <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-amber-400/10 via-zinc-950 to-emerald-400/10 p-6 sm:p-9">
+        <p className="text-xs font-black tracking-[.3em] text-amber-300">
+          KOREAN TRADITIONAL GAME
+        </p>
+        <h1 className="mt-2 text-4xl font-black">윷놀이</h1>
+        <p className="mt-3 text-zinc-300">
+          윷을 던지고, 업고, 잡고, 지름길로 먼저 네 말을 완주하세요.
+        </p>
+      </section>
+      <section className="mt-6 rounded-3xl border border-white/10 bg-white/[.035] p-5">
+        <h2 className="text-xl font-black">새 게임 만들기</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {(Object.keys(modeInfo) as Mode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`rounded-2xl border p-4 text-left ${mode === m ? "border-amber-300 bg-amber-300/15" : "border-white/10 bg-black/20"}`}
+            >
+              <b className={mode === m ? "text-amber-300" : ""}>
+                {modeInfo[m].label}
+              </b>
+              <span className="mt-1 block text-xs text-zinc-400">
+                {modeInfo[m].detail}
+              </span>
+            </button>
+          ))}
+        </div>
+        {mode === "INDIVIDUAL" && (
+          <div className="mt-4 flex items-center gap-2">
+            <span className="mr-2 text-sm text-zinc-400">참가 인원</span>
+            {[2, 3, 4].map((n) => (
+              <button
+                key={n}
+                onClick={() => setPlayerCount(n)}
+                className={`h-10 w-12 rounded-xl border font-bold ${playerCount === n ? "border-amber-300 bg-amber-300 text-black" : "border-white/10"}`}
+              >
+                {n}명
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="방 이름 (선택)"
+            maxLength={30}
+            className="min-h-12 flex-1 rounded-xl border border-white/10 bg-black/30 px-4 outline-none focus:border-amber-300"
+          />
+          <button
+            disabled={busy}
+            onClick={create}
+            className="rounded-xl bg-amber-400 px-7 py-3 font-black text-black disabled:opacity-50"
+          >
+            게임 만들기
+          </button>
+        </div>
+        {notice && <p className="mt-3 text-sm text-red-300">{notice}</p>}
+      </section>
+      <section className="mt-6">
+        <h2 className="text-xl font-black">참여 가능한 방</h2>
+        <div className="mt-3 grid gap-3">
+          {lobby.length ? (
+            lobby.map((r) => (
+              <article
+                key={r.id}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[.035] p-4"
+              >
+                <div>
+                  <b>{r.title}</b>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    {modeInfo[r.mode].label} · {r.players}/{r.max_players}명 ·
+                    코드 {r.code}
+                    {r.status !== "WAITING" ? " · 진행 중" : ""}
+                  </p>
+                </div>
+                <button
+                  onClick={() => join(r.id, r.mine)}
+                  className="shrink-0 rounded-xl border border-amber-300/60 px-4 py-2 font-bold text-amber-300"
+                >
+                  {r.mine ? "돌아가기" : "참가"}
+                </button>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-2xl border border-dashed border-white/10 py-10 text-center text-zinc-500">
+              아직 열린 방이 없습니다.
+            </p>
+          )}
+        </div>
+      </section>
+    </main>
+  );
 }
 
-function Waiting({room,players,me,host,busy,notice,action,leave}:{room:Room;players:Player[];me:Snap["me"];host:boolean;busy:boolean;notice:string;action:(n:string,a?:Record<string,unknown>)=>void;leave:()=>void}){
- return <main className="mx-auto max-w-3xl px-4 py-8"><header className="flex items-center justify-between"><div><p className="text-xs text-zinc-400">{modeInfo[room.mode].label} · 방 코드 {room.code}</p><h1 className="text-3xl font-black">{room.title}</h1></div><button onClick={leave} className="rounded-xl border border-red-400/30 px-4 py-2 text-red-300">방 나가기</button></header><section className="mt-6 rounded-3xl border border-white/10 bg-white/[.035] p-5"><div className="grid gap-3 sm:grid-cols-2">{Array.from({length:room.max_players},(_,seat)=>{const p=players.find(x=>x.seat===seat),style=teamStyles[p?.team??seat];return <div key={seat} className={`flex min-h-20 items-center justify-between rounded-2xl border bg-black/25 p-4 ${p?style.border:"border-dashed border-white/10"}`}><div>{p?<><b className={style.text}>{p.name}</b><p className="text-xs text-zinc-400">{p.is_bot?"AI · 준비 완료":p.user_id===room.host_id?"방장":"플레이어"}</p></>:<span className="text-zinc-600">빈자리</span>}</div>{p?.is_bot&&host?<button onClick={()=>action("yut_remove_bot",{p_player:p.id})} className="text-xs text-red-300">내보내기</button>:p&&<span className={`text-xs font-bold ${p.ready||p.user_id===room.host_id?"text-emerald-300":"text-zinc-500"}`}>{p.ready||p.user_id===room.host_id?"준비 완료":"대기"}</span>}</div>})}</div><div className="mt-5 flex flex-wrap gap-3">{host&&players.length<room.max_players&&<button onClick={()=>action("yut_add_bot")} className="rounded-xl border border-violet-300/50 bg-violet-400/10 px-5 py-3 font-bold text-violet-200">+ AI 추가</button>}{!host&&<button onClick={()=>action("yut_toggle_ready")} className={`rounded-xl px-6 py-3 font-black ${me.ready?"bg-zinc-700":"bg-emerald-400 text-black"}`}>{me.ready?"준비 취소":"준비하기"}</button>}{host&&<button disabled={busy||players.length!==room.max_players} onClick={()=>action("yut_start_room")} className="flex-1 rounded-xl bg-amber-400 px-6 py-3 font-black text-black disabled:opacity-30">게임 시작</button>}</div>{notice&&<p className="mt-4 text-sm text-red-300">{notice}</p>}</section><Rules/></main>
+function Waiting({
+  room,
+  players,
+  me,
+  host,
+  busy,
+  notice,
+  action,
+  leave,
+}: {
+  room: Room;
+  players: Player[];
+  me: Snap["me"];
+  host: boolean;
+  busy: boolean;
+  notice: string;
+  action: (n: string, a?: Record<string, unknown>) => void;
+  leave: () => void;
+}) {
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-8">
+      <header className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-zinc-400">
+            {modeInfo[room.mode].label} · 방 코드 {room.code}
+          </p>
+          <h1 className="text-3xl font-black">{room.title}</h1>
+        </div>
+        <button
+          onClick={leave}
+          className="rounded-xl border border-red-400/30 px-4 py-2 text-red-300"
+        >
+          방 나가기
+        </button>
+      </header>
+      <section className="mt-6 rounded-3xl border border-white/10 bg-white/[.035] p-5">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {Array.from({ length: room.max_players }, (_, seat) => {
+            const p = players.find((x) => x.seat === seat),
+              style = teamStyles[p?.team ?? seat];
+            return (
+              <div
+                key={seat}
+                className={`flex min-h-20 items-center justify-between rounded-2xl border bg-black/25 p-4 ${p ? style.border : "border-dashed border-white/10"}`}
+              >
+                <div>
+                  {p ? (
+                    <>
+                      <b className={style.text}>{p.name}</b>
+                      <p className="text-xs text-zinc-400">
+                        {p.is_bot
+                          ? "AI · 준비 완료"
+                          : p.user_id === room.host_id
+                            ? "방장"
+                            : "플레이어"}
+                      </p>
+                    </>
+                  ) : (
+                    <span className="text-zinc-600">빈자리</span>
+                  )}
+                </div>
+                {p?.is_bot && host ? (
+                  <button
+                    onClick={() => action("yut_remove_bot", { p_player: p.id })}
+                    className="text-xs text-red-300"
+                  >
+                    내보내기
+                  </button>
+                ) : (
+                  p && (
+                    <span
+                      className={`text-xs font-bold ${p.ready || p.user_id === room.host_id ? "text-emerald-300" : "text-zinc-500"}`}
+                    >
+                      {p.ready || p.user_id === room.host_id
+                        ? "준비 완료"
+                        : "대기"}
+                    </span>
+                  )
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-5 flex flex-wrap gap-3">
+          {host && players.length < room.max_players && (
+            <button
+              onClick={() => action("yut_add_bot")}
+              className="rounded-xl border border-violet-300/50 bg-violet-400/10 px-5 py-3 font-bold text-violet-200"
+            >
+              + AI 추가
+            </button>
+          )}
+          {!host && (
+            <button
+              onClick={() => action("yut_toggle_ready")}
+              className={`rounded-xl px-6 py-3 font-black ${me.ready ? "bg-zinc-700" : "bg-emerald-400 text-black"}`}
+            >
+              {me.ready ? "준비 취소" : "준비하기"}
+            </button>
+          )}
+          {host && (
+            <button
+              disabled={busy || players.length !== room.max_players}
+              onClick={() => action("yut_start_room")}
+              className="flex-1 rounded-xl bg-amber-400 px-6 py-3 font-black text-black disabled:opacity-30"
+            >
+              게임 시작
+            </button>
+          )}
+        </div>
+        {notice && <p className="mt-4 text-sm text-red-300">{notice}</p>}
+      </section>
+      <Rules />
+    </main>
+  );
 }
 
-function Game({room,players,pieces,me,current,busy,notice,captureNotice,turnNotice,action,leave}:{room:Room;players:Player[];pieces:Piece[];me:Snap["me"];current?:Player;busy:boolean;notice:string;captureNotice:string;turnNotice:string;action:(n:string,a?:Record<string,unknown>)=>void;leave:()=>void}){
- const [routeChoice,setRouteChoice]=useState<Piece|null>(null);
- const myTurn=current?.id===me.id,selectedMove=room.pending_moves[0];
- const movable=pieces.filter(p=>p.team===me.team&&nodeOf(p)!==99&&!(selectedMove===-1&&p.step_index===0));
- const waitingPiece=pieces.find(piece=>piece.team===me.team&&nodeOf(piece)===0);
- const movePiece=(piece:Piece)=>{
-   if(!myTurn||room.pending_moves.length===0||busy)return;
-   if([5,10,22].includes(nodeOf(piece))&&selectedMove>0){setRouteChoice(piece);return}
-   action("yut_move",{p_piece:piece.piece_no,p_move_index:1});
- };
- const chooseRoute=async(route:"LEFT"|"RIGHT"|"OUTER"|"DIAGONAL")=>{if(!routeChoice)return;try{await action("yut_move_choice",{p_piece:routeChoice.piece_no,p_move_index:1,p_center_route:route})}finally{setRouteChoice(null)}};
- const activeRouteChoice=routeChoice&&myTurn&&room.pending_moves.length>0?pieces.find(piece=>piece.team===routeChoice.team&&piece.piece_no===routeChoice.piece_no&&[5,10,22].includes(nodeOf(piece)))??null:null;
- return <main className="relative mx-auto max-w-6xl px-3 py-5">{captureNotice&&<div role="status" className="fixed left-1/2 top-20 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 animate-pulse rounded-2xl border-2 border-amber-300 bg-zinc-950/95 px-5 py-4 text-center text-base font-black text-amber-200 shadow-2xl shadow-amber-400/20">💥 {captureNotice}</div>}{turnNotice&&<div role="status" className="fixed left-1/2 top-20 z-40 -translate-x-1/2 rounded-full border-2 border-white bg-amber-300 px-7 py-3 text-lg font-black text-black shadow-2xl">🔔 {turnNotice}</div>}<header className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-black/30 p-4"><div><p className="text-xs text-zinc-400">{modeInfo[room.mode].label} · {room.status}</p><h1 className="text-2xl font-black">{room.title}</h1></div><button type="button" onClick={leave} className="rounded-xl border border-red-400/40 px-4 py-2 text-sm font-bold text-red-300 transition hover:bg-red-400/10">게임 나가기</button></header>
- <div className="mt-3 flex w-full gap-1.5 overflow-x-auto">{players.map(p=>{const remaining=pieces.filter(piece=>piece.team===p.team&&nodeOf(piece)!==99).length;return <div key={p.id} className={`min-w-0 flex-1 whitespace-nowrap rounded-xl border px-2 py-2 text-center ${teamStyles[p.team].border} ${p.seat===room.turn_seat?"bg-white/10 ring-2 ring-white":"bg-black/20"}`}><b className={`block truncate text-xs sm:text-sm ${teamStyles[p.team].text}`}>{p.name}</b><div className="mt-1 flex min-h-3 items-center justify-center gap-1" aria-label={`남은 말 ${remaining}개`}>{remaining>0?Array.from({length:remaining},(_,index)=><span key={index} className={`h-2.5 w-2.5 rounded-full ${teamStyles[p.team].bg}`}/>):<span className="text-[9px] font-bold text-zinc-400">완주</span>}</div></div>})}</div>
- {room.status==="FINISHED"?<section className="mt-5 rounded-3xl border border-amber-300/50 bg-amber-300/10 p-10 text-center"><p className="text-lg text-amber-200">게임 종료</p><h2 className={`mt-2 text-4xl font-black ${teamStyles[room.winner_team??0].text}`}>{teamStyles[room.winner_team??0].name}팀 승리!</h2><p className="mt-4 text-zinc-300">말 4개를 모두 먼저 완주했습니다.</p></section>:<><section className="mt-4 grid gap-4 lg:grid-cols-[1fr_18rem]"><YutBoard room={room} players={players} me={me} pieces={pieces} onPiece={movePiece} movable={new Set(movable.map(p=>`${p.team}-${p.piece_no}`))} routeChoice={activeRouteChoice} onRouteChoice={chooseRoute}/><aside className="rounded-3xl border border-white/10 bg-white/[.035] p-5"><div className="flex items-center justify-between gap-2"><div><p className="text-sm text-zinc-400">현재 차례</p><h2 className={`mt-1 text-2xl font-black ${teamStyles[current?.team??0].text}`}>{current?.name}</h2></div>{myTurn&&waitingPiece&&selectedMove>0&&<button type="button" disabled={busy} onClick={()=>movePiece(waitingPiece)} className="shrink-0 rounded-xl border border-emerald-300 bg-emerald-400/15 px-3 py-2 text-sm font-black text-emerald-200 disabled:opacity-50">새 말 출발</button>}</div>{room.last_roll!==null&&<div className="mt-5 rounded-2xl bg-black/30 p-5 text-center"><span className="text-sm text-zinc-400">최근 결과</span><b className="block text-4xl text-amber-300">{resultLabel[room.last_roll]}</b></div>}<div className="mt-4 flex flex-wrap gap-2">{room.pending_moves.map((m,i)=><span key={`${m}-${i}`} className="rounded-full bg-amber-300 px-3 py-1 text-sm font-black text-black">{resultLabel[m]}</span>)}</div>{myTurn&&room.can_roll&&<button disabled={busy} onClick={()=>action("yut_roll")} className="mt-5 w-full rounded-2xl bg-amber-400 py-5 text-xl font-black text-black">윷 던지기</button>}{myTurn&&room.pending_moves.length>0&&<div className="mt-5 rounded-xl border border-white/10 bg-black/30 p-3"><p className="text-sm font-black text-white">움직일 말을 골라 주세요</p><div className="mt-3 grid grid-cols-2 gap-2">{movable.map(piece=><button type="button" key={piece.piece_no} disabled={busy} onClick={()=>movePiece(piece)} className={`min-h-12 rounded-xl border-2 bg-zinc-900 px-2 font-black text-white shadow-md ${teamStyles[me.team].border} disabled:opacity-50`}><span className="block truncate">{players.filter(p=>p.team===me.team).sort((a,b)=>Number(b.id===me.id)-Number(a.id===me.id)).map(p=>p.name).join("/")}</span><span className="block text-[10px] font-medium text-zinc-300">{piece.piece_no+1}번 · {nodeOf(piece)===0?"출발":`${nodeOf(piece)}번 지점`}</span></button>)}</div>{movable.length===0&&<p className="mt-3 text-sm font-bold text-amber-300">이 결과로 움직일 수 있는 말이 없습니다.</p>}<p className="mt-2 text-xs text-zinc-400">판 위의 이름표를 직접 눌러도 이동합니다.</p></div>}{!myTurn&&<p className="mt-5 text-sm text-zinc-400">상대의 차례를 기다리는 중입니다.</p>}{notice&&<p className="mt-4 break-words text-sm text-red-300">{notice}</p>}</aside></section></>}
- <Rules/></main>
+function Game({
+  room,
+  players,
+  pieces,
+  me,
+  current,
+  busy,
+  notice,
+  captureNotice,
+  turnNotice,
+  moveAnimation,
+  action,
+  leave,
+}: {
+  room: Room;
+  players: Player[];
+  pieces: Piece[];
+  me: Snap["me"];
+  current?: Player;
+  busy: boolean;
+  notice: string;
+  captureNotice: string;
+  turnNotice: string;
+  moveAnimation: MoveAnimation | null;
+  action: (n: string, a?: Record<string, unknown>) => void;
+  leave: () => void;
+}) {
+  const [routeChoice, setRouteChoice] = useState<Piece | null>(null);
+  const myTurn = current?.id === me.id,
+    selectedMove = room.pending_moves[0];
+  const movable = pieces.filter(
+    (p) =>
+      p.team === me.team &&
+      nodeOf(p) !== 99 &&
+      !(selectedMove === -1 && p.step_index === 0),
+  );
+  const waitingPiece = pieces.find(
+    (piece) => piece.team === me.team && nodeOf(piece) === 0,
+  );
+  const movePiece = (piece: Piece) => {
+    if (!myTurn || room.pending_moves.length === 0 || busy) return;
+    if ([5, 10, 22].includes(nodeOf(piece)) && selectedMove > 0) {
+      setRouteChoice(piece);
+      return;
+    }
+    action("yut_move", { p_piece: piece.piece_no, p_move_index: 1 });
+  };
+  const chooseRoute = async (
+    route: "LEFT" | "RIGHT" | "OUTER" | "DIAGONAL",
+  ) => {
+    if (!routeChoice) return;
+    try {
+      await action("yut_move_choice", {
+        p_piece: routeChoice.piece_no,
+        p_move_index: 1,
+        p_center_route: route,
+      });
+    } finally {
+      setRouteChoice(null);
+    }
+  };
+  const activeRouteChoice =
+    routeChoice && myTurn && room.pending_moves.length > 0
+      ? (pieces.find(
+          (piece) =>
+            piece.team === routeChoice.team &&
+            piece.piece_no === routeChoice.piece_no &&
+            [5, 10, 22].includes(nodeOf(piece)),
+        ) ?? null)
+      : null;
+  return (
+    <main className="relative mx-auto max-w-6xl px-3 py-5">
+      <header className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-black/30 p-4">
+        <div>
+          <p className="text-xs text-zinc-400">
+            {modeInfo[room.mode].label} · {room.status}
+          </p>
+          <h1 className="text-2xl font-black">{room.title}</h1>
+        </div>
+        <button
+          type="button"
+          onClick={leave}
+          className="rounded-xl border border-red-400/40 px-4 py-2 text-sm font-bold text-red-300 transition hover:bg-red-400/10"
+        >
+          게임 나가기
+        </button>
+      </header>
+      <div className="mt-3 flex w-full gap-1.5 overflow-x-auto">
+        {players.map((p) => {
+          const remaining = pieces.filter(
+            (piece) => piece.team === p.team && nodeOf(piece) !== 99,
+          ).length;
+          return (
+            <div
+              key={p.id}
+              className={`min-w-0 flex-1 whitespace-nowrap rounded-xl border px-2 py-2 text-center ${teamStyles[p.team].border} ${p.seat === room.turn_seat ? "bg-white/10 ring-2 ring-white" : "bg-black/20"}`}
+            >
+              <b
+                className={`block truncate text-xs sm:text-sm ${teamStyles[p.team].text}`}
+              >
+                {p.name}
+              </b>
+              <div
+                className="mt-1 flex min-h-3 items-center justify-center gap-1"
+                aria-label={`남은 말 ${remaining}개`}
+              >
+                {remaining > 0 ? (
+                  Array.from({ length: remaining }, (_, index) => (
+                    <span
+                      key={index}
+                      className={`h-2.5 w-2.5 rounded-full ${teamStyles[p.team].bg}`}
+                    />
+                  ))
+                ) : (
+                  <span className="text-[9px] font-bold text-zinc-400">
+                    완주
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {room.status === "FINISHED" ? (
+        <section className="mt-5 rounded-3xl border border-amber-300/50 bg-amber-300/10 p-10 text-center">
+          <p className="text-lg text-amber-200">게임 종료</p>
+          <h2
+            className={`mt-2 text-4xl font-black ${teamStyles[room.winner_team ?? 0].text}`}
+          >
+            {teamStyles[room.winner_team ?? 0].name}팀 승리!
+          </h2>
+          <p className="mt-4 text-zinc-300">말 4개를 모두 먼저 완주했습니다.</p>
+        </section>
+      ) : (
+        <>
+          <section className="mt-4 grid gap-4 lg:grid-cols-[1fr_18rem]">
+            <YutBoard
+              room={room}
+              players={players}
+              me={me}
+              pieces={pieces}
+              onPiece={movePiece}
+              movable={new Set(movable.map((p) => `${p.team}-${p.piece_no}`))}
+              routeChoice={activeRouteChoice}
+              onRouteChoice={chooseRoute}
+              captureNotice={captureNotice}
+              turnNotice={turnNotice}
+              moveAnimation={moveAnimation}
+            />
+            <aside className="rounded-3xl border border-white/10 bg-white/[.035] p-5">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm text-zinc-400">현재 차례</p>
+                  <h2
+                    className={`mt-1 text-2xl font-black ${teamStyles[current?.team ?? 0].text}`}
+                  >
+                    {current?.name}
+                  </h2>
+                </div>
+                {myTurn && waitingPiece && selectedMove > 0 && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => movePiece(waitingPiece)}
+                    className="shrink-0 rounded-xl border border-emerald-300 bg-emerald-400/15 px-3 py-2 text-sm font-black text-emerald-200 disabled:opacity-50"
+                  >
+                    새 말 출발
+                  </button>
+                )}
+              </div>
+              {room.last_roll !== null && (
+                <div className="mt-5 rounded-2xl bg-black/30 p-5 text-center">
+                  <span className="text-sm text-zinc-400">최근 결과</span>
+                  <b className="block text-4xl text-amber-300">
+                    {resultLabel[room.last_roll]}
+                  </b>
+                </div>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {room.pending_moves.map((m, i) => (
+                  <span
+                    key={`${m}-${i}`}
+                    className="rounded-full bg-amber-300 px-3 py-1 text-sm font-black text-black"
+                  >
+                    {resultLabel[m]}
+                  </span>
+                ))}
+              </div>
+              {myTurn && room.can_roll && (
+                <button
+                  disabled={busy}
+                  onClick={() => action("yut_roll")}
+                  className="mt-5 w-full rounded-2xl bg-amber-400 py-5 text-xl font-black text-black"
+                >
+                  윷 던지기
+                </button>
+              )}
+              {myTurn && room.pending_moves.length > 0 && (
+                <div className="mt-5 rounded-xl border border-white/10 bg-black/30 p-3">
+                  <p className="text-sm font-black text-white">
+                    움직일 말을 골라 주세요
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {movable.map((piece) => (
+                      <button
+                        type="button"
+                        key={piece.piece_no}
+                        disabled={busy}
+                        onClick={() => movePiece(piece)}
+                        className={`min-h-12 rounded-xl border-2 bg-zinc-900 px-2 font-black text-white shadow-md ${teamStyles[me.team].border} disabled:opacity-50`}
+                      >
+                        <span className="block truncate">
+                          {players
+                            .filter((p) => p.team === me.team)
+                            .sort(
+                              (a, b) =>
+                                Number(b.id === me.id) - Number(a.id === me.id),
+                            )
+                            .map((p) => p.name)
+                            .join("/")}
+                        </span>
+                        <span className="block text-[10px] font-medium text-zinc-300">
+                          {piece.piece_no + 1}번 ·{" "}
+                          {nodeOf(piece) === 0
+                            ? "출발"
+                            : `${nodeOf(piece)}번 지점`}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {movable.length === 0 && (
+                    <p className="mt-3 text-sm font-bold text-amber-300">
+                      이 결과로 움직일 수 있는 말이 없습니다.
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-zinc-400">
+                    판 위의 이름표를 직접 눌러도 이동합니다.
+                  </p>
+                </div>
+              )}
+              {!myTurn && (
+                <p className="mt-5 text-sm text-zinc-400">
+                  상대의 차례를 기다리는 중입니다.
+                </p>
+              )}
+              {notice && (
+                <p className="mt-4 break-words text-sm text-red-300">
+                  {notice}
+                </p>
+              )}
+            </aside>
+          </section>
+        </>
+      )}
+      <Rules />
+    </main>
+  );
 }
 
-function YutBoard({room,players,me,pieces,onPiece,movable,routeChoice,onRouteChoice}:{room:Room;players:Player[];me:Snap["me"];pieces:Piece[];onPiece:(p:Piece)=>void;movable:Set<string>;routeChoice:Piece|null;onRouteChoice:(route:"LEFT"|"RIGHT"|"OUTER"|"DIAGONAL")=>void}){
- const nodes=[...Array.from({length:21},(_,i)=>i),21,29,22,23,24,25,26,27,28];
- const groups=new Map<string,Piece[]>();
- for(const piece of pieces){const key=`${piece.team}-${nodeOf(piece)}`;groups.set(key,[...(groups.get(key)??[]),piece])}
- const teamLabel=(team:number)=>{const members=players.filter(p=>p.team===team);if(room.mode!=="INDIVIDUAL"&&team===me.team)members.sort((a,b)=>Number(b.id===me.id)-Number(a.id===me.id));return members.map(p=>p.name).join("/")};
- const choiceNode=routeChoice?nodeOf(routeChoice):null;
- return <div className="relative aspect-square w-full overflow-hidden rounded-3xl border border-amber-200/20 bg-[radial-gradient(circle,#174432_0%,#0b241c_60%,#07100d_100%)] p-4"><svg viewBox="0 0 100 100" className="pointer-events-none absolute inset-0 h-full w-full opacity-50"><path d="M10 90L10 10L90 10L90 90L10 90M10 90L90 10M10 10L90 90" fill="none" stroke="#fde68a" strokeWidth="1"/></svg>{nodes.map(n=>{const [x,y]=boardPos[n];return <span key={n} className={`pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-100/60 bg-[#102d23] ${[5,10,15,20,22].includes(n)?"h-7 w-7":"h-4 w-4"}`} style={{left:`${x}%`,top:`${y}%`}}/>})}<div className="pointer-events-none absolute bottom-1 right-2 text-[10px] text-amber-100/50">출발 / 도착</div>{[...groups.entries()].map(([key,group])=>{const piece=group[0],node=nodeOf(piece),[x,y]=boardPos[node]??[50,104],enabled=group.some(p=>movable.has(`${p.team}-${p.piece_no}`)),chosen=group.find(p=>movable.has(`${p.team}-${p.piece_no}`))??piece;return <button type="button" key={key} onClick={()=>onPiece(chosen)} disabled={!enabled} aria-label={`${teamLabel(piece.team)} 말 ${group.length}개`} className={`pointer-events-auto absolute z-20 flex min-h-8 max-w-28 touch-manipulation items-center justify-center gap-1 rounded-full border-2 border-white/80 px-2 text-[10px] font-black leading-tight text-black shadow-lg sm:min-h-10 sm:text-xs ${teamStyles[piece.team].bg} disabled:cursor-default disabled:opacity-80 ${enabled?"cursor-pointer ring-4 ring-white/60":""}`} style={{left:`${Math.min(x,94)}%`,top:`${Math.min(y,94)}%`,transform:"translate(-50%,-115%)"}}><span className="truncate">{teamLabel(piece.team)}</span>{group.length>1&&<span className="shrink-0 rounded-full bg-black/70 px-1.5 py-0.5 text-[9px] text-white">×{group.length}</span>}</button>})}{choiceNode===22&&<div className="absolute left-1/2 top-1/2 z-40 flex w-56 -translate-x-1/2 translate-y-4 items-center justify-between"><button type="button" onClick={()=>onRouteChoice("LEFT")} className="rounded-full border-2 border-white bg-amber-300 px-4 py-3 text-xl font-black text-black shadow-xl" aria-label="왼쪽 길 선택">↙</button><span className="rounded-full bg-black/90 px-3 py-2 text-xs font-black text-white">방향 선택</span><button type="button" onClick={()=>onRouteChoice("RIGHT")} className="rounded-full border-2 border-white bg-amber-300 px-4 py-3 text-xl font-black text-black shadow-xl" aria-label="오른쪽 길 선택">↘</button></div>}{choiceNode===5&&<div className="absolute right-[3%] top-[13%] z-40 flex items-center gap-2"><button type="button" onClick={()=>onRouteChoice("OUTER")} className="rounded-full border-2 border-white bg-amber-300 px-3 py-2 text-lg font-black text-black shadow-xl" aria-label="바깥길 선택">←</button><button type="button" onClick={()=>onRouteChoice("DIAGONAL")} className="rounded-full border-2 border-white bg-amber-300 px-3 py-2 text-lg font-black text-black shadow-xl" aria-label="중앙 지름길 선택">↙</button></div>}{choiceNode===10&&<div className="absolute left-[3%] top-[13%] z-40 flex items-center gap-2"><button type="button" onClick={()=>onRouteChoice("DIAGONAL")} className="rounded-full border-2 border-white bg-amber-300 px-3 py-2 text-lg font-black text-black shadow-xl" aria-label="중앙 지름길 선택">↘</button><button type="button" onClick={()=>onRouteChoice("OUTER")} className="rounded-full border-2 border-white bg-amber-300 px-3 py-2 text-lg font-black text-black shadow-xl" aria-label="바깥길 선택">↓</button></div>}</div>
+function YutBoard({
+  room,
+  players,
+  me,
+  pieces,
+  onPiece,
+  movable,
+  routeChoice,
+  onRouteChoice,
+  captureNotice,
+  turnNotice,
+  moveAnimation,
+}: {
+  room: Room;
+  players: Player[];
+  me: Snap["me"];
+  pieces: Piece[];
+  onPiece: (p: Piece) => void;
+  movable: Set<string>;
+  routeChoice: Piece | null;
+  onRouteChoice: (route: "LEFT" | "RIGHT" | "OUTER" | "DIAGONAL") => void;
+  captureNotice: string;
+  turnNotice: string;
+  moveAnimation: MoveAnimation | null;
+}) {
+  const nodes = [
+    ...Array.from({ length: 21 }, (_, i) => i),
+    21,
+    29,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+  ];
+  const groups = new Map<string, Piece[]>();
+  for (const piece of pieces) {
+    const key = `${piece.team}-${nodeOf(piece)}`;
+    groups.set(key, [...(groups.get(key) ?? []), piece]);
+  }
+  const teamLabel = (team: number) => {
+    const members = players.filter((p) => p.team === team);
+    if (room.mode !== "INDIVIDUAL" && team === me.team)
+      members.sort((a, b) => Number(b.id === me.id) - Number(a.id === me.id));
+    return members.map((p) => p.name).join("/");
+  };
+  const choiceNode = routeChoice ? nodeOf(routeChoice) : null;
+  return (
+    <div className="relative aspect-square w-full overflow-hidden rounded-3xl border border-amber-200/20 bg-[radial-gradient(circle,#174432_0%,#0b241c_60%,#07100d_100%)] p-4">
+      <svg
+        viewBox="0 0 100 100"
+        className="pointer-events-none absolute inset-0 h-full w-full opacity-50"
+      >
+        <path
+          d="M10 90L10 10L90 10L90 90L10 90M10 90L90 10M10 10L90 90"
+          fill="none"
+          stroke="#fde68a"
+          strokeWidth="1"
+        />
+      </svg>
+      {nodes.map((n) => {
+        const [x, y] = boardPos[n];
+        return (
+          <span
+            key={n}
+            className={`pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-100/60 bg-[#102d23] ${[5, 10, 15, 20, 22].includes(n) ? "h-7 w-7" : "h-4 w-4"}`}
+            style={{ left: `${x}%`, top: `${y}%` }}
+          />
+        );
+      })}
+      <div className="pointer-events-none absolute bottom-1 right-2 text-[10px] text-amber-100/50">
+        출발 / 도착
+      </div>
+      {(captureNotice || turnNotice) && (
+        <div className="pointer-events-none absolute left-1/2 top-1/2 z-50 w-[82%] -translate-x-1/2 -translate-y-1/2 text-center">
+          {captureNotice ? (
+            <div
+              role="status"
+              className="animate-pulse rounded-2xl border-2 border-amber-300 bg-zinc-950/95 px-4 py-4 text-sm font-black text-amber-200 shadow-2xl shadow-amber-400/30 sm:text-base"
+            >
+              💥 {captureNotice}
+            </div>
+          ) : (
+            <div
+              role="status"
+              className="inline-flex rounded-full border-2 border-white bg-amber-300 px-6 py-3 text-base font-black text-black shadow-2xl sm:text-lg"
+            >
+              🔔 {turnNotice}
+            </div>
+          )}
+        </div>
+      )}
+      {[...groups.entries()].map(([key, group]) => {
+        const visibleGroup = moveAnimation
+          ? group.filter(
+              (item) =>
+                item.team !== moveAnimation.team ||
+                !moveAnimation.pieceNos.includes(item.piece_no),
+            )
+          : group;
+        if (!visibleGroup.length) return null;
+        const piece = visibleGroup[0],
+          node = nodeOf(piece),
+          [x, y] = boardPos[node] ?? [50, 104],
+          enabled = visibleGroup.some((p) =>
+            movable.has(`${p.team}-${p.piece_no}`),
+          ),
+          chosen =
+            visibleGroup.find((p) => movable.has(`${p.team}-${p.piece_no}`)) ??
+            piece;
+        return (
+          <button
+            type="button"
+            key={key}
+            onClick={() => onPiece(chosen)}
+            disabled={!enabled}
+            aria-label={`${teamLabel(piece.team)} 말 ${visibleGroup.length}개`}
+            className={`pointer-events-auto absolute z-20 flex min-h-8 max-w-28 touch-manipulation items-center justify-center gap-1 rounded-full border-2 border-white/80 px-2 text-[10px] font-black leading-tight text-black shadow-lg sm:min-h-10 sm:text-xs ${teamStyles[piece.team].bg} disabled:cursor-default disabled:opacity-80 ${enabled ? "cursor-pointer ring-4 ring-white/60" : ""}`}
+            style={{
+              left: `${Math.min(x, 94)}%`,
+              top: `${Math.min(y, 94)}%`,
+              transform: "translate(-50%,-115%)",
+            }}
+          >
+            <span className="truncate">{teamLabel(piece.team)}</span>
+            {visibleGroup.length > 1 && (
+              <span className="shrink-0 rounded-full bg-black/70 px-1.5 py-0.5 text-[9px] text-white">
+                ×{visibleGroup.length}
+              </span>
+            )}
+          </button>
+        );
+      })}
+      {moveAnimation && (
+        <AnimatedYutPiece
+          key={moveAnimation.id}
+          animation={moveAnimation}
+          label={teamLabel(moveAnimation.team)}
+        />
+      )}
+      {choiceNode === 22 && (
+        <div className="absolute left-1/2 top-1/2 z-40 flex w-56 -translate-x-1/2 translate-y-4 items-center justify-between">
+          <button
+            type="button"
+            onClick={() => onRouteChoice("LEFT")}
+            className="rounded-full border-2 border-white bg-amber-300 px-4 py-3 text-xl font-black text-black shadow-xl"
+            aria-label="왼쪽 길 선택"
+          >
+            ↙
+          </button>
+          <span className="rounded-full bg-black/90 px-3 py-2 text-xs font-black text-white">
+            방향 선택
+          </span>
+          <button
+            type="button"
+            onClick={() => onRouteChoice("RIGHT")}
+            className="rounded-full border-2 border-white bg-amber-300 px-4 py-3 text-xl font-black text-black shadow-xl"
+            aria-label="오른쪽 길 선택"
+          >
+            ↘
+          </button>
+        </div>
+      )}
+      {choiceNode === 5 && (
+        <div className="absolute right-[3%] top-[13%] z-40 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onRouteChoice("OUTER")}
+            className="rounded-full border-2 border-white bg-amber-300 px-3 py-2 text-lg font-black text-black shadow-xl"
+            aria-label="바깥길 선택"
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            onClick={() => onRouteChoice("DIAGONAL")}
+            className="rounded-full border-2 border-white bg-amber-300 px-3 py-2 text-lg font-black text-black shadow-xl"
+            aria-label="중앙 지름길 선택"
+          >
+            ↙
+          </button>
+        </div>
+      )}
+      {choiceNode === 10 && (
+        <div className="absolute left-[3%] top-[13%] z-40 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onRouteChoice("DIAGONAL")}
+            className="rounded-full border-2 border-white bg-amber-300 px-3 py-2 text-lg font-black text-black shadow-xl"
+            aria-label="중앙 지름길 선택"
+          >
+            ↘
+          </button>
+          <button
+            type="button"
+            onClick={() => onRouteChoice("OUTER")}
+            className="rounded-full border-2 border-white bg-amber-300 px-3 py-2 text-lg font-black text-black shadow-xl"
+            aria-label="바깥길 선택"
+          >
+            ↓
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
-function Rules(){return <details className="mt-5 rounded-2xl border border-white/10 bg-white/[.025] p-4 text-sm text-zinc-300"><summary className="cursor-pointer font-bold text-amber-300">게임 방법</summary><ul className="mt-3 list-disc space-y-2 pl-5"><li>도·개·걸은 1·2·3칸, 윷·모는 4·5칸 이동하고 윷·모는 한 번 더 던집니다.</li><li>상대 말을 잡아도 한 번 더 던지며, 같은 팀 말끼리는 업어서 함께 움직입니다.</li><li>모서리에서 안쪽 길로 들어가 지름길을 이용합니다. 빽도는 판 위의 말을 한 칸 뒤로 움직입니다.</li><li>개인전은 각자, 팀전은 팀원이 공동으로 말 4개를 모두 완주하면 승리합니다.</li></ul></details>}
+
+function AnimatedYutPiece({
+  animation,
+  label,
+}: {
+  animation: MoveAnimation;
+  label: string;
+}) {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    if (step >= animation.nodes.length - 1) return;
+    const timer = setTimeout(() => setStep((current) => current + 1), 260);
+    return () => clearTimeout(timer);
+  }, [animation.nodes.length, step]);
+  const [x, y] = boardPos[animation.nodes[step]] ?? [50, 104];
+  return (
+    <div
+      aria-label={`${label} 이동 중`}
+      className={`pointer-events-none absolute z-30 flex min-h-8 max-w-28 items-center justify-center gap-1 rounded-full border-2 border-white px-2 text-[10px] font-black leading-tight text-black shadow-xl transition-[left,top] duration-200 ease-out sm:min-h-10 sm:text-xs ${teamStyles[animation.team].bg}`}
+      style={{
+        left: `${Math.min(x, 94)}%`,
+        top: `${Math.min(y, 94)}%`,
+        transform: "translate(-50%,-115%)",
+      }}
+    >
+      <span className="truncate">{label}</span>
+      {animation.pieceNos.length > 1 && (
+        <span className="shrink-0 rounded-full bg-black/70 px-1.5 py-0.5 text-[9px] text-white">
+          ×{animation.pieceNos.length}
+        </span>
+      )}
+    </div>
+  );
+}
+function Rules() {
+  return (
+    <details className="mt-5 rounded-2xl border border-white/10 bg-white/[.025] p-4 text-sm text-zinc-300">
+      <summary className="cursor-pointer font-bold text-amber-300">
+        게임 방법
+      </summary>
+      <ul className="mt-3 list-disc space-y-2 pl-5">
+        <li>
+          도·개·걸은 1·2·3칸, 윷·모는 4·5칸 이동하고 윷·모는 한 번 더 던집니다.
+        </li>
+        <li>
+          상대 말을 잡아도 한 번 더 던지며, 같은 팀 말끼리는 업어서 함께
+          움직입니다.
+        </li>
+        <li>
+          모서리에서 안쪽 길로 들어가 지름길을 이용합니다. 빽도는 판 위의 말을
+          한 칸 뒤로 움직입니다.
+        </li>
+        <li>
+          개인전은 각자, 팀전은 팀원이 공동으로 말 4개를 모두 완주하면
+          승리합니다.
+        </li>
+      </ul>
+    </details>
+  );
+}

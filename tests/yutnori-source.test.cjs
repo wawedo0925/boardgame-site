@@ -4,8 +4,14 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const root = path.join(__dirname, "..");
-const migration = fs.readFileSync(path.join(root, "supabase/migrations/20261011060000_yutnori_game.sql"), "utf8");
-const client = fs.readFileSync(path.join(root, "app/yut/YutClient.tsx"), "utf8");
+const migration = fs.readFileSync(
+  path.join(root, "supabase/migrations/20261011060000_yutnori_game.sql"),
+  "utf8",
+);
+const client = fs.readFileSync(
+  path.join(root, "app/yut/YutClient.tsx"),
+  "utf8",
+);
 
 test("supports every requested player mode", () => {
   for (const mode of ["INDIVIDUAL", "TEAM_2V2", "TEAM_3X2"]) {
@@ -21,4 +27,12 @@ test("implements core yut rules and server-side bots", () => {
   assert.match(migration, /public\.yut_node\(route,step_index\)=node0/);
   assert.match(migration, /create function public\.yut_bot_tick/);
   assert.match(migration, /result=-1 and not exists/);
+});
+
+test("shows board-centered notices and animates pieces across route nodes", () => {
+  assert.match(client, /function movementNodes/);
+  assert.match(client, /function AnimatedYutPiece/);
+  assert.match(client, /transition-\[left,top\]/);
+  assert.match(client, /absolute left-1\/2 top-1\/2 z-50/);
+  assert.doesNotMatch(client, /fixed left-1\/2 top-20 z-50/);
 });
