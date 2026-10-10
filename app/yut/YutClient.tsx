@@ -519,9 +519,16 @@ export default function YutClient() {
     } catch {}
   };
   const exitGame = async () => {
-    localStorage.removeItem("yut-room");
-    setSnap(null);
-    await loadLobby();
+    if (!roomId) return;
+    try {
+      if (snapRef.current?.room.host_id === userId) {
+        await rpc("yut_leave_room", { p_room: roomId });
+      }
+      localStorage.removeItem("yut-room");
+      snapRef.current = null;
+      setSnap(null);
+      await loadLobby();
+    } catch {}
   };
   if (!userId)
     return (

@@ -19,6 +19,13 @@ const finishOrderMigration = fs.readFileSync(
   ),
   "utf8",
 );
+const hostRoomCleanupMigration = fs.readFileSync(
+  path.join(
+    root,
+    "supabase/migrations/20261011110000_yutnori_host_room_cleanup.sql",
+  ),
+  "utf8",
+);
 
 test("supports every requested player mode", () => {
   for (const mode of ["INDIVIDUAL", "TEAM_2V2", "TEAM_3X2"]) {
@@ -63,4 +70,17 @@ test("provides Tichu-style room chat in waiting and playing views", () => {
   assert.match(client, /startDrag/);
   assert.match(client, /startResize/);
   assert.equal((client.match(/<RoomChat/g) ?? []).length, 2);
+});
+
+test("removes a host's previous room when leaving or creating another", () => {
+  assert.match(
+    hostRoomCleanupMigration,
+    /delete from public\.yut_rooms where host_id=auth\.uid\(\)/,
+  );
+  assert.match(
+    hostRoomCleanupMigration,
+    /if h=auth\.uid\(\) then\s+delete from yut_rooms where id=p_room;\s+return;/,
+  );
+  assert.match(client, /snapRef\.current\?\.room\.host_id === userId/);
+  assert.match(client, /rpc\("yut_leave_room", \{ p_room: roomId \}\)/);
 });
