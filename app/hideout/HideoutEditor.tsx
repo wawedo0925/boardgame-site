@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -14,7 +14,10 @@ import {
 } from "@/components/avatar/MemberAvatar";
 
 type Game = { id: string; name: string; playCount: number };
-type Furniture = { chair: string; lamp: string; rug: string; plant: string };
+type FurnitureKind = "chair" | "lamp" | "rug" | "plant";
+type RoomItemKey = "shelf" | "sofa" | "table" | "frames" | "clock" | "sconce" | "chair" | "lamp" | "rug" | "plant";
+type RoomItemPosition = { x: number; y: number };
+type Furniture = { chair: string; lamp: string; rug: string; plant: string; theme?: string; positions?: Partial<Record<RoomItemKey, RoomItemPosition>> };
 type AvatarPart = "hair" | "expression" | "hat" | "top" | "bottom" | "shoes";
 type HideoutData = {
   ownerName: string;
@@ -27,7 +30,9 @@ type HideoutData = {
 const DEFAULT_LOOK: MemberAvatarLook = { hair: 0, skin: 1, hairColor: 0, expression: 0, outfit: 0, accessory: 0, frame: 0, top: 0, bottom: 0, shoes: 0, hat: 0 };
 const HAT_OPTIONS = [0, 6, 13, 14, 15];
 const MOVABLE_PARTS: AvatarMovablePart[] = ["hair", "hat", "top", "bottom", "shoes"];
-const DEFAULT_FURNITURE: Furniture = { chair: "green", lamp: "classic", rug: "forest", plant: "monstera" };
+const DEFAULT_ROOM_POSITIONS: Record<RoomItemKey, RoomItemPosition> = { shelf:{x:25,y:31}, sofa:{x:73,y:39}, table:{x:52,y:53}, frames:{x:76,y:20}, clock:{x:88,y:24}, sconce:{x:94,y:34}, chair:{x:82,y:72}, lamp:{x:67,y:67}, rug:{x:48,y:76}, plant:{x:16,y:67} };
+const DEFAULT_FURNITURE: Furniture = { chair: "green", lamp: "classic", rug: "forest", plant: "monstera", theme: "walnut-parquet", positions: DEFAULT_ROOM_POSITIONS };
+const ROOM_THEMES = [{id:"walnut-parquet",name:"월넛 클래식"},{id:"forest-oak",name:"포레스트 오크"},{id:"cream-stone",name:"크림 스톤"}] as const;
 const FURNITURE = {
   chair: [{ id: "green", name: "녹색 의자", col: 0 }, { id: "sofa", name: "가죽 소파", col: 1 }, { id: "stool", name: "게임 체어", col: 2 }],
   lamp: [{ id: "classic", name: "클래식 조명", col: 0 }, { id: "lantern", name: "펜던트 랜턴", col: 1 }, { id: "candle", name: "캔들 랜턴", col: 2 }],
@@ -35,14 +40,10 @@ const FURNITURE = {
   plant: [{ id: "monstera", name: "몬스테라", col: 0 }, { id: "flower", name: "꽃 화분", col: 1 }, { id: "cactus", name: "선인장", col: 2 }],
 } as const;
 
-const FURNITURE_ROW: Record<keyof Furniture, number> = { chair: 0, lamp: 1, rug: 2, plant: 3 };
-const SHELF_SLOTS = [
-  { left: "17.0%", top: "19.0%", width: "9.2%", height: "9.4%" },
-  { left: "27.9%", top: "17.4%", width: "9.0%", height: "9.2%" },
-  { left: "38.8%", top: "15.4%", width: "8.6%", height: "8.9%" },
-  { left: "17.0%", top: "29.9%", width: "9.2%", height: "9.4%" },
-  { left: "27.9%", top: "28.1%", width: "9.0%", height: "9.2%" },
-  { left: "38.8%", top: "26.0%", width: "8.6%", height: "8.9%" },
+const FURNITURE_ROW: Record<FurnitureKind, number> = { chair: 0, lamp: 1, rug: 2, plant: 3 };
+const MOVABLE_SHELF_SLOTS = [
+  { left:"10%",top:"18%",width:"24%",height:"23%" }, { left:"38%",top:"18%",width:"24%",height:"23%" }, { left:"66%",top:"18%",width:"24%",height:"23%" },
+  { left:"10%",top:"47%",width:"24%",height:"23%" }, { left:"38%",top:"47%",width:"24%",height:"23%" }, { left:"66%",top:"47%",width:"24%",height:"23%" },
 ] as const;
 
 const GAME_PALETTES = [
@@ -55,7 +56,7 @@ function gameHash(name: string) {
   return [...name].reduce((value, char) => ((value * 31) + char.charCodeAt(0)) >>> 0, 17);
 }
 
-function ShelfGame({ game, slot }: { game?: Game; slot: (typeof SHELF_SLOTS)[number] }) {
+function ShelfGame({ game, slot }: { game?: Game; slot: { left: string; top: string; width: string; height: string } }) {
   if (!game) return null;
   const hash = gameHash(game.name);
   const colors = GAME_PALETTES[hash % GAME_PALETTES.length];
@@ -66,7 +67,7 @@ function ShelfGame({ game, slot }: { game?: Game; slot: (typeof SHELF_SLOTS)[num
   </div>;
 }
 
-function FurnitureSprite({ kind, id, className = "" }: { kind: keyof Furniture; id: string; className?: string }) {
+function FurnitureSprite({ kind, id, className = "" }: { kind: FurnitureKind; id: string; className?: string }) {
   const item = FURNITURE[kind].find((candidate) => candidate.id === id);
   const col = item?.col ?? 0;
   return <span aria-hidden="true" className={`block bg-[url('/hideout/furniture-sprites-v1.png')] bg-[length:300%_400%] bg-no-repeat ${className}`} style={{ backgroundPosition: `${col * 50}% ${FURNITURE_ROW[kind] * (100 / 3)}%` }} />;
@@ -74,6 +75,7 @@ function FurnitureSprite({ kind, id, className = "" }: { kind: keyof Furniture; 
 
 export default function HideoutEditor() {
   const supabase = useMemo(() => createClient(), []);
+  const roomRef = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<HideoutData | null>(null);
   const [look, setLook] = useState(DEFAULT_LOOK);
   const [furniture, setFurniture] = useState(DEFAULT_FURNITURE);
@@ -82,6 +84,7 @@ export default function HideoutEditor() {
   const [avatarPart, setAvatarPart] = useState<AvatarPart>("hair");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [draggingRoomItem, setDraggingRoomItem] = useState<RoomItemKey | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -119,6 +122,21 @@ export default function HideoutEditor() {
     setLook((old) => ({ ...old, positions: { ...old.positions, [part]: { x: 0, y: 0 } } }));
   }
 
+  const roomPosition = (key: RoomItemKey) => furniture.positions?.[key] ?? DEFAULT_ROOM_POSITIONS[key];
+  const roomDragProps = (key: RoomItemKey) => ({
+    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); setDraggingRoomItem(key); },
+    onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
+      if (draggingRoomItem !== key || !roomRef.current) return;
+      const bounds = roomRef.current.getBoundingClientRect();
+      const x = Math.max(5, Math.min(95, ((event.clientX - bounds.left) / bounds.width) * 100));
+      const y = Math.max(8, Math.min(92, ((event.clientY - bounds.top) / bounds.height) * 100));
+      setFurniture((old) => ({ ...old, positions: { ...old.positions, [key]: { x, y } } }));
+    },
+    onPointerUp: (event: ReactPointerEvent<HTMLElement>) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); setDraggingRoomItem(null); },
+    onPointerCancel: () => setDraggingRoomItem(null),
+  });
+  const roomStyle = (key: RoomItemKey) => ({ left: `${roomPosition(key).x}%`, top: `${roomPosition(key).y}%`, transform: "translate(-50%,-50%)" });
+
   if (!data) return <main className="min-h-screen bg-[#08090b] px-5 py-16 text-white"><div className="mx-auto h-96 max-w-6xl animate-pulse rounded-3xl bg-white/[0.04]"/><p className="mt-4 text-center text-sm text-zinc-500">{message || "아지트를 준비하고 있어요."}</p></main>;
 
   const selectedGames = shelf.map((id) => data.games.find((game) => game.id === id));
@@ -131,17 +149,13 @@ export default function HideoutEditor() {
         </div>
 
         <div className="mt-8 grid gap-5 lg:grid-cols-[1.45fr_.75fr]">
-          <div className="relative aspect-square overflow-hidden rounded-[2rem] border border-amber-300/30 bg-[#17120f] shadow-[0_30px_90px_rgba(0,0,0,.55)]">
-            <Image src="/hideout/cozy-room-v2.png" alt="따뜻한 보드게임 아지트" fill priority sizes="(min-width: 1024px) 680px, 100vw" className="object-cover" />
+          <div ref={roomRef} className="relative aspect-square overflow-hidden rounded-[2rem] border border-amber-300/30 bg-[#17120f] shadow-[0_30px_90px_rgba(0,0,0,.55)]">
+            <Image src={`/hideout/rooms/${furniture.theme ?? "walnut-parquet"}.png`} alt="꾸밀 수 있는 보드게임 아지트" fill priority sizes="(min-width: 1024px) 680px, 100vw" className="object-cover" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/10" />
             <div className="absolute left-[4%] top-[4%] rounded-full border border-amber-200/30 bg-black/55 px-3 py-1.5 text-[10px] font-bold text-amber-100 shadow-lg backdrop-blur sm:text-xs">LV. 1 · 첫 번째 아지트</div>
-
-            {selectedGames.map((game, index) => <ShelfGame key={index} game={game} slot={SHELF_SLOTS[index]} />)}
-
-            <FurnitureSprite kind="rug" id={furniture.rug} className="absolute bottom-[7%] left-[29%] z-[1] h-[25%] w-[42%] opacity-90 drop-shadow-[0_8px_8px_rgba(0,0,0,.35)]" />
-            <FurnitureSprite kind="plant" id={furniture.plant} className="absolute bottom-[15%] left-[7%] z-[3] h-[21%] w-[19%] drop-shadow-[0_12px_8px_rgba(0,0,0,.55)]" />
-            <FurnitureSprite kind="chair" id={furniture.chair} className="absolute bottom-[11%] right-[6%] z-[3] h-[25%] w-[23%] drop-shadow-[0_14px_10px_rgba(0,0,0,.6)]" />
-            <FurnitureSprite kind="lamp" id={furniture.lamp} className="absolute bottom-[28%] right-[24%] z-[2] h-[17%] w-[15%] drop-shadow-[0_10px_8px_rgba(0,0,0,.55)]" />
+            <div className="absolute z-[2] h-[34%] w-[39%] cursor-move touch-none" style={roomStyle("shelf")} {...roomDragProps("shelf")}><Image src="/hideout/room-items/shelf.png" alt="책장" fill className="pointer-events-none object-contain drop-shadow-xl"/>{selectedGames.map((game,index)=><ShelfGame key={index} game={game} slot={MOVABLE_SHELF_SLOTS[index]}/>)}</div>
+            {([['sofa','소파','h-[25%] w-[38%]'],['table','게임 테이블','h-[30%] w-[38%]'],['frames','액자','h-[22%] w-[24%]'],['clock','시계','h-[14%] w-[14%]'],['sconce','벽 조명','h-[16%] w-[15%]']] as const).map(([key,label,size])=><div key={key} className={`absolute z-[2] cursor-move touch-none ${size}`} style={roomStyle(key)} {...roomDragProps(key)}><Image src={`/hideout/room-items/${key}.png`} alt={label} fill className="pointer-events-none object-contain drop-shadow-xl"/></div>)}
+            {([['rug','h-[25%] w-[42%] z-[1]'],['plant','h-[21%] w-[19%] z-[3]'],['chair','h-[25%] w-[23%] z-[3]'],['lamp','h-[17%] w-[15%] z-[3]']] as const).map(([key,size])=><div key={key} className={`absolute cursor-move touch-none ${size}`} style={roomStyle(key)} {...roomDragProps(key)}><FurnitureSprite kind={key} id={furniture[key]} className="h-full w-full drop-shadow-xl"/></div>)}
 
             <div className="absolute bottom-[8%] left-1/2 z-[4] grid -translate-x-1/2 place-items-center">
               <StandingMemberAvatar look={look} size="h-28 w-20 sm:h-44 sm:w-28" />
@@ -151,7 +165,7 @@ export default function HideoutEditor() {
 
           <div className="rounded-[2rem] border border-white/10 bg-zinc-950 p-5">
             <div className="grid grid-cols-3 gap-2">{([ ["room","가구"], ["avatar","아바타"], ["shelf","책장"] ] as const).map(([id,label]) => <button key={id} onClick={() => setTab(id)} className={`rounded-xl px-3 py-2.5 text-sm font-bold ${tab === id ? "bg-amber-400 text-zinc-950" : "bg-white/5 text-zinc-400"}`}>{label}</button>)}</div>
-            {tab === "room" && <div className="mt-5 space-y-5">{(Object.keys(FURNITURE) as (keyof Furniture)[]).map((kind) => <fieldset key={kind}><legend className="mb-2 text-xs font-bold text-zinc-500">{{chair:"의자",lamp:"조명",rug:"러그",plant:"화분"}[kind]}</legend><div className="grid grid-cols-3 gap-2">{FURNITURE[kind].map((item) => <button key={item.id} onClick={() => setFurniture((old) => ({...old,[kind]:item.id}))} className={`overflow-hidden rounded-xl border p-2 transition ${furniture[kind] === item.id ? "border-amber-400 bg-amber-400/10 shadow-[0_0_22px_rgba(251,191,36,.12)]" : "border-white/10 bg-white/[.03] hover:border-white/25"}`}><FurnitureSprite kind={kind} id={item.id} className="mx-auto aspect-square w-full"/><span className="mt-1 block text-[10px] text-zinc-400 sm:text-[11px]">{item.name}</span></button>)}</div></fieldset>)}</div>}
+            {tab === "room" && <div className="mt-5 space-y-5"><div className="rounded-xl border border-amber-300/15 bg-amber-300/5 p-3 text-xs leading-5 text-amber-100/70">방 안의 책장·액자·소파·테이블·의자·조명을 직접 끌어서 배치할 수 있어요.</div><fieldset><legend className="mb-2 text-xs font-bold text-zinc-500">벽 · 바닥</legend><div className="grid grid-cols-3 gap-2">{ROOM_THEMES.map((theme)=><button key={theme.id} onClick={()=>setFurniture((old)=>({...old,theme:theme.id}))} className={`overflow-hidden rounded-xl border p-1.5 ${furniture.theme===theme.id?'border-amber-400 bg-amber-400/10':'border-white/10 bg-white/[.03]'}`}><span className="relative block aspect-square overflow-hidden rounded-lg"><Image src={`/hideout/rooms/${theme.id}.png`} alt="" fill className="object-cover"/></span><span className="mt-1 block text-[10px] text-zinc-400">{theme.name}</span></button>)}</div></fieldset>{(Object.keys(FURNITURE) as (keyof typeof FURNITURE)[]).map((kind) => <fieldset key={kind}><legend className="mb-2 text-xs font-bold text-zinc-500">{{chair:"의자",lamp:"조명",rug:"러그",plant:"화분"}[kind]}</legend><div className="grid grid-cols-3 gap-2">{FURNITURE[kind].map((item) => <button key={item.id} onClick={() => setFurniture((old) => ({...old,[kind]:item.id}))} className={`overflow-hidden rounded-xl border p-2 transition ${furniture[kind] === item.id ? "border-amber-400 bg-amber-400/10 shadow-[0_0_22px_rgba(251,191,36,.12)]" : "border-white/10 bg-white/[.03] hover:border-white/25"}`}><FurnitureSprite kind={kind} id={item.id} className="mx-auto aspect-square w-full"/><span className="mt-1 block text-[10px] text-zinc-400 sm:text-[11px]">{item.name}</span></button>)}</div></fieldset>)}</div>}
             {tab === "avatar" && <div className="mt-5 space-y-4">
               <div className="rounded-2xl border border-sky-400/20 bg-gradient-to-b from-sky-400/10 to-transparent p-3">
                 <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black text-sky-300">직접 위치 맞추기</p><p className="mt-1 text-[10px] text-zinc-500">선택한 파츠를 캐릭터 위에서 끌어 움직이세요.</p></div>{MOVABLE_PARTS.includes(avatarPart as AvatarMovablePart) && <button onClick={() => resetPartPosition(avatarPart as AvatarMovablePart)} className="rounded-lg border border-white/10 px-2 py-1.5 text-[10px] font-bold text-zinc-400">위치 초기화</button>}</div>
