@@ -177,19 +177,21 @@ declare
   changed text;
 begin
   select pg_get_functiondef('public.tichu_prepare_deity_opening()'::regprocedure) into fn;
-  changed := replace(
+  changed := regexp_replace(
     fn,
-    E'if bucket = ''power_one'' and\n          (select count(*) from unnest(opening) card where card between 48 and 51 or card in (54, 55)) > 1\n        then',
-    E'if (select count(*) from unnest(opening) card where card between 48 and 51 or card in (54, 55)) >\n+          (case when bucket = ''power_one'' then 1 else 0 end)\n+        then'
+    'if\s+bucket\s*=\s*''power_one''\s+and\s+\(select\s+count\(\*\)\s+from\s+unnest\(opening\)\s+card\s+where\s+card\s+between\s+48\s+and\s+51\s+or\s+card\s+in\s*\(54,\s*55\)\)\s*>\s*1\s+then',
+    E'if (select count(*) from unnest(opening) card where card between 48 and 51 or card in (54, 55)) >\n          (case when bucket = ''power_one'' then 1 else 0 end)\n        then',
+    'i'
   );
   if changed = fn then raise exception '티츄신 최초 8장 특수카드 제한을 찾지 못했습니다.'; end if;
   execute changed;
 
   select pg_get_functiondef('public.tichu_apply_god_opening_handicap()'::regprocedure) into fn;
-  changed := replace(
+  changed := regexp_replace(
     fn,
-    E'if new.deity_human_bonus = ''power_one'' and\n          (select count(*) from unnest(candidate) card where card between 48 and 51 or card in (54, 55)) <> 1\n        then',
-    E'if (select count(*) from unnest(candidate) card where card between 48 and 51 or card in (54, 55)) <>\n+          (case when new.deity_human_bonus = ''power_one'' then 1 else 0 end)\n+        then'
+    'if\s+new\.deity_human_bonus\s*=\s*''power_one''\s+and\s+\(select\s+count\(\*\)\s+from\s+unnest\(candidate\)\s+card\s+where\s+card\s+between\s+48\s+and\s+51\s+or\s+card\s+in\s*\(54,\s*55\)\)\s*<>\s*1\s+then',
+    E'if (select count(*) from unnest(candidate) card where card between 48 and 51 or card in (54, 55)) <>\n          (case when new.deity_human_bonus = ''power_one'' then 1 else 0 end)\n        then',
+    'i'
   );
   if changed = fn then raise exception '티츄신 최종 14장 특수카드 제한을 찾지 못했습니다.'; end if;
   execute changed;
