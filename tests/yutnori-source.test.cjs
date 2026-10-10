@@ -54,7 +54,7 @@ test("shows board-centered notices and animates pieces across route nodes", () =
   assert.match(client, /function movementNodes/);
   assert.match(client, /function AnimatedYutPiece/);
   assert.match(client, /transition-\[left,top\]/);
-  assert.match(client, /if \(nodeOf\(piece\) === 99\) continue/);
+  assert.match(client, /piece\.step_index === 0 \|\| nodeOf\(piece\) === 99/);
   assert.match(client, /if \(currentNode === 99\) return null/);
   assert.match(client, /absolute left-1\/2 top-1\/2 z-50/);
   assert.doesNotMatch(client, /fixed left-1\/2 top-20 z-50/);

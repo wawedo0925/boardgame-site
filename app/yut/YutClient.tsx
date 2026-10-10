@@ -1174,7 +1174,7 @@ function YutBoard({
   ];
   const groups = new Map<string, Piece[]>();
   for (const piece of pieces) {
-    if (nodeOf(piece) === 99) continue;
+    if (piece.step_index === 0 || nodeOf(piece) === 99) continue;
     const key = `${piece.team}-${nodeOf(piece)}`;
     groups.set(key, [...(groups.get(key) ?? []), piece]);
   }
