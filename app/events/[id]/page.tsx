@@ -387,11 +387,10 @@ export default function EventDetailPage() {
     setIsActionLoading(true);
 
     const { data, error } = await supabase.rpc(
-      "join_event_with_arrival",
+      choice.partyGm ? "join_event_party_gm" : "join_event_with_arrival",
       {
         p_event_id: eventId,
-        p_arrival_at: choice.arrivalAt,
-        p_arrival_mode: choice.mode,
+        ...(choice.partyGm ? {} : { p_arrival_at: choice.arrivalAt, p_arrival_mode: choice.mode }),
       },
     );
 
@@ -407,8 +406,8 @@ export default function EventDetailPage() {
     if (data === "GM_PENDING") {
       alert("GM 지정 대기로 참가했습니다. 룰마 이상이 GM으로 지정할 수 있으며 플레이어 정원에서는 제외됩니다.");
     } else if (data === "WAITLISTED") {
-      alert("정원이 가득 차 대기 명단에 등록되었습니다.");
-    } else if (event?.event_kind === "BOARDGAME") {
+      alert(choice.partyGm ? "대기 명단에 등록되었습니다. 참가 확정 시 팟 참가와 본인 조·룰마스터가 자동 설정됩니다." : "정원이 가득 차 대기 명단에 등록되었습니다.");
+    } else if (event?.event_kind === "BOARDGAME" && !choice.partyGm) {
       setPreferencePromptOpen(true);
     }
 
