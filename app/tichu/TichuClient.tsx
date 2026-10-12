@@ -1363,13 +1363,12 @@ export default function TichuClient() {
       snap.room.lead?.kind === "single" &&
       !snap.room.lead.bomb &&
       snap.room.lead.strength >= 14;
-    // An A or Dragon lead normally has no ordinary reply. Start the server-side
-    // counter check immediately so an AI with neither a higher single nor a
-    // bomb passes in under a second instead of waiting through the normal beat.
+    // Keep automatic turns visible for at least 800ms, including fast passes
+    // and boosted play. Setup phases can still run immediately when boosted.
     const delay = snap.room.bot_boost_enabled
-      ? 0
+      ? snap.room.status === "PLAYING" ? 800 : 0
       : highSingleFastDecision
-        ? 350
+        ? 800
         : 1500;
     const timer = setTimeout(() => void run(), delay);
     return () => {
