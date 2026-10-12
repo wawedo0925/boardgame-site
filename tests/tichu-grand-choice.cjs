@@ -40,6 +40,10 @@ const { PGlite } = require('../.local-reference/clocktower/test-runtime/node_mod
   assert.equal((await db.query('select grand_choice from tichu_players where room_id=$1 and user_id=$2', [broken.room, ids[0]])).rows[0].grand_choice, null);
   await db.exec(original);
   await db.exec(fs.readFileSync(`supabase/migrations/${migration}`, 'utf8'));
+  await db.exec(fs.readFileSync('supabase/migrations/20261013020000_tichu_server_clock.sql', 'utf8'));
+  const synced = (await db.query('select tichu_snapshot($1) state', [broken.room])).rows[0].state;
+  assert(Number.isFinite(Date.parse(synced.server_time)), 'snapshot supplies server clock');
+  assert.equal(synced.me.user_id, ids[0], 'snapshot member access preserved');
 
   async function finish(fixture, call, botLast, bonus = null, god = false) {
     const { room, openings } = fixture;

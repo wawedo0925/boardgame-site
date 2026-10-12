@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import TichuTutorial from "./TichuTutorial";
+import { sampleTichuClock, tichuSecondsLeft, type TichuClock } from "@/lib/tichu-clock";
 
 type Combo = { kind: string; size: number; strength: number; bomb: boolean };
 type Lobby = {
@@ -74,6 +75,7 @@ type Room = {
   bot_boost_enabled: boolean;
 };
 type Snap = {
+  server_time?: string;
   room: Room;
   spectator: boolean;
   viewer_name: string;
@@ -717,6 +719,8 @@ export default function TichuClient() {
     dogCardTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     loadInFlight = useRef(false),
     botInFlight = useRef(false),
+    serverClock = useRef<TichuClock | null>(null),
+    lastTimeoutAttempt = useRef(0),
     timeoutInFlight = useRef(false);
   const [user, setUser] = useState<string | null>(null),
     [rooms, setRooms] = useState<Lobby[]>([]),
@@ -726,7 +730,7 @@ export default function TichuClient() {
     [target, setTarget] = useState(1000),
     [waitingTarget, setWaitingTarget] = useState(1000),
     [seconds, setSeconds] = useState(15),
-    [left, setLeft] = useState(0),
+    [left, setLeft] = useState<number | null>(null),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [wish, setWish] = useState(0),
@@ -1090,13 +1094,14 @@ export default function TichuClient() {
           supabase.rpc("tichu_spectator_names", { p_room: roomId }),
         ]);
         if (error) return;
-        if (data)
+        if (data) {
+          serverClock.current = sampleTichuClock((data as Snap).server_time, performance.now());
           setSnap({
             ...(data as Snap),
             exchange_pending_ids: (pending || []) as string[],
             spectator_names: (spectatorNames || []) as string[],
           });
-        else {
+        } else {
           setRoomId(null);
           setSnap(null);
         }
@@ -1162,6 +1167,7 @@ export default function TichuClient() {
             supabase.rpc("tichu_spectator_names", { p_room: roomId }),
           ]);
           if (data) {
+            serverClock.current = sampleTichuClock((data as Snap).server_time, performance.now());
             const next: Snap = {
                 ...(data as Snap),
                 exchange_pending_ids: (pending || []) as string[],
@@ -1381,18 +1387,18 @@ export default function TichuClient() {
   }, [botAct, roomId, snap]);
   useEffect(() => {
     const tick = () => {
-      if (!snap) return setLeft(0);
+      if (!snap) return setLeft(null);
       const deadline =
         snap.room.status === "EXCHANGE"
           ? snap.room.exchange_deadline
           : snap.room.turn_deadline;
-      if (!deadline) return setLeft(0);
-      const n = Math.max(
-        0,
-        Math.ceil((new Date(deadline).getTime() - Date.now()) / 1000),
-      );
+      if (!deadline) return setLeft(null);
+      const n = tichuSecondsLeft(deadline, serverClock.current, performance.now());
+      // Do not expire a turn using an unsynchronized device clock.
+      if (n === null) return setLeft(null);
       setLeft(n);
-      if (!n && roomId && !snap.spectator && !timeoutInFlight.current) {
+      if (!n && roomId && !snap.spectator && !timeoutInFlight.current &&
+          performance.now() - lastTimeoutAttempt.current >= 3000) {
         const timeoutRpc =
           snap.room.status === "PLAYING"
             ? "tichu_timeout"
@@ -1401,6 +1407,7 @@ export default function TichuClient() {
               : null;
         if (timeoutRpc) {
           timeoutInFlight.current = true;
+          lastTimeoutAttempt.current = performance.now();
           void act(timeoutRpc, { p_room: roomId }).finally(() => {
             timeoutInFlight.current = false;
           });
@@ -2267,9 +2274,9 @@ export default function TichuClient() {
                   </p>
                 )}
                 <div
-                  className={`mx-auto w-fit rounded-full px-3 py-1 text-lg font-black ${left <= 5 ? "bg-red-500 text-white" : "bg-white/10"}`}
+                  className={`mx-auto w-fit rounded-full px-3 py-1 text-lg font-black ${left !== null && left <= 5 ? "bg-red-500 text-white" : "bg-white/10"}`}
                 >
-                  {left}초
+                  {left === null ? "동기화 중" : `${left}초`}
                 </div>
               </div>
             )}
@@ -2350,9 +2357,9 @@ export default function TichuClient() {
               </p>
             </div>
             <span
-              className={`shrink-0 rounded-full px-3 py-1 text-sm font-black ${left <= 5 ? "bg-red-500 text-white" : "bg-amber-300 text-black"}`}
+              className={`shrink-0 rounded-full px-3 py-1 text-sm font-black ${left !== null && left <= 5 ? "bg-red-500 text-white" : "bg-amber-300 text-black"}`}
             >
-              {left}초
+              {left === null ? "동기화 중" : `${left}초`}
             </span>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-white/5 p-3">
