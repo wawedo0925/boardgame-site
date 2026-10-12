@@ -1111,7 +1111,9 @@ export default function TichuClient() {
       const { data, error } = await supabase.rpc(name, args);
       setBusy(false);
       if (error) {
-        setMessage(error.message);
+        setMessage(error.code === "57014"
+          ? "서버 처리 시간이 초과됐습니다. 화면을 새로고침해 선택 상태를 확인한 뒤 다시 시도해 주세요."
+          : error.message);
         throw error;
       }
       return data;
@@ -2425,6 +2427,7 @@ export default function TichuClient() {
               <>
                 <button
                   onClick={() => void declare("grand")}
+                  disabled={busy}
                   className="rounded-xl bg-amber-300 px-5 py-2 text-sm font-black text-black"
                 >
                   라지 티츄!
@@ -2436,6 +2439,7 @@ export default function TichuClient() {
                       p_call: false,
                     })
                   }
+                  disabled={busy}
                   className="rounded-xl border border-white/15 px-5 py-2 text-sm"
                 >
                   선언 안 함
