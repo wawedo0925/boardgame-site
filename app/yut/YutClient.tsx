@@ -1211,7 +1211,7 @@ function Game({
             </div>
             <aside className="rounded-3xl border border-white/10 bg-white/[.035] p-5">
               <div className="flex items-center justify-between gap-2">
-                <div>
+                <div className="min-w-0 max-w-[35%] shrink-0">
                   <p className="text-lg font-bold text-zinc-200">현재 차례</p>
                   <h2
                     className={`mt-1 break-words text-4xl font-black sm:text-5xl ${teamStyles[current?.team ?? 0].text}`}
@@ -1219,6 +1219,21 @@ function Game({
                     {current?.name}
                   </h2>
                 </div>
+              {room.pending_moves.length > 0 && <div className="min-w-0 flex-1 text-center">
+                <p className="mb-2 text-xs text-zinc-300">사용할 결과를 골라 주세요</p>
+                <div className="flex flex-wrap justify-center gap-1.5">
+                  {room.pending_moves.map((m, i) => (
+                    <button key={`${m}-${i}`} type="button"
+                      aria-label={`${i + 1}번째 결과 ${resultLabel[m]} 사용`}
+                      aria-pressed={i === selectedMoveIndex}
+                      disabled={!myTurn || busy || (room.mode === "PSYCHOLOGY" && room.can_roll)}
+                      onClick={() => { setMoveSelection({ key: moveListKey, index: i }); setRouteChoice(null); }}
+                      className={`min-h-11 rounded-full border-2 px-2 py-2 text-sm font-black disabled:cursor-default ${i === selectedMoveIndex ? "border-white bg-amber-300 text-black" : "border-amber-300/50 bg-black/30 text-amber-200"}`}>
+                      {resultLabel[m]}{i === selectedMoveIndex ? " ✓" : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>}
                 {room.mode === "PSYCHOLOGY" && room.can_roll && (
                   <div className="min-w-0 max-w-[65%] text-right text-xs text-zinc-300">
                     <p className="font-bold text-amber-200">판 위에서 윷 두 개를 골라 주세요</p>
@@ -1245,21 +1260,6 @@ function Game({
                   </b>
                 </div>
               )}
-              {room.pending_moves.length > 0 && <div className="mt-4">
-                <p className="mb-2 text-xs text-zinc-300">사용할 결과를 고른 뒤 말을 눌러 주세요</p>
-                <div className="flex flex-wrap gap-2">
-                  {room.pending_moves.map((m, i) => (
-                    <button key={`${m}-${i}`} type="button"
-                      aria-label={`${i + 1}번째 결과 ${resultLabel[m]} 사용`}
-                      aria-pressed={i === selectedMoveIndex}
-                      disabled={!myTurn || busy || (room.mode === "PSYCHOLOGY" && room.can_roll)}
-                      onClick={() => { setMoveSelection({ key: moveListKey, index: i }); setRouteChoice(null); }}
-                      className={`min-h-11 rounded-full border-2 px-4 py-2 text-sm font-black disabled:cursor-default ${i === selectedMoveIndex ? "border-white bg-amber-300 text-black" : "border-amber-300/50 bg-black/30 text-amber-200"}`}>
-                      {resultLabel[m]}{i === selectedMoveIndex ? " ✓" : ""}
-                    </button>
-                  ))}
-                </div>
-              </div>}
               {myTurn && room.can_roll && room.mode !== "PSYCHOLOGY" && (
                 <button
                   disabled={busy}
