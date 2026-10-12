@@ -1111,6 +1111,7 @@ function Game({
       ) : (
         <>
           <section className="mt-4 grid gap-4 lg:grid-cols-[1fr_18rem]">
+            <div className="relative min-w-0 self-start">
             <YutBoard
               room={room}
               players={players}
@@ -1124,6 +1125,14 @@ function Game({
               turnNotice={turnNotice}
               moveAnimation={moveAnimation}
             />
+                  {room.mode === "PSYCHOLOGY" && room.can_roll && <div className="absolute left-1/2 top-1/2 z-40 w-[84%] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-amber-200/60 bg-zinc-950/95 p-3 text-center shadow-2xl">
+                    <p className="text-sm font-black text-amber-200">{myTurn ? "내 턴" : "상대 턴"} · 윷 두 개를 골라 주세요</p><p className="mt-1 text-xs text-zinc-300">두 사람이 모두 고르면 공개돼요</p>
+                    <div className="my-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs">{players.map(p=><p key={p.id}>{p.name}: {room.mind_selected?.includes(p.id)?'선택 완료':'선택 중'}</p>)}</div>
+                    {room.mind_selected?.includes(me.id) ? <p className="text-sm text-emerald-300">내 선택: <YutStickPair fronts={room.mind_my_choice ?? 0} compact /> · 상대를 기다리는 중</p> : <div className="grid grid-cols-3 gap-2">{[1,2,0].map(fronts=><button key={fronts} aria-label={stickChoiceLabel(fronts)} disabled={busy} onClick={()=>action('yut_mind_choose',{p_round:room.mind_round,p_fronts:fronts})} className="rounded-xl border border-amber-200/40 bg-amber-300/10 px-1 py-2 text-sm font-black disabled:opacity-50"><YutStickPair fronts={fronts} /></button>)}</div>}
+                    <p className="mt-2 text-[11px] text-zinc-400">누르면 선택 확정 · 확정 후에는 바꿀 수 없어요.</p>
+{notice && <p role="alert" className="mt-1 text-xs text-red-300">{notice}</p>}
+                  </div>}
+            </div>
             <aside className="rounded-3xl border border-white/10 bg-white/[.035] p-5">
               <div className="flex items-center justify-between gap-2">
                 <div>
@@ -1176,12 +1185,7 @@ function Game({
                 <div className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-300/5 p-3">
                   <p className="font-black text-amber-200">1:1 심리전 · 도는 빽도</p>
                   {room.mind_reveal && <div className="mt-2 text-sm text-zinc-300"><p>지난 선택 공개</p>{room.mind_reveal.map(c=><p key={c.player_id}>{players.find(p=>p.id===c.player_id)?.name}: <YutStickPair fronts={c.fronts} compact /></p>)}</div>}
-                  {room.can_roll && <>
-                    <p className="mt-3 text-sm">{current?.name}님의 이동 결과를 정해요. 두 사람이 모두 고르면 공개됩니다.</p>
-                    <div className="my-3 space-y-1 text-sm">{players.map(p=><p key={p.id}>{p.name}: {room.mind_selected?.includes(p.id)?'선택 완료':'선택 중'}</p>)}</div>
-                    {room.mind_selected?.includes(me.id) ? <p className="text-sm text-emerald-300">내 선택: <YutStickPair fronts={room.mind_my_choice ?? 0} compact /> · 상대를 기다리는 중</p> : <div className="grid grid-cols-3 gap-2">{[1,2,0].map(fronts=><button key={fronts} aria-label={stickChoiceLabel(fronts)} disabled={busy} onClick={()=>action('yut_mind_choose',{p_round:room.mind_round,p_fronts:fronts})} className="rounded-xl border border-amber-200/40 bg-amber-300/10 px-1 py-4 text-sm font-black disabled:opacity-50"><YutStickPair fronts={fronts} /></button>)}</div>}
-                    <p className="mt-2 text-xs text-zinc-400">누르면 선택 확정 · 확정 후에는 바꿀 수 없어요.</p>
-                  </>}
+
                 </div>
               )}
               {!myTurn && (
