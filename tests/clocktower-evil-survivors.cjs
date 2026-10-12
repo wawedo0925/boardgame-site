@@ -1,0 +1,55 @@
+const assert=require('node:assert/strict'),fs=require('fs');
+const {createTestDb}=require('./clocktower-bmr-db.cjs');
+(async()=>{
+ const db=await createTestDb();
+ for(const file of fs.readdirSync('supabase/migrations').filter(f=>f.includes('clocktower')&&f>='20260927010000').sort())await db.exec(fs.readFileSync('supabase/migrations/'+file,'utf8'));
+ const host='10000000-0000-0000-0000-000000000001',event='20000000-0000-0000-0000-000000000001';
+ const ids=Array.from({length:5},(_,i)=>'30000000-0000-0000-0000-'+String(i+1).padStart(12,'0'));
+ await db.query('insert into auth.users(id) select unnest($1::uuid[])',[[host,...ids]]);
+ await db.query("insert into profiles(id,activity_name,site_role) values($1,'Host','MAIN_ADMIN')",[host]);
+ for(const id of ids)await db.query("insert into profiles(id,activity_name) values($1,'Player')",[id]);
+ await db.query("insert into events(id,title,event_kind,created_by) values($1,'점철되는 혼란','CLOCKTOWER',$2)",[event,host]);
+ await db.query("insert into games(name) values('시계탑에 흐른 피')");
+ await db.query('insert into event_participants select $1,unnest($2::uuid[])',[event,ids]);
+ const login=id=>db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await login(host);
+ const command=(action,data={})=>db.query('select clocktower_live_command($1,$2,$3)',[event,action,JSON.stringify(data)]);
+ const snap=async()=>(await db.query('select clocktower_live_snapshot($1) s',[event])).rows[0].s;
+ await command('create');let s=await snap();const room=s.room.id;
+ await db.query("update clocktower_live_rooms set script='TB' where id=$1",[room]);
+ const roles=['임프','남작','독살범','은둔자','주정뱅이'];
+ for(let i=0;i<5;i++)await db.query('update clocktower_live_members set actual_role=$3,shown_role=$3,alive=$4 where room_id=$1 and user_id=$2',[room,ids[i],roles[i],i<3]);
+ assert.equal((await snap()).evil_survivors,null,'no setup prompt');
+ await db.query("update clocktower_live_rooms set phase='DAY',night=3 where id=$1",[room]);
+ s=await snap();assert.ok(s.evil_survivors);const key=s.evil_survivors;
+ await login(ids[0]);assert.equal((await snap()).evil_survivors,undefined,'no secret exposed to players');
+ await assert.rejects(()=>command('evil_survivors_end',{room_id:room,key}),/이야기꾼/);await login(host);
+ await command('evil_survivors_continue',{room_id:room,key});assert.equal((await snap()).evil_survivors,null,'dismissal survives reload');
+ await db.query("update clocktower_live_rooms set night=4 where id=$1",[room]);assert.ok((await snap()).evil_survivors,'new phase can prompt again');
+ await assert.rejects(()=>command('evil_survivors_end',{room_id:room,key}),/바뀌었습니다/);
+ for(const id of ids.slice(3)){await db.query('update clocktower_live_members set alive=true where room_id=$1 and user_id=$2',[room,id]);assert.equal((await snap()).evil_survivors,null,'outsiders remain good');await db.query('update clocktower_live_members set alive=false where room_id=$1 and user_id=$2',[room,id]);}
+ await db.query("update clocktower_live_rooms set phase='NIGHT',night_engine='{}' where id=$1",[room]);assert.equal((await snap()).evil_survivors,null,'wait for night effects');
+ await db.query('update clocktower_live_rooms set night_engine=$2 where id=$1',[room,JSON.stringify({finished:true})]);assert.ok((await snap()).evil_survivors);
+ // BMR uses actual faction, and counts the Zombuul as alive despite public death.
+ await db.query("update clocktower_live_rooms set script='BMR',phase='DAY',bmr_state='{}' where id=$1",[room]);
+ const br=['좀비얼','대부','건달','미치광이','교수'];
+ for(let i=0;i<5;i++)await db.query('update clocktower_live_members set actual_role=$3,bmr=$4,alive=$5 where room_id=$1 and user_id=$2',[room,ids[i],br[i],JSON.stringify({life:i===0?'ZOMBIE':i<3?'ALIVE':'DEAD',faction:i<3?'EVIL':'GOOD'}),i===1||i===2]);
+ assert.ok((await snap()).evil_survivors);
+ await db.query("update clocktower_live_members set bmr=jsonb_set(bmr,'{faction}',to_jsonb('GOOD'::text)) where room_id=$1 and user_id=$2",[room,ids[2]]);assert.equal((await snap()).evil_survivors,null,'good goon prevents prompt');
+ await db.query("update clocktower_live_members set bmr=jsonb_set(bmr,'{faction}',to_jsonb('EVIL'::text)) where room_id=$1 and user_id=$2",[room,ids[2]]);
+ for(const flag of ['pending','waiting','mastermind']){await db.query('update clocktower_live_rooms set bmr_state=$2 where id=$1',[room,JSON.stringify({auto:{[flag]:{}}})]);assert.equal((await snap()).evil_survivors,null,flag+' blocks suggestion');}
+ await db.query("update clocktower_live_rooms set bmr_state='{}' where id=$1",[room]);
+ s=await snap();const stale=s.evil_survivors;
+ await db.query("insert into clocktower_live_votes(room_id,day,nominator,nominee,status,voter_order,threshold) values($1,4,$2,$3,'WAITING',$4::uuid[],2)",[room,ids[1],ids[2],ids]);
+ assert.equal((await snap()).evil_survivors,null,'active voting takes precedence');
+ await assert.rejects(()=>command('evil_survivors_end',{room_id:room,key:stale}),/바뀌었습니다/);
+ await db.query("update clocktower_live_votes set status='CANCELLED' where room_id=$1",[room]);
+ await db.query("update clocktower_live_members set bmr=jsonb_set(bmr,'{life}',to_jsonb('ALIVE'::text)) where room_id=$1 and user_id=$2",[room,ids[4]]);
+ assert.equal((await snap()).evil_survivors,null,'revived good player blocks suggestion');
+ await assert.rejects(()=>command('evil_survivors_end',{room_id:room,key:stale}),/바뀌었습니다/);
+ await db.query("update clocktower_live_members set bmr=jsonb_set(bmr,'{life}',to_jsonb('DEAD'::text)) where room_id=$1 and user_id=$2",[room,ids[4]]);
+ s=await snap();const finalKey=s.evil_survivors;
+ await command('evil_survivors_end',{room_id:room,key:finalKey});s=await snap();assert.equal(s.room.phase,'ENDED');assert.equal(s.room.winner,'EVIL');assert.ok(s.room.result_round_id,'result auto saved');assert.equal(s.evil_survivors,null);
+ await assert.rejects(()=>command('evil_survivors_end',{room_id:room,key:finalKey}),/바뀌었습니다/);
+ assert.equal((await db.query("select has_function_privilege('authenticated','clocktower_evil_survivors_key(uuid)','execute') p")).rows[0].p,false);
+ console.log('PASS: host privacy, TB/BMR actual factions, dead outsiders, zombie, phase timing, dismissal, stale/duplicate/unauthorized requests, result autosave');await db.close();
+})().catch(e=>{console.error(e.message,e.where||'',e.stack);process.exit(1)});

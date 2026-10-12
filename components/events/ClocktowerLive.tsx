@@ -10,6 +10,7 @@ import ClocktowerGossip from './ClocktowerGossip';
 import ClocktowerMoonchild, { ClocktowerMoonchildToggle } from './ClocktowerMoonchild';
 import ClocktowerPrivateRole from './ClocktowerPrivateRole';
 import ClocktowerPopup from './ClocktowerPopup';
+import ClocktowerEvilSurvivors from './ClocktowerEvilSurvivors';
 import ClocktowerPlayerActivity from './ClocktowerPlayerActivity';
 import { phaseAnnouncement } from '@/lib/clocktower/popups';
 import ClocktowerNightFlow from './ClocktowerNightFlow';
@@ -94,6 +95,7 @@ export default function ClocktowerLive({ eventId, expectedRoomId }: { eventId: s
       </section>}
       {room.script==='BMR'&&<ClocktowerMoonchild key={`moon:${room.id}`} state={state} run={run} busy={busy} error={error} allowPopup={allowPopup&&room.phase==='DAY'&&!state.bmr?.auto?.pending&&!(state.votes??[]).some(v=>v.status==='RUNNING'||v.status==='WAITING')}/>}
       {state.is_host ? room.script==='BMR' ? <ClocktowerBmrHost key={room.id} state={state} run={run} busy={busy} error={error}/> : <Host key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} /> : <Player key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup&&!moonPopup} error={error} />}
+      {state.is_host&&<ClocktowerEvilSurvivors state={state} run={run} busy={busy} error={error} allowPopup={allowPopup&&!moonPopup}/> }
       <ClocktowerRecap key={`recap:${room.id}`} roomId={room.id} />
     </>}
     {!hidden&&announcement&&!allowPopup&&<ClocktowerPopup title={announcement.title} onClose={()=>setSeenPhase(announcement.key)}><div className="space-y-6 text-center"><p aria-hidden="true" className="text-6xl">{announcement.icon}</p><p className="text-lg leading-8">{announcement.description}</p><button className={`${button} w-full`} onClick={()=>setSeenPhase(announcement.key)}>확인</button></div></ClocktowerPopup>}
