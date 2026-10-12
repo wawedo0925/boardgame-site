@@ -4,6 +4,7 @@ import { advanceBmr, bmrProjection, startBmr, type BmrAuto, type BmrInput, type 
 import { bmrExecutionCandidate } from '@/lib/clocktower/bmr';
 import type { LiveState } from '@/lib/clocktower/live';
 import ClocktowerPopup from './ClocktowerPopup';
+import ClocktowerReadiness from './ClocktowerReadiness';
 import { gossipJudgment } from './ClocktowerGossip';
 type Props={state:LiveState;busy:boolean;error:string;run:(action:string,data?:Record<string,unknown>)=>Promise<boolean>};
 const button='rounded-xl bg-violet-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40';
@@ -50,7 +51,7 @@ export default function ClocktowerBmrAutomatic({state,busy,error,run}:Props){
   {paused&&<button className={button} disabled={busy} onClick={()=>{attempted.current='';setLocalError('');setPaused(false);}}>최신 상태로 다시 진행</button>}
   {room.phase==='NIGHT'&&<><p>{engine?.finished?'밤 판정 완료':engine?.pending?'이야기꾼 판정 대기':request?`${state.members?.find(m=>m.user_id===request.user_id)?.name} · 선택 대기`:'다음 차례 준비 중'}</p>
    {engine?.finished&&<button className={button} disabled={busy||pending} onClick={()=>void dispatch({type:'dawn'})}>낮 시작 · 사망/부활 공개</button>}
-   {engine?.finished&&pending&&<p className="text-sm text-amber-200">참가자들이 받은 결과와 공통 미션을 확인하면 낮을 시작할 수 있습니다.</p>}
+   <ClocktowerReadiness state={state} busy={busy}/>
   </>}
   {room.phase==='DAY'&&engine&&<>
    {engine.players.filter(p=>p.role==='땜장이'&&p.life!=='DEAD').map(p=><button key={p.id} className={button} disabled={busy||voting} onClick={()=>{if(confirm(`${p.name}의 땜장이 능력으로 사망을 시도할까요?`))void dispatch({type:'tinker',target:p.id});}}>땜장이 · 사망 판정</button>)}
