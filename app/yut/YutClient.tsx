@@ -271,6 +271,7 @@ export default function YutClient() {
     [notice, setNotice] = useState(""),
     [captureNotice, setCaptureNotice] = useState(""),
     [turnNotice, setTurnNotice] = useState(""),
+    [autoSeconds, setAutoSeconds] = useState<number | null>(null),
     [moveAnimation, setMoveAnimation] = useState<MoveAnimation | null>(null),
     [tutorialOpen, setTutorialOpen] = useState(false);
   const roomId = snap?.room.id ?? null,
@@ -485,6 +486,7 @@ export default function YutClient() {
     if (!roomId) return;
     autoStateRef.current = "";
     autoDueRef.current = 0;
+    setAutoSeconds(null);
     const timer = setInterval(async () => {
       const latest = snapRef.current,
         current = latest?.players.find(
@@ -493,21 +495,24 @@ export default function YutClient() {
       if (
         latest?.room.status !== "PLAYING" ||
         (latest.room.mode === "PSYCHOLOGY" && latest.room.can_roll) ||
-        current?.id !== latest.me.id ||
-        current.is_bot ||
-        autoBusy.current
+        !current ||
+        current.is_bot
       ) {
         autoStateRef.current = "";
         autoDueRef.current = 0;
+        setAutoSeconds(null);
         return;
       }
+      if (autoBusy.current) return;
       const state = `${latest.room.turn_seat}:${latest.room.revision}:${latest.room.can_roll ? "roll" : "move"}`;
       if (autoStateRef.current !== state) {
         autoStateRef.current = state;
         autoDueRef.current = Date.now() + (latest.room.can_roll ? 5000 : 15000);
+        setAutoSeconds(latest.room.can_roll ? 5 : 15);
         return;
       }
-      if (Date.now() < autoDueRef.current) return;
+      setAutoSeconds(Math.max(0, Math.ceil((autoDueRef.current - Date.now()) / 1000)));
+      if (Date.now() < autoDueRef.current || current.id !== latest.me.id) return;
       autoBusy.current = true;
       autoDueRef.current = Number.POSITIVE_INFINITY;
       try {
@@ -519,6 +524,7 @@ export default function YutClient() {
         await loadRoom(roomId);
       } finally {
         autoBusy.current = false;
+        autoStateRef.current = "";
       }
     }, 200);
     return () => clearInterval(timer);
@@ -643,6 +649,7 @@ export default function YutClient() {
         notice={notice}
         captureNotice={captureNotice}
         turnNotice={turnNotice}
+        autoSeconds={autoSeconds}
         moveAnimation={moveAnimation}
         onTutorial={() => setTutorialOpen(true)}
         action={action}
@@ -925,6 +932,7 @@ function Game({
   notice,
   captureNotice,
   turnNotice,
+  autoSeconds,
   moveAnimation,
   onTutorial,
   action,
@@ -939,6 +947,7 @@ function Game({
   notice: string;
   captureNotice: string;
   turnNotice: string;
+  autoSeconds: number | null;
   moveAnimation: MoveAnimation | null;
   onTutorial: () => void;
   action: (n: string, a?: Record<string, unknown>) => void;
@@ -1187,6 +1196,7 @@ function Game({
               onRouteChoice={chooseRoute}
               captureNotice={captureNotice}
               turnNotice={turnNotice}
+        autoSeconds={autoSeconds}
               moveAnimation={moveAnimation}
             />
               {room.mode === "PSYCHOLOGY" && room.can_roll && rollNotice === null && (
@@ -1327,6 +1337,7 @@ function YutBoard({
   onRouteChoice,
   captureNotice,
   turnNotice,
+  autoSeconds,
   moveAnimation,
 }: {
   room: Room;
@@ -1339,6 +1350,7 @@ function YutBoard({
   onRouteChoice: (route: "LEFT" | "RIGHT" | "OUTER" | "DIAGONAL") => void;
   captureNotice: string;
   turnNotice: string;
+  autoSeconds: number | null;
   moveAnimation: MoveAnimation | null;
 }) {
   const nodes = [
@@ -1393,6 +1405,12 @@ function YutBoard({
           />
         );
       })}
+      {autoSeconds !== null && room.status === "PLAYING" && !(room.mode === "PSYCHOLOGY" && room.can_roll) && (
+        <div role="timer" aria-label={`자동 진행까지 ${autoSeconds}초`} className="pointer-events-none absolute left-1/2 top-[19%] z-10 -translate-x-1/2 text-center">
+          <p className="text-[10px] font-bold text-white/70 sm:text-xs">자동 진행</p>
+          <p className={`text-3xl font-black tabular-nums drop-shadow-lg sm:text-4xl ${autoSeconds <= 3 ? "text-red-300" : "text-white"}`}>{autoSeconds}<span className="ml-0.5 text-sm">초</span></p>
+        </div>
+      )}
       <div className="pointer-events-none absolute bottom-1 right-2 text-[10px] text-amber-100/50">
         출발 / 도착
       </div>
