@@ -1730,8 +1730,8 @@ function RoomChat({ roomId, name }: { roomId: string; name: string }) {
               top: position?.y ?? 80,
               width: size.width,
               height: size.height,
-              backgroundColor: `rgba(255,255,255,${opacity / 100})`,
-              borderColor: `rgba(255,255,255,${(opacity / 100) * 0.75})`,
+              backgroundColor: `rgba(16,29,23,${opacity / 100})`,
+              borderColor: `rgba(167,196,174,${(opacity / 100) * 0.35})`,
               boxShadow: `0 24px 48px rgba(0,0,0,${(opacity / 100) * 0.45})`,
             }}
           >
@@ -1747,9 +1747,9 @@ function RoomChat({ roomId, name }: { roomId: string; name: string }) {
                 onClick={() => setOpen(false)}
                 className="order-first relative z-20 mr-2 grid h-9 w-9 shrink-0 place-items-center rounded-lg border text-base"
                 style={{
-                  backgroundColor: `rgba(255,255,255,${(opacity / 100) * 0.7})`,
-                  borderColor: `rgba(212,212,216,${opacity / 100})`,
-                  color: `rgba(9,9,11,${Math.min(1, 0.55 + opacity / 200)})`,
+                  backgroundColor: `rgba(34,51,42,${(opacity / 100) * 0.7})`,
+                  borderColor: `rgba(126,159,139,${(opacity / 100) * 0.45})`,
+                  color: `rgba(244,244,245,${Math.min(1, 0.55 + opacity / 200)})`,
                 }}
               >
                 ✕
@@ -1758,16 +1758,16 @@ function RoomChat({ roomId, name }: { roomId: string; name: string }) {
                 className="min-w-0 flex-1"
                 style={{ opacity: Math.min(1, 0.55 + opacity / 200) }}
               >
-                <h2 className="text-sm font-black text-zinc-950">
+                <h2 className="text-sm font-black text-zinc-100">
                   실시간 채팅
                 </h2>
-                <p className="text-[9px] text-zinc-600">
+                <p className="text-[9px] text-zinc-400">
                   방이 닫히면 대화도 사라집니다.
                 </p>
               </div>
             </div>
             <label
-              className="mt-2 flex items-center gap-2 text-[10px] font-bold text-zinc-600"
+              className="mt-2 flex items-center gap-2 text-[10px] font-bold text-zinc-400"
               style={{ opacity: Math.min(1, 0.55 + opacity / 200) }}
             >
               <span className="shrink-0">투명도</span>
@@ -1785,7 +1785,7 @@ function RoomChat({ roomId, name }: { roomId: string; name: string }) {
             <div className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
               {chats.length === 0 && (
                 <p
-                  className="py-8 text-center text-sm text-zinc-600"
+                  className="py-8 text-center text-sm text-zinc-400"
                   style={{ opacity: Math.min(1, 0.55 + opacity / 200) }}
                 >
                   아직 채팅이 없습니다.
@@ -1794,13 +1794,13 @@ function RoomChat({ roomId, name }: { roomId: string; name: string }) {
               {chats.map((chat) => (
                 <div key={chat.id} className="px-1 py-1">
                   <b
-                    className="text-[10px] text-emerald-700"
+                    className="text-[10px] text-emerald-300"
                     style={{ opacity: Math.min(1, 0.62 + opacity / 250) }}
                   >
                     {chat.user}
                   </b>
                   <p
-                    className="break-words text-xs text-zinc-950"
+                    className="break-words text-xs text-zinc-100"
                     style={{ opacity: Math.min(1, 0.62 + opacity / 250) }}
                   >
                     {chat.text}
@@ -1835,9 +1835,9 @@ function RoomChat({ roomId, name }: { roomId: string; name: string }) {
                 placeholder="메시지 입력"
                 className="min-w-0 flex-1 rounded-lg border p-2 text-sm placeholder:text-zinc-500"
                 style={{
-                  backgroundColor: `rgba(255,255,255,${(opacity / 100) * 0.85})`,
-                  borderColor: `rgba(212,212,216,${opacity / 100})`,
-                  color: `rgba(9,9,11,${Math.min(1, 0.62 + opacity / 250)})`,
+                  backgroundColor: `rgba(5,14,10,${(opacity / 100) * 0.85})`,
+                  borderColor: `rgba(126,159,139,${(opacity / 100) * 0.45})`,
+                  color: `rgba(244,244,245,${Math.min(1, 0.62 + opacity / 250)})`,
                 }}
               />
               <button
@@ -1846,7 +1846,7 @@ function RoomChat({ roomId, name }: { roomId: string; name: string }) {
                 className="rounded-lg px-2.5 text-xs font-black"
                 style={{
                   backgroundColor: `rgba(16,185,129,${(opacity / 100) * 0.9})`,
-                  color: `rgba(9,9,11,${Math.min(1, 0.62 + opacity / 250)})`,
+                  color: "#052014",
                 }}
               >
                 전송
