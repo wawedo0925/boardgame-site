@@ -208,6 +208,30 @@ function playCaptureSound() {
     oscillator.onended = () => void context.close();
   } catch {}
 }
+// Short filtered noise bursts imitate wooden sticks colliding, without audio assets.
+function playYutClack(context: AudioContext | null) {
+  if (!context || context.state !== "running") return;
+  try {
+    for (const [delay, frequency, volume] of [[0, 1200, 0.4], [0.07, 1700, 0.3], [0.15, 950, 0.35], [0.24, 1400, 0.2]]) {
+      const length = Math.floor(context.sampleRate * 0.075);
+      const buffer = context.createBuffer(1, length, context.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+      const source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
+      source.buffer = buffer;
+      filter.type = "bandpass";
+      filter.frequency.value = frequency;
+      filter.Q.value = 2;
+      const time = context.currentTime + delay;
+      gain.gain.setValueAtTime(volume, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.07);
+      source.connect(filter); filter.connect(gain); gain.connect(context.destination);
+      source.start(time);
+      source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
+    }
+  } catch {}
+}
+
 function playTurnSound() {
   try {
     const AudioContextClass =
@@ -921,6 +945,41 @@ function Game({
   leave: () => void;
 }) {
   const [routeChoice, setRouteChoice] = useState<Piece | null>(null);
+  const [rollNotice, setRollNotice] = useState<number | null>(null);
+  const previousRoll = useRef({ id: room.id, round: room.mind_round });
+  const rollAudio = useRef<AudioContext | null>(null);
+  useEffect(() => {
+    const unlock = () => {
+      try {
+        const Audio = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!Audio) return;
+        rollAudio.current ??= new Audio();
+        void rollAudio.current.resume().catch(() => {});
+      } catch {}
+    };
+    document.addEventListener("pointerdown", unlock);
+    document.addEventListener("keydown", unlock);
+    return () => {
+      document.removeEventListener("pointerdown", unlock);
+      document.removeEventListener("keydown", unlock);
+      void rollAudio.current?.close().catch(() => {});
+      rollAudio.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    const previous = previousRoll.current;
+    previousRoll.current = { id: room.id, round: room.mind_round };
+    if (room.mode !== "PSYCHOLOGY" || room.status !== "PLAYING" || previous.id !== room.id) {
+      setRollNotice(null);
+      return;
+    }
+    if (previous.round === room.mind_round || !room.mind_reveal || room.last_roll === null) return;
+    setRollNotice(room.last_roll);
+    playYutClack(rollAudio.current);
+    const timer = setTimeout(() => setRollNotice(null), 1800);
+    return () => clearTimeout(timer);
+  }, [room.id, room.mode, room.status, room.mind_round]);
+
   const mePlayer = players.find((player) => player.id === me.id),
     myTurn = current?.id === me.id,
     selectedMove = room.pending_moves[0],
@@ -1125,13 +1184,25 @@ function Game({
               turnNotice={turnNotice}
               moveAnimation={moveAnimation}
             />
-                  {room.mode === "PSYCHOLOGY" && room.can_roll && <div className="absolute left-1/2 top-1/2 z-40 w-[84%] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-amber-200/60 bg-zinc-950/95 p-3 text-center shadow-2xl">
-                    <p className="text-sm font-black text-amber-200">{myTurn ? "내 턴" : "상대 턴"} · 윷 두 개를 골라 주세요</p><p className="mt-1 text-xs text-zinc-300">두 사람이 모두 고르면 공개돼요</p>
-                    <div className="my-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs">{players.map(p=><p key={p.id}>{p.name}: {room.mind_selected?.includes(p.id)?'선택 완료':'선택 중'}</p>)}</div>
-                    {room.mind_selected?.includes(me.id) ? <p className="text-sm text-emerald-300">내 선택: <YutStickPair fronts={room.mind_my_choice ?? 0} compact /> · 상대를 기다리는 중</p> : <div className="grid grid-cols-3 gap-2">{[1,2,0].map(fronts=><button key={fronts} aria-label={stickChoiceLabel(fronts)} disabled={busy} onClick={()=>action('yut_mind_choose',{p_round:room.mind_round,p_fronts:fronts})} className="rounded-xl border border-amber-200/40 bg-amber-300/10 px-1 py-2 text-sm font-black disabled:opacity-50"><YutStickPair fronts={fronts} /></button>)}</div>}
-                    <p className="mt-2 text-[11px] text-zinc-400">누르면 선택 확정 · 확정 후에는 바꿀 수 없어요.</p>
-{notice && <p role="alert" className="mt-1 text-xs text-red-300">{notice}</p>}
-                  </div>}
+              {room.mode === "PSYCHOLOGY" && room.can_roll && rollNotice === null && (
+                <div className="absolute left-1/2 top-1/2 z-40 grid w-[84%] max-w-sm -translate-x-1/2 -translate-y-1/2 grid-cols-3 gap-2 opacity-50">
+                  {[1, 2, 0].map(fronts => (
+                    <button key={fronts} type="button" aria-label={stickChoiceLabel(fronts)}
+                      aria-pressed={room.mind_selected?.includes(me.id) && room.mind_my_choice === fronts}
+                      disabled={busy || room.mind_selected?.includes(me.id)}
+                      onClick={() => action("yut_mind_choose", { p_round: room.mind_round, p_fronts: fronts })}
+                      className={`rounded-xl border-2 px-1 py-2 ${room.mind_selected?.includes(me.id) && room.mind_my_choice === fronts ? "border-emerald-300 bg-emerald-700" : "border-amber-200/60 bg-zinc-950"}`}>
+                      <YutStickPair fronts={fronts} />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {rollNotice !== null && (
+                <div role="status" aria-live="polite" className="pointer-events-none absolute left-1/2 top-1/2 z-[60] -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-amber-200 bg-zinc-950/90 px-10 py-5 text-center shadow-2xl">
+                  <p className="text-sm text-amber-100">윷 결과</p>
+                  <p className="mt-1 whitespace-nowrap text-5xl font-black text-amber-300">{resultLabel[rollNotice]}!</p>
+                </div>
+              )}
             </div>
             <aside className="rounded-3xl border border-white/10 bg-white/[.035] p-5">
               <div className="flex items-center justify-between gap-2">
@@ -1143,6 +1214,13 @@ function Game({
                     {current?.name}
                   </h2>
                 </div>
+                {room.mode === "PSYCHOLOGY" && room.can_roll && (
+                  <div className="min-w-0 max-w-[65%] text-right text-xs text-zinc-300">
+                    <p className="font-bold text-amber-200">판 위에서 윷 두 개를 골라 주세요</p>
+                    <p className="mt-1">둘 다 고르면 공개 · 선택 후 변경 불가</p>
+                    <div className="mt-2 space-y-1">{players.map(p => <p key={p.id} className={room.mind_selected?.includes(p.id) ? "text-emerald-300" : ""}>{p.name}: {room.mind_selected?.includes(p.id) ? "선택 완료" : "선택 중"}</p>)}</div>
+                  </div>
+                )}
                 {myTurn && !(room.mode === "PSYCHOLOGY" && room.can_roll) && waitingPiece && selectedMove > 0 && (
                   <button
                     type="button"
