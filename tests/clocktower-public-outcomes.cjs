@@ -1,0 +1,32 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const {createTestDb}=require('./clocktower-bmr-db.cjs');
+(async()=>{
+ const db=await createTestDb();
+ await db.exec(fs.readFileSync('supabase/migrations/20261012010000_clocktower_public_outcomes.sql','utf8'));
+ const host='10000000-0000-0000-0000-000000000001',member='10000000-0000-0000-0000-000000000002',other='10000000-0000-0000-0000-000000000003';
+ for(const id of [host,member,other]){await db.query('insert into auth.users values($1)',[id]);await db.query("insert into profiles(id,activity_name) values($1,'Member')",[id]);}
+ const eid=(await db.query("insert into events(title,event_kind,created_by) values('Test','CLOCKTOWER',$1) returning id",[host])).rows[0].id;
+ const engine={deaths:{[member]:{night:2,role:'군인'}},execution:{night:1,user_id:member,role:'군인'}};
+ const rid=(await db.query("insert into clocktower_live_rooms(event_id,storyteller_id,phase,night,night_engine) values($1,$2,'NIGHT',2,$3) returning id",[eid,host,engine])).rows[0].id;
+ await db.query("insert into clocktower_live_members(room_id,user_id,seat,actual_role,shown_role,alive,public_alive) values($1,$2,1,'군인','군인',false,true)",[rid,member]);
+ const login=id=>db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);
+ const snap=async()=> (await db.query('select clocktower_live_snapshot($1) s',[eid])).rows[0].s;
+ await login(member);let s=await snap();assert.deepEqual(s.public_outcomes,{night_deaths:[],day_deaths:[member]});assert.equal(s.engine,undefined);assert.equal(s.bmr,undefined);
+ await db.query("update clocktower_live_rooms set phase='DAY' where id=$1",[rid]);
+ await db.query('update clocktower_live_members set public_alive=false where room_id=$1',[rid]);
+ s=await snap();assert.deepEqual(s.public_outcomes,{night_deaths:[member],day_deaths:[]});
+ await login(host);assert.deepEqual((await snap()).public_outcomes,s.public_outcomes);
+ await login(other);assert.equal((await snap()).public_outcomes,undefined,'outsider receives no outcome');
+ await login(member);
+ const bmr={auto:{deaths:[{id:member,night:2,phase:'NIGHT',role:'도박사',demon:false},{id:member,night:1,phase:'DAY',role:'도박사',demon:false}]}};
+ await db.query("update clocktower_live_rooms set script='BMR',bmr_state=$2 where id=$1",[rid,bmr]);
+ s=await snap();assert.deepEqual(s.public_outcomes,{night_deaths:[member],day_deaths:[]});assert.equal(s.bmr,undefined);assert.equal(JSON.stringify(s.public_outcomes).includes('role'),false);
+ await db.query('update clocktower_live_members set alive=true,public_alive=true where room_id=$1',[rid]);
+ assert.deepEqual((await snap()).public_outcomes.night_deaths,[],'revived player omitted');
+ await db.query("update clocktower_live_rooms set phase='NIGHT' where id=$1",[rid]);
+ assert.deepEqual((await snap()).public_outcomes,{night_deaths:[],day_deaths:[member]});
+ await db.query("update clocktower_live_rooms set phase='DAY',night=3 where id=$1",[rid]);
+ assert.deepEqual((await snap()).public_outcomes,{night_deaths:[],day_deaths:[]},'old deaths omitted');
+ assert.equal((await db.query("select has_function_privilege('authenticated','clocktower_live_snapshot_before_public_outcomes(uuid)','execute') allowed")).rows[0].allowed,false);
+ await db.close();console.log('PASS: TB/BMR public death outcomes, dawn-only disclosure, private roles, revival, stale deaths, host/member parity and outsider access');
+})().catch(e=>{console.error(e);process.exit(1)});
