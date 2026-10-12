@@ -980,9 +980,13 @@ function Game({
     return () => clearTimeout(timer);
   }, [room.id, room.mode, room.status, room.mind_round]);
 
+  const moveListKey = `${room.id}:${room.turn_seat}:${room.status}:${room.pending_moves.join(",")}`;
+  const [moveSelection, setMoveSelection] = useState<{ key: string; index: number } | null>(null);
+  const selectedMoveIndex = moveSelection?.key === moveListKey && moveSelection.index < room.pending_moves.length ? moveSelection.index : 0;
+  useEffect(() => { setRouteChoice(null); }, [moveListKey]);
   const mePlayer = players.find((player) => player.id === me.id),
     myTurn = current?.id === me.id,
-    selectedMove = room.pending_moves[0],
+    selectedMove = room.pending_moves[selectedMoveIndex],
     host = room.host_id === mePlayer?.user_id,
     everyoneReady =
       players.length > 0 && players.every((player) => player.ready);
@@ -1003,7 +1007,7 @@ function Game({
       setRouteChoice(piece);
       return;
     }
-    action("yut_move", { p_piece: piece.piece_no, p_move_index: 1 });
+    action("yut_move", { p_piece: piece.piece_no, p_move_index: selectedMoveIndex + 1 });
   };
   const chooseRoute = async (
     route: "LEFT" | "RIGHT" | "OUTER" | "DIAGONAL",
@@ -1012,7 +1016,7 @@ function Game({
     try {
       await action("yut_move_choice", {
         p_piece: routeChoice.piece_no,
-        p_move_index: 1,
+        p_move_index: selectedMoveIndex + 1,
         p_center_route: route,
       });
     } finally {
@@ -1241,16 +1245,21 @@ function Game({
                   </b>
                 </div>
               )}
-              <div className="mt-4 flex flex-wrap gap-2">
-                {room.pending_moves.map((m, i) => (
-                  <span
-                    key={`${m}-${i}`}
-                    className="rounded-full bg-amber-300 px-3 py-1 text-sm font-black text-black"
-                  >
-                    {resultLabel[m]}
-                  </span>
-                ))}
-              </div>
+              {room.pending_moves.length > 0 && <div className="mt-4">
+                <p className="mb-2 text-xs text-zinc-300">사용할 결과를 고른 뒤 말을 눌러 주세요</p>
+                <div className="flex flex-wrap gap-2">
+                  {room.pending_moves.map((m, i) => (
+                    <button key={`${m}-${i}`} type="button"
+                      aria-label={`${i + 1}번째 결과 ${resultLabel[m]} 사용`}
+                      aria-pressed={i === selectedMoveIndex}
+                      disabled={!myTurn || busy || (room.mode === "PSYCHOLOGY" && room.can_roll)}
+                      onClick={() => { setMoveSelection({ key: moveListKey, index: i }); setRouteChoice(null); }}
+                      className={`min-h-11 rounded-full border-2 px-4 py-2 text-sm font-black disabled:cursor-default ${i === selectedMoveIndex ? "border-white bg-amber-300 text-black" : "border-amber-300/50 bg-black/30 text-amber-200"}`}>
+                      {resultLabel[m]}{i === selectedMoveIndex ? " ✓" : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>}
               {myTurn && room.can_roll && room.mode !== "PSYCHOLOGY" && (
                 <button
                   disabled={busy}
