@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Mode = "INDIVIDUAL" | "TEAM_2V2" | "TEAM_3X2";
+type Mode = "PSYCHOLOGY" | "INDIVIDUAL" | "TEAM_2V2" | "TEAM_3X2";
 type Lobby = {
   id: string;
   code: string;
@@ -23,6 +23,10 @@ type Room = {
   status: string;
   max_players: number;
   turn_seat: number | null;
+  mind_round: number;
+  mind_selected?: string[];
+  mind_my_choice?: number | null;
+  mind_reveal?: {player_id: string; fronts: number}[] | null;
   pending_moves: number[];
   can_roll: boolean;
   last_roll: number | null;
@@ -100,6 +104,7 @@ const teamStyles = [
   },
 ];
 const modeInfo: Record<Mode, { label: string; detail: string }> = {
+  PSYCHOLOGY: { label: "1:1 심리전", detail: "각자 윷 2개 비밀 선택 · 도는 빽도" },
   INDIVIDUAL: { label: "개인전", detail: "2~4명 · 각자 말 4개" },
   TEAM_2V2: { label: "2 대 2", detail: "두 팀 · 팀별 말 4개" },
   TEAM_3X2: { label: "2 대 2 대 2", detail: "세 팀 6명 · 팀별 말 4개" },
@@ -421,6 +426,7 @@ export default function YutClient() {
       if (
         latest?.room.host_id !== userId ||
         latest.room.status !== "PLAYING" ||
+        (latest.room.mode === "PSYCHOLOGY" && latest.room.can_roll) ||
         !current?.is_bot ||
         botBusy.current
       ) {
@@ -460,6 +466,7 @@ export default function YutClient() {
         );
       if (
         latest?.room.status !== "PLAYING" ||
+        (latest.room.mode === "PSYCHOLOGY" && latest.room.can_roll) ||
         current?.id !== latest.me.id ||
         current.is_bot ||
         autoBusy.current
@@ -669,7 +676,7 @@ function LobbyView({
       </section>
       <section className="mt-6 rounded-3xl border border-white/10 bg-white/[.035] p-5">
         <h2 className="text-xl font-black">새 게임 만들기</h2>
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-4 grid grid-cols-2 gap-2">
           {(Object.keys(modeInfo) as Mode[]).map((m) => (
             <button
               key={m}
@@ -680,6 +687,7 @@ function LobbyView({
             </button>
           ))}
         </div>
+        {mode === "PSYCHOLOGY" && <p className="mt-3 text-sm text-amber-200">2명 전용 · 각자 윷 2개를 비밀 선택하고 함께 공개해요. 도는 항상 빽도! 윷·모와 잡기는 다시 선택해요.</p>}
         {mode === "INDIVIDUAL" && (
           <div className="mt-4 flex items-center gap-2">
             <span className="mr-2 text-sm text-zinc-400">참가 인원</span>
@@ -919,6 +927,7 @@ function Game({
       players.length > 0 && players.every((player) => player.ready);
   const movable = pieces.filter(
     (p) =>
+      !(room.mode === "PSYCHOLOGY" && room.can_roll) &&
       p.team === me.team &&
       nodeOf(p) !== 99 &&
       !(selectedMove === -1 && p.step_index === 0 && !p.back_at_start),
@@ -928,7 +937,7 @@ function Game({
       piece.team === me.team && nodeOf(piece) === 0 && !piece.back_at_start,
   );
   const movePiece = (piece: Piece) => {
-    if (!myTurn || room.pending_moves.length === 0 || busy) return;
+    if (!myTurn || room.pending_moves.length === 0 || busy || (room.mode === "PSYCHOLOGY" && room.can_roll)) return;
     if ([5, 10, 22].includes(nodeOf(piece)) && selectedMove > 0) {
       setRouteChoice(piece);
       return;
@@ -1123,7 +1132,7 @@ function Game({
                     {current?.name}
                   </h2>
                 </div>
-                {myTurn && waitingPiece && selectedMove > 0 && (
+                {myTurn && !(room.mode === "PSYCHOLOGY" && room.can_roll) && waitingPiece && selectedMove > 0 && (
                   <button
                     type="button"
                     disabled={busy}
@@ -1152,7 +1161,7 @@ function Game({
                   </span>
                 ))}
               </div>
-              {myTurn && room.can_roll && (
+              {myTurn && room.can_roll && room.mode !== "PSYCHOLOGY" && (
                 <button
                   disabled={busy}
                   onClick={() => action("yut_roll")}
@@ -1160,6 +1169,18 @@ function Game({
                 >
                   윷 던지기
                 </button>
+              )}
+              {room.mode === "PSYCHOLOGY" && (
+                <div className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-300/5 p-3">
+                  <p className="font-black text-amber-200">1:1 심리전 · 도는 빽도</p>
+                  {room.mind_reveal && <div className="mt-2 text-sm text-zinc-300"><p>지난 선택 공개</p>{room.mind_reveal.map(c=><p key={c.player_id}>{players.find(p=>p.id===c.player_id)?.name}: {['뒤 · 뒤','앞 · 뒤','앞 · 앞'][c.fronts]}</p>)}</div>}
+                  {room.can_roll && <>
+                    <p className="mt-3 text-sm">{current?.name}님의 이동 결과를 정해요. 두 사람이 모두 고르면 공개됩니다.</p>
+                    <div className="my-3 space-y-1 text-sm">{players.map(p=><p key={p.id}>{p.name}: {room.mind_selected?.includes(p.id)?'선택 완료':'선택 중'}</p>)}</div>
+                    {room.mind_selected?.includes(me.id) ? <p className="text-sm text-emerald-300">내 선택: {['뒤 · 뒤','앞 · 뒤','앞 · 앞'][room.mind_my_choice ?? 0]} · 상대를 기다리는 중</p> : <div className="grid grid-cols-3 gap-2">{[0,1,2].map(fronts=><button key={fronts} disabled={busy} onClick={()=>action('yut_mind_choose',{p_round:room.mind_round,p_fronts:fronts})} className="rounded-xl border border-amber-200/40 bg-amber-300/10 px-1 py-4 text-sm font-black disabled:opacity-50">{['뒤 · 뒤','앞 · 뒤','앞 · 앞'][fronts]}</button>)}</div>}
+                    <p className="mt-2 text-xs text-zinc-400">누르면 선택 확정 · 확정 후에는 바꿀 수 없어요.</p>
+                  </>}
+                </div>
               )}
               {!myTurn && (
                 <p className="mt-5 text-sm text-zinc-400">
