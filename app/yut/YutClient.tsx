@@ -258,7 +258,7 @@ export default function YutClient() {
     autoStateRef = useRef(""),
     autoDueRef = useRef(0),
     captureKeyRef = useRef(""),
-    wasMyTurnRef = useRef(false),
+    lastTurnKeyRef = useRef(""),
     captureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null),
     turnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null),
     moveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -392,18 +392,20 @@ export default function YutClient() {
     snapRef.current = snap;
   }, [snap]);
   useEffect(() => {
-    const isMyTurn = Boolean(
-      snap &&
-      snap.room.status === "PLAYING" &&
-      snap.room.turn_seat === snap.me.seat,
-    );
-    if (isMyTurn && !wasMyTurnRef.current) {
-      setTurnNotice("내 차례입니다!");
-      playTurnSound();
+    if (!snap || snap.room.status !== "PLAYING") {
+      lastTurnKeyRef.current = "";
+      setTurnNotice("");
       if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
-      turnTimerRef.current = setTimeout(() => setTurnNotice(""), 1000);
+      return;
     }
-    wasMyTurnRef.current = isMyTurn;
+    const turnKey = `${snap.room.id}:${snap.room.turn_seat}`;
+    if (lastTurnKeyRef.current === turnKey) return;
+    lastTurnKeyRef.current = turnKey;
+    const isMyTurn = snap.room.turn_seat === snap.me.seat;
+    setTurnNotice(isMyTurn ? "내 턴입니다" : "상대 턴입니다");
+    if (isMyTurn) playTurnSound();
+    if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+    turnTimerRef.current = setTimeout(() => setTurnNotice(""), 1800);
   }, [snap]);
   useEffect(() => {
     const timer = setInterval(
@@ -1173,11 +1175,11 @@ function Game({
               {room.mode === "PSYCHOLOGY" && (
                 <div className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-300/5 p-3">
                   <p className="font-black text-amber-200">1:1 심리전 · 도는 빽도</p>
-                  {room.mind_reveal && <div className="mt-2 text-sm text-zinc-300"><p>지난 선택 공개</p>{room.mind_reveal.map(c=><p key={c.player_id}>{players.find(p=>p.id===c.player_id)?.name}: {['뒤 · 뒤','앞 · 뒤','앞 · 앞'][c.fronts]}</p>)}</div>}
+                  {room.mind_reveal && <div className="mt-2 text-sm text-zinc-300"><p>지난 선택 공개</p>{room.mind_reveal.map(c=><p key={c.player_id}>{players.find(p=>p.id===c.player_id)?.name}: <YutStickPair fronts={c.fronts} compact /></p>)}</div>}
                   {room.can_roll && <>
                     <p className="mt-3 text-sm">{current?.name}님의 이동 결과를 정해요. 두 사람이 모두 고르면 공개됩니다.</p>
                     <div className="my-3 space-y-1 text-sm">{players.map(p=><p key={p.id}>{p.name}: {room.mind_selected?.includes(p.id)?'선택 완료':'선택 중'}</p>)}</div>
-                    {room.mind_selected?.includes(me.id) ? <p className="text-sm text-emerald-300">내 선택: {['뒤 · 뒤','앞 · 뒤','앞 · 앞'][room.mind_my_choice ?? 0]} · 상대를 기다리는 중</p> : <div className="grid grid-cols-3 gap-2">{[0,1,2].map(fronts=><button key={fronts} disabled={busy} onClick={()=>action('yut_mind_choose',{p_round:room.mind_round,p_fronts:fronts})} className="rounded-xl border border-amber-200/40 bg-amber-300/10 px-1 py-4 text-sm font-black disabled:opacity-50">{['뒤 · 뒤','앞 · 뒤','앞 · 앞'][fronts]}</button>)}</div>}
+                    {room.mind_selected?.includes(me.id) ? <p className="text-sm text-emerald-300">내 선택: <YutStickPair fronts={room.mind_my_choice ?? 0} compact /> · 상대를 기다리는 중</p> : <div className="grid grid-cols-3 gap-2">{[1,2,0].map(fronts=><button key={fronts} aria-label={stickChoiceLabel(fronts)} disabled={busy} onClick={()=>action('yut_mind_choose',{p_round:room.mind_round,p_fronts:fronts})} className="rounded-xl border border-amber-200/40 bg-amber-300/10 px-1 py-4 text-sm font-black disabled:opacity-50"><YutStickPair fronts={fronts} /></button>)}</div>}
                     <p className="mt-2 text-xs text-zinc-400">누르면 선택 확정 · 확정 후에는 바꿀 수 없어요.</p>
                   </>}
                 </div>
@@ -1198,6 +1200,27 @@ function Game({
       )}
       <Rules />
     </main>
+  );
+}
+
+function stickChoiceLabel(fronts: number) {
+  return ["무늬 있는 윷 두 개", "민무늬 윷 하나와 무늬 있는 윷 하나", "민무늬 윷 두 개"][fronts];
+}
+
+function YutStickPair({ fronts, compact = false }: { fronts: number; compact?: boolean }) {
+  return (
+    <svg role="img" aria-label={stickChoiceLabel(fronts)} viewBox="0 0 80 104"
+      className={compact ? "mx-1 inline-block h-10 w-8 align-middle" : "mx-auto h-24 w-full max-w-20"}>
+      {[0, 1].map(index => (
+        <g key={index} transform={`translate(${index * 38 + 7}, 4)`}>
+          <rect x="0" y="0" width="26" height="96" rx="6" fill="#edbd65" stroke="#69492c" strokeWidth="3" />
+          <path d="M5 8V87" stroke="#ffe0a0" strokeWidth="3" strokeLinecap="round" />
+          {index >= fronts && [18, 38, 58, 78].map(y => (
+            <path key={y} d={`M9 ${y-4}l8 8m0-8l-8 8`} stroke="#69492c" strokeWidth="3" strokeLinecap="round" />
+          ))}
+        </g>
+      ))}
+    </svg>
   );
 }
 
@@ -1283,14 +1306,15 @@ function YutBoard({
       </div>
       {(captureNotice || turnNotice) && (
         <div className="pointer-events-none absolute left-1/2 top-1/2 z-50 w-[82%] -translate-x-1/2 -translate-y-1/2 text-center">
-          {captureNotice ? (
+          {captureNotice && (
             <div
               role="status"
               className="animate-pulse rounded-2xl border-2 border-amber-300 bg-zinc-950/95 px-4 py-4 text-sm font-black text-amber-200 shadow-2xl shadow-amber-400/30 sm:text-base"
             >
               💥 {captureNotice}
             </div>
-          ) : (
+          )}
+          {turnNotice && (
             <div
               role="status"
               className="inline-flex rounded-full border-2 border-white bg-amber-300 px-6 py-3 text-base font-black text-black shadow-2xl sm:text-lg"
