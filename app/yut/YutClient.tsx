@@ -24,6 +24,7 @@ type Room = {
   max_players: number;
   turn_seat: number | null;
   mind_round: number;
+  action_deadline?: string | null;
   mind_selected?: string[];
   mind_my_choice?: number | null;
   mind_reveal?: {player_id: string; fronts: number}[] | null;
@@ -280,8 +281,6 @@ export default function YutClient() {
     snapRef = useRef<Snap | null>(null),
     botStateRef = useRef(""),
     botDueRef = useRef(0),
-    autoStateRef = useRef(""),
-    autoDueRef = useRef(0),
     captureKeyRef = useRef(""),
     lastTurnKeyRef = useRef(""),
     captureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null),
@@ -484,47 +483,29 @@ export default function YutClient() {
   }, [roomId, userId, loadRoom]);
   useEffect(() => {
     if (!roomId) return;
-    autoStateRef.current = "";
-    autoDueRef.current = 0;
     setAutoSeconds(null);
+    let retryAfter = 0;
     const timer = setInterval(async () => {
-      const latest = snapRef.current,
-        current = latest?.players.find(
-          (player) => player.seat === latest.room.turn_seat,
-        );
-      if (
-        latest?.room.status !== "PLAYING" ||
-        (latest.room.mode === "PSYCHOLOGY" && latest.room.can_roll) ||
-        !current ||
-        current.is_bot
-      ) {
-        autoStateRef.current = "";
-        autoDueRef.current = 0;
+      const latest = snapRef.current;
+      const current = latest?.players.find(player => player.seat === latest.room.turn_seat);
+      const mindPicking = latest?.room.mode === "PSYCHOLOGY" && latest.room.can_roll;
+      const deadline = latest?.room.action_deadline ? Date.parse(latest.room.action_deadline) : NaN;
+      if (!latest || latest.room.status !== "PLAYING" || !current || (!mindPicking && current.is_bot) || !Number.isFinite(deadline)) {
         setAutoSeconds(null);
         return;
       }
-      if (autoBusy.current) return;
-      const state = `${latest.room.turn_seat}:${latest.room.revision}:${latest.room.can_roll ? "roll" : "move"}`;
-      if (autoStateRef.current !== state) {
-        autoStateRef.current = state;
-        autoDueRef.current = Date.now() + (latest.room.can_roll ? 5000 : 15000);
-        setAutoSeconds(latest.room.can_roll ? 5 : 15);
-        return;
-      }
-      setAutoSeconds(Math.max(0, Math.ceil((autoDueRef.current - Date.now()) / 1000)));
-      if (Date.now() < autoDueRef.current || current.id !== latest.me.id) return;
+      setAutoSeconds(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+      if (Date.now() < deadline || Date.now() < retryAfter || autoBusy.current || (!mindPicking && current.id !== latest.me.id)) return;
       autoBusy.current = true;
-      autoDueRef.current = Number.POSITIVE_INFINITY;
+      retryAfter = Date.now() + 1000;
       try {
-        const { error } = await supabase.rpc("yut_auto_act", {
-          p_room: roomId,
-          p_expected_revision: latest.room.revision,
-        });
+        const { error } = mindPicking
+          ? await supabase.rpc("yut_mind_timeout", { p_room: roomId, p_round: latest.room.mind_round })
+          : await supabase.rpc("yut_auto_act", { p_room: roomId, p_expected_revision: latest.room.revision });
         if (error) setNotice(`자동 진행 오류: ${error.message}`);
         await loadRoom(roomId);
       } finally {
         autoBusy.current = false;
-        autoStateRef.current = "";
       }
     }, 200);
     return () => clearInterval(timer);
@@ -1247,7 +1228,7 @@ function Game({
                 {room.mode === "PSYCHOLOGY" && room.can_roll && (
                   <div className="min-w-0 max-w-[65%] text-right text-xs text-zinc-300">
                     <p className="font-bold text-amber-200">판 위에서 윷 두 개를 골라 주세요</p>
-                    <p className="mt-1">둘 다 고르면 공개 · 선택 후 변경 불가</p>
+                    <p className="mt-1">15초 안에 선택 · 미선택 시 랜덤</p>
                     <div className="mt-2 space-y-1">{players.map(p => <p key={p.id} className={room.mind_selected?.includes(p.id) ? "text-emerald-300" : ""}>{p.name}: {room.mind_selected?.includes(p.id) ? "선택 완료" : "선택 중"}</p>)}</div>
                   </div>
                 )}
@@ -1405,7 +1386,7 @@ function YutBoard({
           />
         );
       })}
-      {autoSeconds !== null && room.status === "PLAYING" && !(room.mode === "PSYCHOLOGY" && room.can_roll) && (
+      {autoSeconds !== null && room.status === "PLAYING" && (
         <div role="timer" aria-label={`자동 진행까지 ${autoSeconds}초`} className="pointer-events-none absolute left-1/2 top-[19%] z-10 -translate-x-1/2 text-center">
           <p className="text-[10px] font-bold text-white/70 sm:text-xs">자동 진행</p>
           <p className={`text-3xl font-black tabular-nums drop-shadow-lg sm:text-4xl ${autoSeconds <= 3 ? "text-red-300" : "text-white"}`}>{autoSeconds}<span className="ml-0.5 text-sm">초</span></p>

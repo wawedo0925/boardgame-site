@@ -39,6 +39,39 @@ await db.query('select yut_move($1,0,2)',[rid]);s=await snap();
 assert.deepEqual(s.room.pending_moves,[5]);
 assert.equal(s.pieces.find(p=>p.team===actor.team&&p.piece_no===0).step_index,1);
 await db.query("update yut_rooms set can_roll=true,pending_moves='{}' where id=$1",[rid]);
+// A shared server deadline survives one player's choice and only fills missing choices.
+await login(ids[0]);s=await snap();round=s.room.mind_round;
+const deadline=s.room.action_deadline;
+await db.query('select yut_mind_choose($1,$2,2)',[rid,round]);
+assert.equal((await snap()).room.action_deadline,deadline);
+await db.query('select yut_mind_timeout($1,$2)',[rid,round]);
+assert.equal((await snap()).room.mind_round,round);
+await db.query("update yut_rooms set action_deadline=clock_timestamp()-interval '1 second' where id=$1",[rid]);
+await login(ids[2]);await assert.rejects(db.query('select yut_mind_timeout($1,$2)',[rid,round]));
+await login(ids[1]);await db.query('select yut_mind_timeout($1,$2)',[rid,round]);s=await snap();
+assert.equal(s.room.mind_round,round+1);
+assert.equal(s.room.mind_reveal.find(c=>c.player_id===s.players.find(p=>p.user_id===ids[0]).id).fronts,2);
+assert.ok(s.room.mind_reveal.every(c=>c.fronts>=0&&c.fronts<=2));
+await db.query('select yut_mind_timeout($1,$2)',[rid,round]);assert.equal((await snap()).room.mind_round,round+1);
+// Both absent players are filled, too.
+await db.query("update yut_rooms set can_roll=true,pending_moves='{}' where id=$1",[rid]);s=await snap();round=s.room.mind_round;
+await db.query("update yut_rooms set action_deadline=clock_timestamp()-interval '1 second' where id=$1",[rid]);
+await db.query('select yut_mind_timeout($1,$2)',[rid,round]);assert.equal((await snap()).room.mind_reveal.length,2);
+// Auto movement takes the short route at either corner and at the center.
+s=await snap();const timedActor=s.players.find(p=>p.seat===s.room.turn_seat);await login(timedActor.user_id);
+for(const [route,step,expectedRoute,expectedStep] of [['outer',5,'diag1',7],['outer',10,'diag2',12],['diag1',8,'diag2',15]]){
+ await db.query("update yut_pieces set route='outer',step_index=0,back_at_start=false where room_id=$1",[rid]);
+ await db.query('update yut_pieces set route=$3,step_index=$4 where room_id=$1 and team=$2 and piece_no=0',[rid,timedActor.team,route,step]);
+ await db.query("update yut_rooms set can_roll=false,pending_moves='{2,3}' where id=$1",[rid]);s=await snap();
+ await db.query('select yut_auto_act($1,$2)',[rid,s.room.revision]);assert.deepEqual((await snap()).room.pending_moves,[2,3]);
+ await db.query("update yut_rooms set action_deadline=clock_timestamp()-interval '1 second' where id=$1",[rid]);
+ await db.query('select yut_auto_act($1,$2)',[rid,s.room.revision]);s=await snap();
+ const moved=s.pieces.find(p=>p.team===timedActor.team&&p.piece_no===0);
+ assert.equal(moved.route,expectedRoute);assert.equal(moved.step_index,expectedStep);assert.deepEqual(s.room.pending_moves,[3]);
+ const seconds=(await db.query('select extract(epoch from(action_deadline-clock_timestamp())) seconds from yut_rooms where id=$1',[rid])).rows[0].seconds;
+ assert.ok(Number(seconds)>14&&Number(seconds)<=15);
+}
+await db.query("update yut_rooms set can_roll=true,pending_moves='{}' where id=$1",[rid]);
 // A rematch removes unfinished secret choices and invalidates old selection IDs.
 await login(ids[0]);s=await snap();round=s.room.mind_round;await db.query('select yut_mind_choose($1,$2,2)',[rid,round]);await db.query("update yut_rooms set status='FINISHED' where id=$1",[rid]);await db.query('update yut_players set ready=true where room_id=$1',[rid]);await db.query('select yut_start_rematch($1)',[rid]);s=await snap();assert.ok(s.room.mind_round>round);assert.deepEqual(s.room.mind_selected,[]);assert.equal(s.room.mind_reveal,null);
 await login(ids[0]);const normal=(await db.query("select yut_create_room('일반','INDIVIDUAL',3) id")).rows[0].id;assert.equal((await db.query('select yut_snapshot($1) s',[normal])).rows[0].s.room.mode,'INDIVIDUAL');
