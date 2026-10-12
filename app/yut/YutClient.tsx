@@ -1068,8 +1068,9 @@ function Game({
           return (
             <div
               key={p.id}
-              className={`min-w-0 flex-1 whitespace-nowrap rounded-xl border px-2 py-2 text-center ${teamStyles[p.team].border} ${p.seat === room.turn_seat ? "bg-white/10 ring-2 ring-white" : "bg-black/20"}`}
+              className={`min-w-0 flex-1 whitespace-nowrap rounded-xl border-[3px] px-2 py-2 text-center ${room.status === "PLAYING" && p.seat === room.turn_seat ? "border-white bg-white/10" : `${teamStyles[p.team].border} bg-black/20`}`}
             >
+              <span className={`mb-1 block text-xs font-black text-white ${room.status === "PLAYING" && p.seat === room.turn_seat ? "" : "invisible"}`}>현재 턴</span>
               <b
                 className={`block truncate text-xs sm:text-sm ${teamStyles[p.team].text}`}
               >
@@ -1185,7 +1186,7 @@ function Game({
               moveAnimation={moveAnimation}
             />
               {room.mode === "PSYCHOLOGY" && room.can_roll && rollNotice === null && (
-                <div className="absolute left-1/2 top-1/2 z-40 grid w-[84%] max-w-sm -translate-x-1/2 -translate-y-1/2 grid-cols-3 gap-2 opacity-50">
+                <div className="absolute bottom-[8%] left-1/2 z-40 grid w-[84%] max-w-sm -translate-x-1/2 grid-cols-3 gap-2 opacity-50">
                   {[1, 2, 0].map(fronts => (
                     <button key={fronts} type="button" aria-label={stickChoiceLabel(fronts)}
                       aria-pressed={room.mind_selected?.includes(me.id) && room.mind_my_choice === fronts}
@@ -1207,9 +1208,9 @@ function Game({
             <aside className="rounded-3xl border border-white/10 bg-white/[.035] p-5">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-sm text-zinc-400">현재 차례</p>
+                  <p className="text-lg font-bold text-zinc-200">현재 차례</p>
                   <h2
-                    className={`mt-1 text-2xl font-black ${teamStyles[current?.team ?? 0].text}`}
+                    className={`mt-1 break-words text-4xl font-black sm:text-5xl ${teamStyles[current?.team ?? 0].text}`}
                   >
                     {current?.name}
                   </h2>
