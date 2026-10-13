@@ -639,12 +639,14 @@ function Avatar({
   active = false,
   lead = false,
   bubble,
+  bubbleSide = "top",
   individual = false,
 }: {
   p?: Player;
   active?: boolean;
   lead?: boolean;
   bubble?: string;
+  bubbleSide?: "top" | "right";
   individual?: boolean;
 }) {
   if (!p) return <div />;
@@ -701,7 +703,9 @@ function Avatar({
         </div>
       </div>
       {bubble && (
-        <div className="absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-36 -translate-x-1/2 rounded-2xl bg-white px-3 py-2 text-center text-xs font-bold text-zinc-900 shadow-xl after:absolute after:left-1/2 after:top-full after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-white">
+        <div className={`absolute z-20 w-max rounded-2xl bg-white px-3 py-2 text-center text-xs font-bold text-zinc-900 shadow-xl [overflow-wrap:anywhere] after:absolute after:border-4 after:border-transparent ${bubbleSide === "right"
+          ? "left-full top-2 ml-2 max-w-[min(9rem,calc(50vw-5.5rem))] after:right-full after:top-5 after:border-r-white"
+          : "bottom-full left-1/2 mb-2 max-w-36 -translate-x-1/2 after:left-1/2 after:top-full after:-translate-x-1/2 after:border-t-white"}`}>
           {bubble}
         </div>
       )}
@@ -2229,6 +2233,7 @@ export default function TichuClient() {
           <div className="absolute left-1/2 top-1 -translate-x-1/2">
             <Avatar
               p={topPlayer}
+              bubbleSide="right"
               individual={individual}
               active={room.turn_seat === topPlayer?.seat}
               lead={playing && room.last_trick_seat === topPlayer?.seat}
