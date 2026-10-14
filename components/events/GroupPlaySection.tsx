@@ -6,6 +6,7 @@ import { getEventGroups, saveGroups, clearGroups, clearEventPlayRecords } from "
 import { createRound } from "@/lib/services/rounds";
 import { getEventGames } from "@/lib/services/events";
 import { arrivalTimeLabel } from "@/lib/event-arrival";
+import { withDefaultGroups } from "@/lib/events/default-groups";
 import type { GroupDraft, GroupParticipant } from "@/types/group";
 import type { BoardgamePreference, EventGame } from "@/types/event";
 import AddGroupRoundDialog from "./AddGroupRoundDialog";
@@ -58,29 +59,6 @@ const preferenceLabel = (participant?: GroupParticipant) =>
     ? PREFERENCE_META[participant.game_preference].label
     : "게임 취향 미선택";
 const draftId = () => `draft-${Date.now()}-${Math.random()}`;
-const createDefaultGroups = (participants: GroupParticipant[]): GroupDraft[] => {
-  const presentParticipants = participants.filter(participant => participant.attendance_status === "PRESENT");
-  const assignedIds = new Set<string>();
-
-  return ["우영", "아라", "병준", null].map((ownerName, index) => {
-    const owner = ownerName
-      ? presentParticipants.find(participant => {
-          const name = participantLabel(participant).split("/")[0].trim();
-          return name === ownerName && !assignedIds.has(participant.user_id);
-        })
-      : undefined;
-
-    if (owner) assignedIds.add(owner.user_id);
-
-    return {
-      id: draftId(),
-      name: defaultGroupName(index),
-      sessionId: null,
-      ruleMasterUserId: null,
-      userIds: owner ? [owner.user_id] : [],
-    };
-  });
-};
 
 export default function GroupPlaySection({ eventId, participants, currentUserId, canManage, isClosed = false }: Props) {
   const supabase = useMemo(() => createClient(), []);
@@ -101,9 +79,8 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
 
   const load = useCallback(async () => {
     const [groups, eventGames] = await Promise.all([getEventGroups(supabase, eventId), getEventGames(supabase, eventId)]);
-    setDrafts(groups.length
-      ? groups.map(group => ({ id: group.id, name: group.name, sessionId: null, ruleMasterUserId: group.rule_master_user_id, userIds: group.members.map(member => member.user_id) }))
-      : editable ? createDefaultGroups(participants) : []);
+    const storedDrafts = groups.map(group => ({ id: group.id, name: group.name, sessionId: null, ruleMasterUserId: group.rule_master_user_id, userIds: group.members.map(member => member.user_id) }));
+    setDrafts(editable ? withDefaultGroups(storedDrafts, participants, draftId) : storedDrafts);
     setSavedGroups(Object.fromEntries(groups.map(group => [group.id, groupSignature({id:group.id,name:group.name,sessionId:null,ruleMasterUserId:group.rule_master_user_id,userIds:group.members.map(member=>member.user_id)})])));
     setGames(eventGames);
   }, [editable, eventId, participants, supabase]);
