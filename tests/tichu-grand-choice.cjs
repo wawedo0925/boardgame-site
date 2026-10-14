@@ -41,6 +41,7 @@ const { PGlite } = require('../.local-reference/clocktower/test-runtime/node_mod
   await db.exec(original);
   await db.exec(fs.readFileSync(`supabase/migrations/${migration}`, 'utf8'));
   await db.exec(fs.readFileSync('supabase/migrations/20261013020000_tichu_server_clock.sql', 'utf8'));
+  await db.exec(fs.readFileSync('supabase/migrations/20261014010000_tichu_deity_independent_cards.sql', 'utf8'));
   const synced = (await db.query('select tichu_snapshot($1) state', [broken.room])).rows[0].state;
   assert(Number.isFinite(Date.parse(synced.server_time)), 'snapshot supplies server clock');
   assert.equal(synced.me.user_id, ids[0], 'snapshot member access preserved');
