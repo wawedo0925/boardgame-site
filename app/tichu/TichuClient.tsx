@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import TichuTutorial from "./TichuTutorial";
+import Link from "next/link";
 import { sampleTichuClock, tichuSecondsLeft, type TichuClock } from "@/lib/tichu-clock";
 
 type Combo = { kind: string; size: number; strength: number; bomb: boolean };
@@ -1583,6 +1584,9 @@ export default function TichuClient() {
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row">
+            <Link href="/tichu/learn" className="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-xs font-black text-emerald-200">
+              라이브 룰
+            </Link>
             <button
               onClick={() => setTutorialOpen(true)}
               className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs font-black text-amber-200"

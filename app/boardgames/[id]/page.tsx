@@ -309,6 +309,7 @@ export default function BoardGameDetailPage() {
           </div>
         </section>)}
 
+        {/티츄|tichu/i.test(game.name) && <Link href="/tichu/learn" className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-emerald-300/25 bg-emerald-300/10 p-5 text-emerald-100"><div><strong>티츄 라이브 룰</strong><p className="mt-1 text-sm text-emerald-100/70">입체 테이블에서 세팅부터 첫 트릭까지 직접 배워보세요.</p></div><span aria-hidden="true">→</span></Link>}
         <BoardgameLearning key={gameId} gameId={gameId} />
         <GameGuideSection gameId={gameId} />
 
