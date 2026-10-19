@@ -1,0 +1,42 @@
+const fs=require('fs'),assert=require('node:assert/strict');
+const {PGlite}=require('../.local-reference/clocktower/test-runtime/node_modules/@electric-sql/pglite');
+(async()=>{const db=new PGlite(); const [u,admin,creator,e]=[1,2,3,4].map(n=>`00000000-0000-0000-0000-00000000000${n}`);
+await db.exec(`create role anon;create role authenticated;create schema auth;create table auth.users(id uuid primary key);
+create function auth.uid() returns uuid language sql as $$select current_setting('request.jwt.claim.sub')::uuid$$;
+create function is_main_admin() returns boolean language sql as $$select false$$;
+create table events(id uuid primary key,title text,created_by uuid,started_at timestamptz,event_kind text);
+create table profiles(id uuid,activity_name text);create table site_roles(user_id uuid,role text);
+create table event_participants(event_id uuid,user_id uuid,joined_at timestamptz default now());create table event_waitlist(event_id uuid,user_id uuid,joined_at timestamptz default now());
+create table notifications(id uuid primary key default gen_random_uuid(),recipient_id uuid,type text,title text,message text,link text,dedupe_key text);
+create function create_member_notification(uuid,text,text,text,text,text) returns void language sql as $$insert into notifications(recipient_id,type,title,message,link,dedupe_key) values($1,$2,$3,$4,$5,$6)$$;
+create table push_settings(id boolean,recipient_id uuid);create table push_subscriptions(id uuid,user_id uuid);
+create table push_deliveries(subscription_id uuid,notification_id uuid,title text,message text,link text,unique(subscription_id,notification_id));
+create function dispatch_participant_push() returns void language plpgsql as $$begin return;end$$;
+create function cancel_event_join_or_waitlist(p_event_id uuid) returns text language plpgsql as $$begin
+ delete from event_waitlist where event_id=p_event_id and user_id=auth.uid();if found then return 'WAITLIST_CANCELLED';end if;
+ delete from event_participants where event_id=p_event_id and user_id=auth.uid();if found then return 'CANCELLED';end if;return 'NONE';end$$;
+insert into auth.users values('${u}'),('${admin}'),('${creator}');insert into site_roles values('${admin}','MAIN_ADMIN');
+insert into profiles values('${u}','테스트회원');insert into events values('${e}','테스트 일정','${creator}',now(),'BOARDGAME');
+insert into push_settings values(true,'${admin}');insert into push_subscriptions values(gen_random_uuid(),'${admin}');set request.jwt.claim.sub='${u}';`);
+const original=fs.readFileSync('supabase/migrations/20260908020000_participant_push.sql','utf8').replace(/\r/g,'');
+await db.exec(original.slice(original.indexOf('create function public.event_notification_label'),original.indexOf('-- Update only the former')));
+await db.exec('create trigger participant_notice after insert or delete on event_participants for each row execute function notify_event_participation()');
+await db.exec(fs.readFileSync('supabase/migrations/20260915010000_event_refund_requests.sql','utf8'));
+const inquiry=fs.readFileSync('supabase/migrations/20260921040000_inquiry_limits_notifications.sql','utf8');
+await db.exec(inquiry.slice(inquiry.indexOf('create or replace function public.enqueue_participant_push()'),inquiry.lastIndexOf('commit;')));
+await db.exec('create trigger push_notice after insert on notifications for each row execute function enqueue_participant_push()');
+await db.exec(fs.readFileSync('supabase/migrations/20261019010000_event_leave_notifications.sql','utf8'));
+for(const sameCreator of [false,true]) for(const wait of [false,true]) for(const method of ['NONE','KAKAOPAY','BANK']) {
+ await db.query('update events set created_by=$1',[sameCreator?admin:creator]);
+ await db.query(`insert into ${wait?'event_waitlist':'event_participants'}(event_id,user_id) values($1,$2)`,[e,u]);
+ await db.exec('delete from push_deliveries;delete from notifications');
+ await db.query('select leave_event_with_refund($1,$2,$3,$4)',[e,method,'테스트은행','123456789']);
+ const notices=(await db.query('select * from notifications where recipient_id=$1',[admin])).rows;
+ assert.equal(notices.filter(n=>n.type==='EVENT_LEFT').length,wait&&method!=='NONE'?0:1);
+ assert.equal(notices.filter(n=>n.type==='EVENT_REFUND').length,method==='NONE'?0:1);
+ assert.equal((await db.query('select count(*)::int n from push_deliveries')).rows[0].n,notices.length);
+ const before=(await db.query('select count(*)::int n from notifications')).rows[0].n;
+ await assert.rejects(db.query("select leave_event_with_refund($1,'NONE')",[e]));
+ assert.equal((await db.query('select count(*)::int n from notifications')).rows[0].n,before);
+}
+console.log('PASS: participant/waitlist, NONE/KAKAOPAY/BANK, creator/admin dedupe, push queue, repeat cancellation rejected');await db.close();})().catch(e=>{console.error(e.message,e.where||'');process.exit(1)});
