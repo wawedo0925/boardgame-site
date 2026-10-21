@@ -7,3 +7,25 @@
 .boardWrap{position:relative;border:1px solid #6265ac66;border-radius:26px;padding:12px 6px;background:linear-gradient(145deg,#111b39e8,#140e2de8);box-shadow:0 20px 70px #0006,inset 0 0 35px #6a4dff0c}.goal{text-align:center;color:#baff72;letter-spacing:.2em;font-size:10px;font-weight:800;padding:5px 0 4px}.bottomGoal{text-align:center;font-size:9px;color:#818dad;letter-spacing:.2em;padding:3px}.board{position:relative;aspect-ratio:1;width:100%}.cells{position:absolute;inset:3.125%;display:grid;grid-template-columns:repeat(9,minmax(0,1fr));grid-template-rows:repeat(9,minmax(0,1fr))}.cell{margin:5%;border:1px solid #5f73b12c;border-radius:5px;background:#28335560;position:relative;display:grid;place-items:center;padding:0;min-width:0;min-height:0}.space .cell:disabled{opacity:1}.cell.possible{background:#65e3d713;border-color:#65e3d750}.cell.possible:hover{background:#65e3d735}.dot{width:6px;height:6px;border-radius:50%;background:#bdff81;box-shadow:0 0 8px #b4ff7177}.cross{font-size:14px;color:#8b95bd}.anchor:hover{border-color:#d3ff84;background:#a7f76922}.pawn{color:#53ecff;line-height:1;font-size:clamp(22px,5vw,38px);text-shadow:0 0 15px #38d9ffb3;pointer-events:none;z-index:2}.pinkPawn{color:#ff70d4;text-shadow:0 0 15px #ff45c9b3}.walls{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}.wall{filter:drop-shadow(0 0 1px currentColor)}
 .controls{margin-top:18px;border:1px solid #737eaa3d;background:#11182fcc;border-radius:22px;padding:18px}.turn{margin-bottom:16px}.turn>span{display:block;font-size:21px;font-weight:900}.turn small{display:block;margin-top:5px;color:#9aaacc;font-size:12px}.tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px}.tabs button,.wallControls>div button{padding:13px;border:1px solid #6973a144;border-radius:12px;background:#1b2443;font-weight:750;font-size:14px}.tabs button[aria-pressed=true]{border-color:#7eebff;color:#8eedff;background:#143246}.tabs small{margin-left:6px;font-size:11px;color:#aab3cc}.wallControls{margin-top:14px}.wallControls>div{display:flex;gap:8px}.wallControls>div button{flex:1;font-size:12px;padding:10px}.wallControls>div button[aria-pressed=true]{border-color:#bbff77;color:#bbff77}.wallControls p{font-size:12px;min-height:20px;margin:13px 0;color:#c6cfea}.activity{text-align:center;font-size:11px;color:#8d9bb9;line-height:1.7;margin-top:14px}.waiting{padding:20px;text-align:center;background:#151d37;border:1px solid #8d7cdd55;border-radius:18px;margin:16px 0}.waiting h2{font-size:18px;font-weight:800}.waiting p{font-size:12px;color:#b0bcda;margin:12px 0}.finish{text-align:center;margin-top:18px;padding:26px;border-radius:22px;border:1px solid #c0ff7b88;background:#192d28}.finish>span{font-size:10px;color:#baff72;letter-spacing:.2em}.finish h2{font-size:30px;font-weight:900;margin:14px 0}.finish p{font-size:12px;color:#bbcbbb;margin:12px 0 20px}.error{padding:14px;background:#491d38;border:1px solid #fa80b9;border-radius:12px;font-size:13px;line-height:1.7;margin:12px 0}.error button{font-size:11px;text-decoration:underline;margin-left:12px}.overlay{position:fixed;inset:0;z-index:100;background:#020512c9;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px}.modal{background:#111830;border:1px solid #8585dc66;border-radius:24px;padding:26px;max-width:450px;max-height:85dvh;overflow:auto;box-shadow:0 0 70px #7860ff22}.modal h2{font-size:24px;font-weight:850}.modal ol{padding-left:20px;list-style:decimal;margin:20px 0;font-size:13px;color:#c0cde6;line-height:1.8}.modal li+li{margin-top:10px}.modal>p:not(.eyebrow){font-size:12px;line-height:1.8;margin:16px 0;color:#a4b6d9}@media(max-width:380px){.space{padding:20px 10px 40px}.player{padding:10px}.active{padding:9px}.roomBar{font-size:10px}.boardWrap{padding:10px 3px}.controls{padding:14px}}
 
+
+/* Keep action modes beside the turn, with wall directions on the next row. */
+.controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 12px;
+}
+.turn { display: contents; }
+.turn > span { grid-column: 1; grid-row: 1; font-size: 18px; }
+.turn small { grid-column: 1 / -1; grid-row: 2; margin: 0; }
+.tabs { grid-column: 2; grid-row: 1; gap: 6px; }
+.tabs button { padding: 10px 9px; font-size: 12px; white-space: nowrap; min-height: 44px; }
+.tabs small { margin-left: 3px; font-size: 10px; }
+.wallControls { grid-column: 1 / -1; margin-top: 0; }
+.wallControls > div button { min-height: 44px; font-size: 14px; }
+@media (max-width: 360px) {
+  .controls { column-gap: 6px; }
+  .turn > span { font-size: 16px; }
+  .tabs button { padding-inline: 6px; font-size: 11px; }
+}
