@@ -27,6 +27,10 @@ export default function QuoridorClient() {
     document.body.classList.toggle("game-in-room", !!roomId);
     return () => document.body.classList.remove("game-in-room");
   }, [roomId]);
+  const playing = room?.status === "PLAYING";
+  useEffect(() => {
+    if (playing) window.scrollTo({ top: 0, behavior: "instant" });
+  }, [playing, roomId]);
   const loadRoom = useCallback(async (id: string) => {
     const { data,error } = await supabase.rpc("quoridor_snapshot", {p_room:id});
     if (activeId.current !== id) return;
@@ -125,9 +129,9 @@ export default function QuoridorClient() {
     return <line key={key} x1={v.o==="h"?x-4:x+5} y1={v.o==="h"?y+5:y-4} x2={v.o==="h"?x+14:x+5} y2={v.o==="h"?y+5:y+14}
       stroke={ghost?(previewValid?"#c5ff63":"#ff727e"):w.seat===1?"#ff65d5":"#51e9ff"} strokeWidth={ghost?1.3:1.1} strokeLinecap="round" strokeDasharray={ghost?"2 1":undefined} className={styles.wall} />;
   };
-  return <main className={styles.space}>
+  return <main className={`${styles.space} ${playing ? styles.playing : ""}`}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><Link href="/game-world" className={styles.back}>← 게임 월드</Link><p className={styles.eyebrow}>NEON ORBIT · 1 VS 1</p><h1>쿼리도 <span>✦</span></h1></div><button onClick={()=>setRules(true)} className={styles.circle} aria-label="게임 방법">?</button></header>
+      {!playing && <header className={styles.header}><div><Link href="/game-world" className={styles.back}>← 게임 월드</Link><p className={styles.eyebrow}>NEON ORBIT · 1 VS 1</p><h1>쿼리도 <span>✦</span></h1></div><button onClick={()=>setRules(true)} className={styles.circle} aria-label="게임 방법">?</button></header>}
       {error && <div role="alert" className={styles.error}>{error}<button onClick={()=>{setError(""); if(room)void loadRoom(room.id);else if(user)void loadLobby();}}>다시 확인</button>{!room && <button onClick={exit}>로비로</button>}</div>}
       {!room ? <>
         <section className={styles.hero}><div className={styles.orbit}><span>◉</span><i/><b>✦</b></div><p className={styles.eyebrow}>FIND YOUR WAY THROUGH THE STARS</p><h2>길을 만들고,<br/><em>상대의 길을 바꾸세요.</em></h2><p>9 × 9 우주 격자 위의 두 탐험가.<br/>벽 10개로 펼치는 짧고 깊은 심리전.</p>
@@ -138,7 +142,7 @@ export default function QuoridorClient() {
           <div className={styles.roomList}>{rooms.filter(r=>r.status!=="FINISHED").map(r=><button key={r.id} disabled={busy} onClick={()=>r.mine?enter(r.id):request("quoridor_join",{p_code:r.code})}><span>{r.host_name}님의 우주 <small>{r.status==="PLAYING"?"대결 중":r.guest_name?"2 / 2명":"1 / 2명 · 입장 가능"}</small></span><b>{r.mine?"이어하기":"입장 →"}</b></button>)}{!rooms.some(r=>r.status!=="FINISHED")&&<p className={styles.muted}>아직 열린 방이 없어요. 첫 대결을 시작해 보세요.</p>}</div>
         </section>}
       </> : <>
-        <div className={styles.roomBar}><span>{practice?"한 기기 연습 · 번갈아 조작":`ROOM ${room.code}`}</span><div>{!practice && <button onClick={async()=>{try{await navigator.clipboard.writeText(room.code);}catch{setError(`방 코드: ${room.code}`);}}}>코드 복사</button>}<button onClick={()=>room.status==="PLAYING"&&!practice?setLeaving(true):action("leave")}>나가기</button></div></div>
+        <div className={styles.roomBar}><span>{practice?"한 기기 연습 · 번갈아 조작":`ROOM ${room.code}`}</span><div>{playing && <button onClick={()=>setRules(true)} aria-label="게임 방법">?</button>}{!practice && <button onClick={async()=>{try{await navigator.clipboard.writeText(room.code);}catch{setError(`방 코드: ${room.code}`);}}}>코드 복사</button>}<button onClick={()=>room.status==="PLAYING"&&!practice?setLeaving(true):action("leave")}>나가기</button></div></div>
         <div className={styles.players}>{names.map((name,i)=><div key={i} aria-label={`${name}, 벽 ${room.remaining[i]}개${room.status==="PLAYING"&&room.turn===i?", 현재 차례":""}`} className={`${styles.player} ${i===1?styles.pink:""} ${room.status==="PLAYING"&&room.turn===i?styles.active:""}`}><strong>{name}</strong><span>벽 {room.remaining[i]}개</span></div>)}</div>
         {room.status==="WAITING" && <section className={styles.waiting}><h2>{room.guest_name?"탐험가 두 명, 준비 완료":"상대를 기다리고 있어요"}</h2><p>방 코드를 친구에게 알려 주세요.</p>{room.seat===0?<button className={styles.primary} disabled={!room.guest_name||busy} onClick={()=>action("start")}>대결 시작 · 선공은 랜덤</button>:<p>방장이 시작하면 대결이 열립니다.</p>}</section>}
         <div className={styles.boardWrap}><div className={styles.goal}>✦ {practice?"블루의 목적지":"나의 목적지"} ✦</div><div className={styles.board}>
@@ -162,4 +166,5 @@ export default function QuoridorClient() {
     </div>
   </main>;
 }
+
 

@@ -33,3 +33,16 @@
 .boardFooter { position: relative; min-height: 44px; display: flex; align-items: center; justify-content: center; }
 .boardConfirm { position: absolute; right: 8px; top: 2px; min-height: 40px; padding: 8px 12px; border: 1px solid #d1ff9f; border-radius: 11px; background: #baff72; color: #101c12; font-size: 12px; font-weight: 850; box-shadow: 0 0 16px #9bff4422; }
 .boardFooter:has(.boardConfirm) .bottomGoal { max-width: calc(100% - 200px); font-size: 9px; letter-spacing: .05em; }
+
+/* Start each match at the board and reserve room for both wall controls. */
+.playing { padding: 12px 16px max(12px, env(safe-area-inset-bottom)); }
+.playing .roomBar { margin-bottom: 10px; }
+.playing .players { margin-bottom: 10px; }
+.playing .board { max-width: max(180px, calc(100svh - 430px)); margin-inline: auto; }
+.playing .controls { margin-top: 10px; padding: 12px; row-gap: 8px; }
+.playing .wallControls p { margin: 8px 0 0; }
+.playing .activity { margin-top: 8px; margin-bottom: 0; }
+@media (min-width: 700px) {
+  .playing .shell { max-width: min(600px, max(340px, calc(100svh - 300px))); }
+}
+
