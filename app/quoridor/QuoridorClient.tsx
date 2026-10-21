@@ -21,10 +21,18 @@ export default function QuoridorClient() {
   const [preview,setPreview] = useState<Wall | null>(null), [rules,setRules] = useState(false), [leaving,setLeaving] = useState(false);
   const activeId = useRef<string | null>(null), inflight = useRef(false);
   const seenRevision = useRef("");
+  const savedRoomKey = useRef<string | null>(null);
   const loadRoom = useCallback(async (id: string) => {
     const { data,error } = await supabase.rpc("quoridor_snapshot", {p_room:id});
     if (activeId.current !== id) return;
-    if (error) { setError(error.message); return; }
+    if (error) {
+      if(error.message.includes("참여 중인 방이 아닙니다")) {
+        activeId.current=null;setRoom(null);
+        if(savedRoomKey.current)localStorage.removeItem(savedRoomKey.current);
+        setError("방이 종료되었거나 더 이상 참여 중인 방이 아니에요.");
+      } else setError(error.message);
+      return;
+    }
     const key=`${id}:${data.revision}`;
     if(seenRevision.current!==key) {setPreview(null);setMode("move");seenRevision.current=key;}
     setRoom(old => old && old.id===id && old.revision>data.revision ? old : data);
@@ -39,6 +47,7 @@ export default function QuoridorClient() {
     supabase.auth.getUser().then(({data})=> {
       if(!live)return; setUser(data.user?.id ?? null); setAuthReady(true);
       if(data.user) {
+        savedRoomKey.current=`quoridor-room:${data.user.id}`;
         void loadLobby();
         const saved=localStorage.getItem(`quoridor-room:${data.user.id}`);
         if(saved && !activeId.current) { activeId.current=saved; void loadRoom(saved); }
