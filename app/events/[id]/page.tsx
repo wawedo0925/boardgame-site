@@ -18,6 +18,7 @@ import EventCapacityCard, {
 import EventCancellationCard from "@/components/events/EventCancellationCard";
 import EventLeaveRefundDialog from "@/components/events/EventLeaveRefundDialog";
 import EventJoinPaymentDialog from "@/components/events/EventJoinPaymentDialog";
+import EventCalendar from "@/components/events/EventCalendar";
 import { arrivalTimeLabel, type ArrivalChoice } from "@/lib/event-arrival";
 import EventCommentSection from "@/components/events/EventCommentSection";
 import BoardgamePreferenceCard from "@/components/events/BoardgamePreferenceCard";
@@ -155,6 +156,7 @@ export default function EventDetailPage() {
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [preferencePromptOpen, setPreferencePromptOpen] = useState(false);
+  const [calendarPromptOpen, setCalendarPromptOpen] = useState(false);
 
   async function loadParticipants() {
     const { data: participantData, error: participantError } = await supabase
@@ -412,6 +414,7 @@ export default function EventDetailPage() {
     }
 
     setJoinDialogOpen(false);
+    if (data !== "WAITLISTED" && data !== "GM_PENDING") setCalendarPromptOpen(true);
     setIsActionLoading(false);
   }
 
@@ -761,6 +764,7 @@ export default function EventDetailPage() {
                 )}
               </article>
 
+              {isJoined && !isCancelled && !isEnded && !participants.find(p => p.user_id === user?.id)?.gm_pending && <EventCalendar key={event.id} event={event} promptOpen={calendarPromptOpen && !preferencePromptOpen} onPromptClose={() => setCalendarPromptOpen(false)} />}
               {event.event_kind === "BOARDGAME" && isJoined && user && (
                 <BoardgamePreferenceCard
                   eventId={eventId}
