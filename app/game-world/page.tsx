@@ -7,6 +7,17 @@ export const metadata = {
 
 const games = [
   {
+    href: "/quoridor",
+    eyebrow: "NEON SPACE STRATEGY",
+    title: "쿼리도",
+    description: "형광빛 우주에서 길을 만들고 상대를 막는 1대1 전략 대결",
+    details: ["2인 대결", "벽 10개 · 9×9", "한 기기 연습"],
+    icon: "quoridor",
+    color: "from-violet-500/25 via-cyan-400/10 to-transparent",
+    border: "hover:border-violet-300/70",
+    button: "bg-lime-300 text-slate-950",
+  },
+  {
     href: "/tichu",
     eyebrow: "CARD GAME",
     title: "티츄",
@@ -63,7 +74,7 @@ export default function GameWorldPage() {
                     <h2 className="mt-2 text-4xl font-black">{game.title}</h2>
                   </div>
                   <span className="grid h-20 w-20 place-items-center rounded-3xl border border-white/10 bg-black/30 text-5xl shadow-xl transition group-hover:scale-105">
-                    {game.icon === "tichu" ? (
+                    {game.icon === "quoridor" ? "🪐" : game.icon === "tichu" ? (
                       "🀄"
                     ) : (
                       <span
