@@ -150,10 +150,10 @@ export default function QuoridorClient() {
             </button>;
           })}</div>
           <svg className={styles.walls} viewBox="0 0 96 96" aria-hidden="true">{room.walls.map((w,i)=>wallLine(w,`wall-${i}`))}{preview&&wallLine(preview,"preview",true)}</svg>
-        </div><div className={styles.bottomGoal}>{practice?"핑크의 목적지":"상대의 목적지"}</div></div>
+        </div><div className={styles.boardFooter}><div className={styles.bottomGoal}>{practice?"핑크의 목적지":"상대의 목적지"}</div>{mode==="wall" && myTurn && <button className={styles.boardConfirm} disabled={busy||!previewValid} onClick={()=>preview&&action("wall",preview)}>설치 확정</button>}</div></div>
         {room.status==="PLAYING" && <section className={styles.controls}><div className={styles.turn}><span>{myTurn?(practice?`${names[room.turn]} 차례`:"내 차례"):"상대 차례"}</span><small>{myTurn?"이동 또는 벽 설치 중 하나를 선택하세요":"상대가 길을 고민하고 있어요"}</small></div>
           <div className={styles.tabs}><button disabled={!myTurn||busy} aria-pressed={mode==="move"} onClick={()=>{setMode("move");setPreview(null);}}>◉ 말 이동</button><button disabled={!myTurn||busy||!room.remaining[room.seat]} aria-pressed={mode==="wall"} onClick={()=>setMode("wall")}>▰ 벽 설치 <small>{room.remaining[room.seat]}</small></button></div>
-          {mode==="wall" && myTurn && <div className={styles.wallControls}><div><button aria-pressed={orientation==="h"} onClick={()=>{setOrientation("h");setPreview(p=>p?{...p,o:"h"}:null);}}>━ 가로</button><button aria-pressed={orientation==="v"} onClick={()=>{setOrientation("v");setPreview(p=>p?{...p,o:"v"}:null);}}>┃ 세로</button></div><p>{preview?previewValid?"이 위치에 벽을 설치할까요?":"겹치거나 길이 막혀요. 다른 위치를 골라 주세요.":"판의 ＋를 눌러 벽 위치를 미리 보세요."}</p><button className={styles.primary} disabled={busy||!previewValid} onClick={()=>preview&&action("wall",preview)}>벽 설치 확정</button></div>}
+          {mode==="wall" && myTurn && <div className={styles.wallControls}><div><button aria-pressed={orientation==="h"} onClick={()=>{setOrientation("h");setPreview(p=>p?{...p,o:"h"}:null);}}>━ 가로</button><button aria-pressed={orientation==="v"} onClick={()=>{setOrientation("v");setPreview(p=>p?{...p,o:"v"}:null);}}>┃ 세로</button></div><p>{preview?previewValid?"이 위치에 벽을 설치할까요?":"겹치거나 길이 막혀요. 다른 위치를 골라 주세요.":"판의 ＋를 눌러 벽 위치를 미리 보세요."}</p></div>}
         </section>}
         <p className={styles.activity} aria-live="polite">{busy?"전송 중…":room.last_action}</p>
         {room.status==="FINISHED" && <section className={styles.finish} role="status"><span>✦ MISSION COMPLETE ✦</span><h2>{names[room.winner??0]} 승리!</h2><p>다음 우주에서는 어떤 길을 만들까요?</p><button className={styles.primary} onClick={()=>practice?setRoom(initialPractice()):exit()}>{practice?"다시 연습하기":"로비로 돌아가기"}</button></section>}
@@ -162,3 +162,4 @@ export default function QuoridorClient() {
     </div>
   </main>;
 }
+
