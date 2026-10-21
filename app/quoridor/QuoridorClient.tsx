@@ -22,6 +22,11 @@ export default function QuoridorClient() {
   const activeId = useRef<string | null>(null), inflight = useRef(false);
   const seenRevision = useRef("");
   const savedRoomKey = useRef<string | null>(null);
+  const roomId = room?.id;
+  useEffect(() => {
+    document.body.classList.toggle("game-in-room", !!roomId);
+    return () => document.body.classList.remove("game-in-room");
+  }, [roomId]);
   const loadRoom = useCallback(async (id: string) => {
     const { data,error } = await supabase.rpc("quoridor_snapshot", {p_room:id});
     if (activeId.current !== id) return;
@@ -134,7 +139,7 @@ export default function QuoridorClient() {
         </section>}
       </> : <>
         <div className={styles.roomBar}><span>{practice?"한 기기 연습 · 번갈아 조작":`ROOM ${room.code}`}</span><div>{!practice && <button onClick={async()=>{try{await navigator.clipboard.writeText(room.code);}catch{setError(`방 코드: ${room.code}`);}}}>코드 복사</button>}<button onClick={()=>room.status==="PLAYING"&&!practice?setLeaving(true):action("leave")}>나가기</button></div></div>
-        <div className={styles.players}>{names.map((name,i)=><div key={i} className={`${styles.player} ${i===1?styles.pink:""} ${room.status==="PLAYING"&&room.turn===i?styles.active:""}`}><small>{room.status==="PLAYING"&&room.turn===i?"현재 차례":i===room.seat&&!practice?"나":"탐험가"}</small><strong>{name}</strong><span>▰ 벽 {room.remaining[i]}개</span></div>)}</div>
+        <div className={styles.players}>{names.map((name,i)=><div key={i} aria-label={`${name}, 벽 ${room.remaining[i]}개${room.status==="PLAYING"&&room.turn===i?", 현재 차례":""}`} className={`${styles.player} ${i===1?styles.pink:""} ${room.status==="PLAYING"&&room.turn===i?styles.active:""}`}><strong>{name}</strong><span>벽 {room.remaining[i]}개</span></div>)}</div>
         {room.status==="WAITING" && <section className={styles.waiting}><h2>{room.guest_name?"탐험가 두 명, 준비 완료":"상대를 기다리고 있어요"}</h2><p>방 코드를 친구에게 알려 주세요.</p>{room.seat===0?<button className={styles.primary} disabled={!room.guest_name||busy} onClick={()=>action("start")}>대결 시작 · 선공은 랜덤</button>:<p>방장이 시작하면 대결이 열립니다.</p>}</section>}
         <div className={styles.boardWrap}><div className={styles.goal}>✦ {practice?"블루의 목적지":"나의 목적지"} ✦</div><div className={styles.board}>
           <div className={styles.cells}>{Array.from({length:81},(_,v)=>{const n=displayPos(v),pawn=room.positions.indexOf(n),canMove=myTurn&&mode==="move"&&room.moves.includes(n),r=Math.floor(n/9),c=n%9;
