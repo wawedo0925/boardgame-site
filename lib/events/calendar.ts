@@ -8,6 +8,25 @@ export type CalendarEvent = {
   location: string | null;
 };
 
+export function calendarPlatform(userAgent: string, platform = "", maxTouchPoints = 0): "apple" | "android" | "google" {
+  if (/iPhone|iPad|iPod|Macintosh/i.test(userAgent) || /Mac/i.test(platform) || (platform === "MacIntel" && maxTouchPoints > 1)) return "apple";
+  if (/Android/i.test(userAgent)) return "android";
+  return "google";
+}
+
+export function appleCalendarUrl(event: CalendarEvent) {
+  return `/calendar/event.ics?${new URLSearchParams({ id: event.id, kind: event.event_kind, start: event.started_at, end: event.ended_at ?? "", location: event.location ?? "" })}`;
+}
+
+export function androidCalendarUrl(event: CalendarEvent, origin: string) {
+  const fallback = googleCalendarUrl(event, origin);
+  if (!fallback) return null;
+  const times = calendarTimes(event)!;
+  // Calendar apps must expose a browser-accessible insert activity to accept this.
+  // Chrome uses the prefilled web editor if the installed app cannot handle it.
+  return `intent://com.android.calendar/events#Intent;scheme=content;action=android.intent.action.INSERT;type=vnd.android.cursor.dir/event;package=com.google.android.calendar;S.title=${encodeURIComponent(calendarTitle(event.event_kind))};S.eventLocation=${encodeURIComponent(formatEventLocation(event.location))};S.description=${encodeURIComponent(details(event, origin))};l.beginTime=${new Date(event.started_at).getTime()};${times.end ? `l.endTime=${new Date(event.ended_at!).getTime()};` : ""}S.browser_fallback_url=${encodeURIComponent(fallback)};end`;
+}
+
 export function calendarTitle(kind: string) {
   return ({ BOARDGAME: "보겜", MURDER_MYSTERY: "머미", CLOCKTOWER: "시계탑", HOLDEM: "홀덤" } as Record<string, string>)[kind] ?? "모임";
 }

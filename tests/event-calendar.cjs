@@ -5,7 +5,7 @@ const ts = require('typescript');
 function load(path) {
   const exports = {};
   const code = ts.transpileModule(fs.readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
-  vm.runInNewContext(code, { exports, URL, URLSearchParams, TextEncoder, require: () => load('lib/events/location.ts') });
+  vm.runInNewContext(code, { exports, URL, URLSearchParams, TextEncoder, Response, require: name => load(name.includes('calendar') ? 'lib/events/calendar.ts' : 'lib/events/location.ts') });
   return exports;
 }
 const { calendarTitle, calendarTimes, calendarFile, googleCalendarUrl } = load('lib/events/calendar.ts');
@@ -37,3 +37,32 @@ assert.equal(calendarTimes({ ...event, ended_at: event.started_at }).end, null);
 assert.equal(calendarFile({ ...event, started_at: 'invalid' }, origin), null);
 assert.equal(googleCalendarUrl({ ...event, started_at: 'invalid' }, origin), null);
 console.log('PASS: short titles, Korean timezone/overnight event, location, Google fields, ICS escaping/folding, unknown end and invalid dates');
+const { calendarPlatform, androidCalendarUrl, appleCalendarUrl } = load('lib/events/calendar.ts');
+for (const [ua, platform, touch, expected] of [
+  ['Mozilla iPhone', 'iPhone', 5, 'apple'], ['Mozilla iPad', 'iPad', 5, 'apple'],
+  ['Mozilla Macintosh', 'MacIntel', 5, 'apple'], ['Mozilla Macintosh', 'MacIntel', 0, 'apple'],
+  ['Mozilla Android', 'Linux arm', 5, 'android'], ['Mozilla Windows', 'Win32', 0, 'google'],
+  ['Mozilla Linux', 'Linux', 0, 'google'], ['', '', 0, 'google'],
+]) assert.equal(calendarPlatform(ua, platform, touch), expected);
+const intent = androidCalendarUrl(event, origin);
+assert.ok(intent.startsWith('intent://com.android.calendar/events#Intent;'));
+assert.match(intent, /package=com.google.android.calendar;/);
+assert.ok(intent.includes(`l.beginTime=${Date.parse(event.started_at)};`));
+assert.ok(intent.includes(`S.title=${encodeURIComponent('보겜')};`));
+const fallback = decodeURIComponent(intent.split('S.browser_fallback_url=')[1].split(';')[0]);
+assert.equal(fallback, googleCalendarUrl(event, origin));
+assert.equal(androidCalendarUrl({ ...event, started_at: 'invalid' }, origin), null);
+const { GET } = load('app/calendar/event.ics/route.ts');
+(async () => {
+  const response = GET({ url: new URL(appleCalendarUrl(event), origin).href });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('Content-Type'), /text\/calendar/);
+  assert.match(response.headers.get('Content-Disposition'), /inline/);
+  const body = unfold(await response.text());
+  assert.match(body, /SUMMARY:보겜/);
+  assert.match(body, /DTSTART:20261021T140000Z/);
+  assert.match(body, /LOCATION:잠원동/);
+  assert.equal(GET({ url: `${origin}/calendar/event.ics` }).status, 400);
+  assert.equal(GET({ url: new URL(appleCalendarUrl({ ...event, location: 'x'.repeat(1001) }), origin).href }).status, 400);
+  console.log('PASS: Apple/Android/desktop detection, app intent extras and fallback, HTTPS ICS response and input validation');
+})().catch(error => { console.error(error); process.exitCode = 1; });
