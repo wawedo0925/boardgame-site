@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { androidCalendarUrl, appleCalendarUrl, calendarPlatform, calendarFile, calendarTimes, calendarTitle, googleCalendarUrl, type CalendarEvent } from "@/lib/events/calendar";
 import { formatEventLocation } from "@/lib/events/location";
-import GoogleCalendarSave, { directCalendarConfigured } from "./GoogleCalendarSave";
 
 export default function EventCalendar({ event, promptOpen, onPromptClose }: { event: CalendarEvent; promptOpen: boolean; onPromptClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -42,17 +41,17 @@ export default function EventCalendar({ event, promptOpen, onPromptClose }: { ev
     </div>
     <dialog ref={dialog} onCancel={onPromptClose} onClose={onPromptClose} aria-labelledby="event-calendar-title" className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-3xl border border-white/15 bg-zinc-950 p-6 text-white backdrop:bg-black/75">
       <h2 id="event-calendar-title" className="text-xl font-bold">캘린더에도 추가할까요?</h2>
-      <p className="mt-2 text-sm leading-6 text-zinc-400">날짜·시간·장소가 준비됐어요. 저장할 캘린더를 선택해 주세요.</p>
+      <p className="mt-2 text-sm leading-6 text-zinc-400">날짜·시간·장소가 준비됐어요. 구글 캘린더를 연 뒤 저장을 눌러 주세요.</p>
       <dl className="my-5 space-y-3 rounded-2xl bg-white/5 p-4 text-sm"><div><dt className="text-zinc-500">제목</dt><dd className="mt-1 text-lg font-bold">{title}</dd></div><div><dt className="text-zinc-500">날짜·시간 (한국 시간)</dt><dd className="mt-1">{format(event.started_at)}{times.end && event.ended_at ? <> ~<br/>{format(event.ended_at)}</> : " · 종료 미정"}</dd></div><div><dt className="text-zinc-500">장소</dt><dd className="mt-1 break-words">{formatEventLocation(event.location)}</dd></div></dl>
       {!times.end && <p className="mb-3 text-xs text-amber-200">종료 시간이 정해지지 않았어요. 캘린더에서 저장 전에 확인해 주세요.</p>}
-      <div className="grid gap-3"><GoogleCalendarSave event={event}/>
+      <div className="grid gap-3"><button type="button" onClick={() => { const url = googleCalendarUrl(event, window.location.origin); if (url) window.location.assign(url); }} className="min-h-12 rounded-xl bg-sky-300 px-5 font-bold text-zinc-950">구글 캘린더 웹으로 열기</button>
         <button type="button" onClick={download} className="min-h-12 rounded-xl border border-white/20 px-5 font-bold text-zinc-200">삼성 캘린더용 일정 받기</button>
         <p className="text-xs leading-5 text-zinc-400">구글 동기화 없이도 사용할 수 있어요. 받은 일정 파일을 열어 삼성 캘린더를 선택한 뒤, 저장할 캘린더를 ‘내 휴대전화’ 또는 삼성 계정으로 선택하고 저장해 주세요. 기기·앱 버전에 따라 파일 열기 지원이 다를 수 있어요.</p>
         {downloaded && <p role="status" className="text-sm text-sky-200">일정 파일 다운로드를 요청했어요. 아직 캘린더에 저장된 것은 아니에요. 다운로드 알림 또는 ‘내 파일 → 다운로드’에서 .ics 파일을 열어 캘린더에 추가해 주세요.</p>}
-        <button type="button" onClick={openCalendar} className={`min-h-12 rounded-xl font-bold ${directCalendarConfigured ? "border border-white/20 text-zinc-200" : "bg-sky-300 text-zinc-950"}`}>내 기기의 캘린더로 열기</button></div>
+        <button type="button" onClick={openCalendar} className="min-h-12 rounded-xl border border-white/20 font-bold text-zinc-200">내 기기의 캘린더로 열기</button></div>
       <p className="mt-3 text-xs leading-5 text-zinc-400">애플 기기는 애플 캘린더용 일정을 열고, 안드로이드는 구글 캘린더 앱 연결을 시도해요. 그 외 기기나 앱 연결이 지원되지 않는 환경은 구글 캘린더 웹으로 연결됩니다. 마지막 저장은 캘린더에서 눌러 주세요.</p>
       {opening && <p role="status" className="mt-3 text-sm text-sky-200">앱이 열리지 않나요? 카카오톡 등 앱 안에서는 Safari·Chrome으로 홈페이지를 열어 다시 시도하거나, 아래 다른 저장 방법을 이용해 주세요. 애플 기기에서도 브라우저에 따라 파일 미리보기로 열릴 수 있어요.</p>}
-      <details className="mt-4 rounded-xl border border-white/15 p-3"><summary className="cursor-pointer py-2 text-sm text-zinc-300">다른 방법으로 저장</summary><div className="mt-2 grid gap-2"><a href={appleCalendarUrl(event)} className="flex min-h-12 items-center justify-center rounded-xl border border-white/20 text-sm">애플 캘린더용 일정 열기</a><button type="button" onClick={() => { const url = googleCalendarUrl(event, window.location.origin); if (url) window.location.assign(url); }} className="min-h-12 rounded-xl border border-white/20 text-sm">구글 캘린더 웹으로 열기</button><button type="button" onClick={download} className="min-h-12 rounded-xl border border-white/20 text-sm">캘린더 파일 받기 (.ics)</button></div></details>
+      <details className="mt-4 rounded-xl border border-white/15 p-3"><summary className="cursor-pointer py-2 text-sm text-zinc-300">다른 방법으로 저장</summary><div className="mt-2 grid gap-2"><a href={appleCalendarUrl(event)} className="flex min-h-12 items-center justify-center rounded-xl border border-white/20 text-sm">애플 캘린더용 일정 열기</a><button type="button" onClick={download} className="min-h-12 rounded-xl border border-white/20 text-sm">캘린더 파일 받기 (.ics)</button></div></details>
 
       <p className="mt-4 text-xs leading-5 text-zinc-500">일정 변경·참가 취소는 자동 반영되지 않아요. 이미 저장했다면 중복 추가하지 않도록 확인해 주세요.</p>
       <button type="button" onClick={close} className="mt-3 min-h-11 w-full text-sm text-zinc-400">닫기</button>
