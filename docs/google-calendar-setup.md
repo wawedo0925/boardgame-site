@@ -12,3 +12,13 @@
 
 참고: https://developers.google.com/identity/oauth2/web/guides/use-token-model
 참고: https://developers.google.com/workspace/calendar/api/v3/reference/events/insert
+
+## 월별 모임 달력과 개인 일정 표시
+
+이벤트 목록의 ‘달력으로 보기’는 별도 월 범위 조회를 사용합니다. 목록 필터나 최근 종료 7일 제한과 무관하며 Supabase의 기존 읽기 권한을 따릅니다. 한국 시간의 시작 날짜에만 모임을 표시합니다. 자정을 넘어 종료되어도 다음 날에 반복 표시하지 않습니다. 달력의 모임 이름을 누르면 상세 페이지로 이동합니다. 공휴일은 `lib/events/korean-holidays.ts`에 2026~2027년 확인 자료를 관리하며 이후 연도와 임시공휴일 발표 시 갱신해야 합니다.
+
+개인 일정 보기에는 `https://www.googleapis.com/auth/calendar.events.readonly`가 추가로 필요합니다. Google Auth Platform의 데이터 액세스/검증 설정에도 해당 범위를 반영합니다. 사용자가 직접 버튼을 눌렀을 때만 동의를 요청하고 선택한 Google 계정의 기본 캘린더를 읽습니다. 다른 구독 캘린더와 삼성·애플 기기의 로컬 일정은 포함하지 않습니다.
+
+토큰과 개인 일정은 팝업 메모리에만 존재하며 서버나 브라우저 영구 저장소에 저장하지 않습니다. 닫기/표시 연결 끄기로 화면 데이터와 진행 중 요청을 정리합니다. Google 계정에 부여했던 앱 권한 자체를 철회하는 것은 아니므로 영구 철회는 Google 계정의 연결된 앱 설정에서 진행합니다. 만료되면 연결 끄기 후 재연결할 수 있습니다.
+
+검증: `node tests/month-calendar.cjs`. 로컬 UI에서 월 이동/날짜 선택/실제 모임 조회를 확인했습니다. OAuth 실계정 동의·읽기는 등록된 서비스 원본에서 계정 소유자가 확인해야 합니다.

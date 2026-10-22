@@ -6,6 +6,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "rea
 import { createClient } from "@/lib/supabase/client";
 import { formatEventLocation } from "@/lib/events/location";
 import { getEventGuideSummary } from "@/lib/events/guide";
+import EventsMonthCalendar from "@/components/events/EventsMonthCalendar";
 
 type EventParticipant = { id: string; user_id: string; participation_role: string; gm_pending: boolean };
 type EventRow = {
@@ -280,6 +281,7 @@ export default function EventsPage() {
         <h1 className="mt-3 text-4xl font-bold sm:text-5xl">이벤트 일정</h1>
         <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">참여할 이벤트와 내가 만든 이벤트를 한눈에 확인하세요.</p>
       </div><Link href="/events/new" className="inline-flex justify-center rounded-2xl bg-amber-400 px-6 py-3 font-semibold text-zinc-950 hover:bg-amber-300">이벤트 만들기</Link></div>
+      <EventsMonthCalendar userId={userId} />
     </div></section>
 
     <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 sm:py-16">
