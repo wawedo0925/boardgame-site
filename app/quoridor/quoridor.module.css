@@ -46,3 +46,6 @@
   .playing .shell { max-width: min(600px, max(340px, calc(100svh - 300px))); }
 }
 
+
+.countSelect{display:flex;gap:10px;margin:0 0 14px}.countSelect button{flex:1;padding:12px;border:1px solid #657098;border-radius:12px;background:#151e39}.countSelect button[aria-pressed=true]{border-color:#baff72;color:#baff72;background:#233831}
+.four .players{gap:6px}.four .player{padding:8px 10px}.four .player strong{font-size:15px}.four .active{outline:2px solid white;outline-offset:-2px}.four.playing .board{max-width:max(170px,calc(100svh - 475px))}.four .goal,.four .bottomGoal{letter-spacing:0;font-size:10px}

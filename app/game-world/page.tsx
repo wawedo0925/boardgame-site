@@ -10,7 +10,7 @@ const games = [
     href: "/quoridor",
     eyebrow: "NEON SPACE STRATEGY",
     title: "쿼리도",
-    description: "형광빛 우주에서 길을 만들고 상대를 막는 1대1 전략 대결",
+    description: "형광빛 우주에서 길을 만들고 상대를 막는 2인·4인 전략 대결",
     details: ["2인 대결", "벽 10개 · 9×9", "한 기기 연습"],
     icon: "quoridor",
     color: "from-violet-500/25 via-cyan-400/10 to-transparent",
