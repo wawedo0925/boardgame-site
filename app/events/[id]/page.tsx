@@ -19,6 +19,7 @@ import EventCancellationCard from "@/components/events/EventCancellationCard";
 import EventLeaveRefundDialog from "@/components/events/EventLeaveRefundDialog";
 import EventJoinPaymentDialog from "@/components/events/EventJoinPaymentDialog";
 import EventCalendar from "@/components/events/EventCalendar";
+import EventCopyButtons from "@/components/events/EventCopyButtons";
 import { arrivalTimeLabel, type ArrivalChoice } from "@/lib/event-arrival";
 import EventCommentSection from "@/components/events/EventCommentSection";
 import BoardgamePreferenceCard from "@/components/events/BoardgamePreferenceCard";
@@ -489,9 +490,9 @@ export default function EventDetailPage() {
               </Link>
 
               <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${event.event_kind === "HOLDEM" ? "bg-emerald-400/10 text-emerald-300" : event.event_kind === "MURDER_MYSTERY" ? "bg-red-400/10 text-red-300" : event.event_kind === "CLOCKTOWER" ? "bg-violet-400/10 text-violet-300" : event.event_kind === "GENERAL" ? "bg-sky-400/10 text-sky-300" : "bg-amber-400/10 text-amber-300"}`}>
+                <div className="min-w-0 lg:flex-1">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <span className={`rounded-full px-2 py-1 text-[10px] font-semibold sm:px-3 sm:text-xs ${event.event_kind === "HOLDEM" ? "bg-emerald-400/10 text-emerald-300" : event.event_kind === "MURDER_MYSTERY" ? "bg-red-400/10 text-red-300" : event.event_kind === "CLOCKTOWER" ? "bg-violet-400/10 text-violet-300" : event.event_kind === "GENERAL" ? "bg-sky-400/10 text-sky-300" : "bg-amber-400/10 text-amber-300"}`}>
                       {event.event_kind === "MURDER_MYSTERY"
                         ? "머더미스터리 이벤트"
                         : event.event_kind === "HOLDEM" ? "홀덤"
@@ -503,7 +504,7 @@ export default function EventDetailPage() {
                     </span>
 
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(status)}`}
+                      className={`rounded-full px-2 py-1 text-[10px] font-semibold sm:px-3 sm:text-xs ${getStatusStyle(status)}`}
                     >
                       {status}
                     </span>
@@ -513,6 +514,7 @@ export default function EventDetailPage() {
                         취소됨
                       </span>
                     )}
+                    <EventCopyButtons title={event.title} eventId={event.id} />
                   </div>
 
                   <h1 className="mt-5 text-4xl font-bold leading-tight sm:text-5xl">
