@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export default function EventCopyButtons({ title, eventId }: { title: string; eventId: string }) {
+export default function EventCopyButtons({ title, eventId, shortCode }: { title: string; eventId: string; shortCode?: string | null }) {
   const [copied, setCopied] = useState<"title" | "link" | null>(null);
   const [error, setError] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   async function copy(kind: "title" | "link") {
-    const text = kind === "title" ? title : new URL(`/events/${eventId}`, window.location.origin).href;
+    const text = kind === "title" ? title : new URL(`/events/${shortCode || eventId}`, window.location.origin).href;
     setError("");
     try {
       await navigator.clipboard.writeText(text);
@@ -45,7 +45,7 @@ export default function EventCopyButtons({ title, eventId }: { title: string; ev
       onClick={() => void copy(kind)}
       className="min-h-10 w-16 whitespace-nowrap rounded-xl border border-white/15 bg-white/5 px-1 text-[10px] font-semibold text-zinc-300 transition hover:border-amber-300/50 hover:text-amber-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 sm:w-auto sm:px-3 sm:text-xs"
     >{copied === kind ? "복사 완료 ✓" : kind === "title" ? "제목 복사" : "링크 복사"}</button>)}
-    <span role="status" className="sr-only">{copied ? `${copied === "title" ? "제목" : "링크"}을 복사했어요.` : ""}</span>
+    <span role="status" className="sr-only">{copied ? `${copied === "title" ? "제목을" : "링크를"} 복사했어요.` : ""}</span>
     {error && <p role="alert" className="absolute right-0 top-full z-10 mt-1 w-60 rounded-lg border border-red-400/30 bg-zinc-900 p-2 text-xs text-red-300">{error}</p>}
   </div>;
 }

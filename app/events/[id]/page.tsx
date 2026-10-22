@@ -31,6 +31,7 @@ import { CLOCKTOWER_EVENT_DESCRIPTION_PRESET, HOLDEM_EVENT_DESCRIPTION_PRESET } 
 type EventRow = {
   id: string;
   title: string;
+  short_code: string | null;
   started_at: string;
   ended_at: string | null;
   location: string | null;
@@ -137,9 +138,29 @@ function getInitial(profile: ProfileRow | null) {
   return profile?.activity_name?.trim().slice(0, 1) || "회";
 }
 
-export default function EventDetailPage() {
-  const params = useParams<{ id: string }>();
-  const eventId = params.id;
+export default function EventPage() {
+  const { id } = useParams<{ id: string }>();
+  return /^[mcbhg][1-9][0-9]*$/i.test(id)
+    ? <ShortEventPage key={id.toLowerCase()} code={id.toLowerCase()} />
+    : <EventDetailPage key={id} eventId={id} />;
+}
+
+function ShortEventPage({ code }: { code: string }) {
+  const [eventId, setEventId] = useState<string | null>(null);
+  const [message, setMessage] = useState("이벤트를 불러오는 중이에요.");
+  useEffect(() => {
+    let live = true;
+    void createClient().from("events").select("id").eq("short_code", code).maybeSingle().then(({ data, error }) => {
+      if (!live) return;
+      if (data) setEventId(data.id);
+      else setMessage(error ? "이벤트를 불러오지 못했어요. 잠시 후 새로고침해 주세요." : "해당 이벤트를 찾을 수 없어요.");
+    });
+    return () => { live = false; };
+  }, [code]);
+  return eventId ? <EventDetailPage eventId={eventId} /> : <main className="mx-auto max-w-7xl px-6 py-16"><p role="status">{message}</p><Link href="/events" className="mt-5 inline-block text-amber-300">이벤트 목록으로</Link></main>;
+}
+
+function EventDetailPage({ eventId }: { eventId: string }) {
   const supabase = useMemo(() => createClient(), []);
 
   const [user, setUser] = useState<User | null>(null);
@@ -271,7 +292,7 @@ export default function EventDetailPage() {
         supabase
           .from("events")
           .select(
-            "id, title, started_at, ended_at, location, description, created_by, created_at, event_status, closed_at, max_participants, event_kind, murder_mystery_id, participation_fee",
+            "id, title, short_code, started_at, ended_at, location, description, created_by, created_at, event_status, closed_at, max_participants, event_kind, murder_mystery_id, participation_fee",
           )
           .eq("id", eventId)
           .maybeSingle(),
@@ -514,7 +535,7 @@ export default function EventDetailPage() {
                         취소됨
                       </span>
                     )}
-                    <EventCopyButtons title={event.title} eventId={event.id} />
+                    <EventCopyButtons title={event.title} eventId={event.id} shortCode={event.short_code} />
                   </div>
 
                   <h1 className="mt-5 text-4xl font-bold leading-tight sm:text-5xl">
