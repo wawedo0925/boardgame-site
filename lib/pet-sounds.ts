@@ -12,7 +12,7 @@ export class PetSounds {
       const context = this.context;
       void context.resume().catch(() => {});
       for (const name of ["dog", "cat", "wrong"]) {
-        if (!this.buffers.has(name)) void fetch(`/audio/pets/${name}.wav`)
+        if (!this.buffers.has(name)) void fetch(`/audio/pets/${name}.wav?v=2`)
           .then(r => { if (!r.ok) throw new Error("audio"); return r.arrayBuffer(); })
           .then(bytes => context.decodeAudioData(bytes))
           .then(buffer => { if (this.context === context) this.buffers.set(name, buffer); })
