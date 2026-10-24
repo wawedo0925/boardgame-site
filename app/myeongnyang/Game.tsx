@@ -43,8 +43,8 @@ export default function Game() {
  }
  const top=stats?.leaders[0];
  return <main className={s.page}><div className={s.shell}>
-  <header className={s.header}><div><p>30 SECOND PET CLUB</p><h1>명냥게임 <span>🐾</span></h1></div><Link href="/game-world">나가기 ↗</Link></header>
-  <section className={s.board} aria-label="명냥게임 게임판">
+  <header className={s.header}><div><p>30 SECOND PET CLUB</p><h1>멍냥게임 <span>🐾</span></h1></div><Link href="/game-world">나가기 ↗</Link></header>
+  <section className={s.board} aria-label="멍냥게임 게임판">
    <div className={s.hud}><div className={s.records}><b>BEST SCORE</b><p>내 최고 <strong>{stats?.mine??"—"}<small>점</small></strong></p><p>👑 {top?.name??"멤버 최고"} <strong>{top?.score??"—"}<small>점</small></strong></p><p>멤버 평균 <strong>{stats?.average??"—"}<small>점</small></strong></p></div><div className={`${s.timer} ${seconds<=5?s.hurry:""}`}><small>남은 시간</small><b>{seconds.toFixed(1)}</b><span>초</span></div></div>
    <div className={s.track}><div style={{width:`${seconds/30*100}%`}}/></div>
    <div className={s.score}><span>현재 점수</span><b>{score}</b><small className={feedback.startsWith("앗")?s.wrong:""}>{feedback||"차근차근, 빠르게!"}</small></div>
@@ -59,7 +59,7 @@ export default function Game() {
    </section></div>}
   </section>
   {error&&<p role="alert" className={s.error}>{error}</p>}
-  <footer className={s.footer}><span>{user?`멤버 ${stats?.count??0}명의 개인 최고점 기준`:"로그인하면 멤버 기록을 볼 수 있어요"}</span><button disabled={!user||phase==="playing"} onClick={()=>{setRanking(!ranking);if(!ranking)void loadStats();}}>명냥 TOP 10 {ranking?"−":"+"}</button></footer>
+  <footer className={s.footer}><span>{user?`멤버 ${stats?.count??0}명의 개인 최고점 기준`:"로그인하면 멤버 기록을 볼 수 있어요"}</span><button disabled={!user||phase==="playing"} onClick={()=>{setRanking(!ranking);if(!ranking)void loadStats();}}>멍냥 TOP 10 {ranking?"−":"+"}</button></footer>
   {ranking&&<ol className={s.ranking}>{stats?.leaders.map((p,i)=><li key={i}><span>{i+1}. {p.name}</span><b>{p.score}점</b></li>)}{!stats?.leaders.length&&<li>첫 기록의 주인공이 되어 주세요!</li>}</ol>}
  </div></main>;
 }

@@ -6,7 +6,7 @@ export const metadata = {
 };
 
 const games = [
-  { href: "/myeongnyang", eyebrow: "30 SECOND PET CLUB", title: "명냥게임",
+  { href: "/myeongnyang", eyebrow: "30 SECOND PET CLUB", title: "멍냥게임",
     description: "강아지는 왼쪽, 고양이는 오른쪽! 30초 동안 귀여운 친구들을 분류해요",
     details: ["혼자 도전", "30초 챌린지", "멤버 최고점"], icon: "pets",
     color: "from-rose-400/25 via-amber-200/10 to-transparent", border: "hover:border-rose-200/70", button: "bg-rose-200 text-slate-950" },
