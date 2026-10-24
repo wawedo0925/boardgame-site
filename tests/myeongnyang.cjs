@@ -28,5 +28,16 @@ const {PGlite}=require('../.local-reference/clocktower/test-runtime/node_modules
  await q('select myeongnyang_finish($1,$2)',[r3.id,r3.queue.slice(0,2)]);
  const stats=(await q('select myeongnyang_stats() s'))[0].s;assert.equal(stats.count,2);assert.equal(stats.average,3);assert.equal(stats.leaders[0].name,'Dog');assert.equal(stats.mine,2);
  await db.exec('set role authenticated');await assert.rejects(q('select * from myeongnyang_runs'));await assert.rejects(q("insert into myeongnyang_bests values(auth.uid(),999,now())"));
- await db.close();console.log('PASS: deadline, ownership, validation, idempotency, best-only updates, average, restricted tables');
+ await db.exec('reset role');
+ await db.exec(fs.readFileSync('supabase/migrations/20261024020000_myeongnyang_restart.sql','utf8'));
+ const abandoned=(await q('select myeongnyang_start() r'))[0].r;
+ const restarted=(await q('select myeongnyang_start() r'))[0].r;
+ assert.notEqual(abandoned.id,restarted.id);
+ assert((await q('select cancelled_at from myeongnyang_runs where id=$1',[abandoned.id]))[0].cancelled_at);
+ await assert.rejects(q('select myeongnyang_finish($1,$2)',[abandoned.id,[]]));
+ assert.equal((await q("select started_at>now() as countdown from myeongnyang_runs where id=$1",[restarted.id]))[0].countdown,true);
+ await assert.rejects(q('select myeongnyang_finish($1,$2)',[restarted.id,[]]));
+ await q("update myeongnyang_runs set started_at=now()-interval '31 seconds' where id=$1",[restarted.id]);
+ assert.equal((await q('select myeongnyang_finish($1,$2) s',[restarted.id,restarted.queue.slice(0,3)]))[0].s,3);
+ await db.close();console.log('PASS: deadline, ownership, validation, idempotency, best-only updates, average, restricted tables, immediate restart, abandoned-run rejection, countdown allowance');
 })().catch(e=>{console.error(e);process.exit(1)});
