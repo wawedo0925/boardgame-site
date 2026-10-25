@@ -1,4 +1,5 @@
 'use client';
+import ClocktowerPhaseBar from './ClocktowerPhaseBar';
 import { useEffect, useRef, useState } from 'react';
 import { advanceBmr, bmrProjection, startBmr, type BmrAuto, type BmrInput, type Decision } from '@/lib/clocktower/bmr-engine';
 import { bmrExecutionCandidate } from '@/lib/clocktower/bmr';
@@ -50,12 +51,12 @@ export default function ClocktowerBmrAutomatic({state,busy,error,run}:Props){
   {(localError||error)&&<p role="alert" className="text-red-300">{localError||error}</p>}
   {paused&&<button className={button} disabled={busy} onClick={()=>{attempted.current='';setLocalError('');setPaused(false);}}>최신 상태로 다시 진행</button>}
   {room.phase==='NIGHT'&&<><p>{engine?.finished?'밤 판정 완료':engine?.pending?'이야기꾼 판정 대기':request?`${state.members?.find(m=>m.user_id===request.user_id)?.name} · 선택 대기`:'다음 차례 준비 중'}</p>
-   {engine?.finished&&<button className={button} disabled={busy||pending} onClick={()=>void dispatch({type:'dawn'})}>낮 시작 · 사망/부활 공개</button>}
+   {engine?.finished&&<ClocktowerPhaseBar><button className={button} disabled={busy||pending} onClick={()=>void dispatch({type:'dawn'})}>낮 시작 · 사망/부활 공개</button></ClocktowerPhaseBar>}
    <ClocktowerReadiness state={state} busy={busy}/>
   </>}
   {room.phase==='DAY'&&engine&&<>
    {engine.players.filter(p=>p.role==='땜장이'&&p.life!=='DEAD').map(p=><button key={p.id} className={button} disabled={busy||voting} onClick={()=>{if(confirm(`${p.name}의 땜장이 능력으로 사망을 시도할까요?`))void dispatch({type:'tinker',target:p.id});}}>땜장이 · 사망 판정</button>)}
-   {engine.executionPending?<button className={button} disabled={busy||!!engine.pending||(state.moon_choices??[]).some(c=>c.status==='OPEN')} onClick={()=>void dispatch({type:'moon_night'})}>달의 자손 선택 완료 · 다음 밤 시작</button>:room.day_stage==='PRIVATE'?<button className={button} disabled={busy||!!engine.pending} onClick={()=>void run('flow_next',{revision:room.flow_revision??0})}>전체 토론·지목 시작</button>:<button className={button} disabled={busy||voting||!!engine.pending} onClick={()=>setExecutionOpen(true)}>처형 확정 · 다음 단계</button>}
+   <ClocktowerPhaseBar>{engine.executionPending?<button className={button} disabled={busy||!!engine.pending||(state.moon_choices??[]).some(c=>c.status==='OPEN')} onClick={()=>void dispatch({type:'moon_night'})}>달의 자손 선택 완료 · 다음 밤 시작</button>:room.day_stage==='PRIVATE'?<button className={button} disabled={busy||!!engine.pending} onClick={()=>void run('flow_next',{revision:room.flow_revision??0})}>전체 토론·지목 시작</button>:<button className={button} disabled={busy||voting||!!engine.pending} onClick={()=>setExecutionOpen(true)}>처형 확정 · 다음 단계</button>}</ClocktowerPhaseBar>
   </>}
   {!!unread.length&&<details><summary>전달 완료 · 확인 대기 {unread.length}건</summary>{unread.map(q=><p className="mt-2 text-sm" key={q.id}>{state.members?.find(m=>m.user_id===q.user_id)?.name} · {q.prompt}</p>)}</details>}
   {engine&&<details><summary>자동 판정 기록</summary>{engine.log.map((line,i)=><p className="mt-2 text-sm text-zinc-300" key={i}>{line}</p>)}</details>}

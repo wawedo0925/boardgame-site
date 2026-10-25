@@ -1,4 +1,5 @@
 "use client";
+import ClocktowerPhaseBar from './ClocktowerPhaseBar';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {flowLabel,nextFlowLabel} from '@/lib/clocktower/flow';
@@ -76,7 +77,7 @@ export default function ClocktowerLive({ eventId, expectedRoomId }: { eventId: s
   const allowPopup=!announcement||seenPhase===announcement.key;
   const moonPopup=room?.phase==='DAY'&&(state?.moon_choices??[]).some(c=>c.status==='OPEN'&&(c.actor===state?.my_id||state?.is_host&&Date.parse(c.expires_at)<=Date.parse(state.server_now??''))||c.status==='DONE'&&!c.acknowledged);
   if (state?.room && expectedRoomId && state.room.id !== expectedRoomId) return <div className="mt-6 rounded-3xl border border-violet-400/30 p-6"><h2 className="text-xl font-bold">이 판은 종료되었습니다.</h2><p className="mt-3 text-zinc-400">일정의 새 판 카드에서 다시 입장해 주세요.</p><a className={`${button} mt-5 inline-block`} href={`/events/${eventId}`}>일정으로 돌아가기</a></div>;
-  return <div className="clocktower-mobile mt-6 min-w-0">
+  return <div className={`clocktower-mobile mt-6 min-w-0 ${state?.is_host&&state.room?.phase!=='ENDED'?'pb-[calc(100px+env(safe-area-inset-bottom))]':''}`}>
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-zinc-400">화면을 켜 두세요. 투표 차례는 서버 시간에 맞춰 자동으로 표시됩니다.</span><div className="flex gap-2"><button className={subtle} onClick={() => setHidden(!hidden)}>{hidden ? '화면 다시 보기' : '화면 가리기'}</button><button className={subtle} onClick={() => void refresh()}>새로고침</button></div></div>
     {connectionError && <p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-4 text-red-300">{connectionError}</p>}
     {error && <p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-4 text-red-300">{error}</p>}
@@ -127,7 +128,7 @@ function Host({ state, run, busy, allowPopup, error }: { state: LiveState; run: 
   const phase = async (next: string) => { if (window.confirm(next === 'ENDED' ? '게임을 종료할까요? 진행 중 요청은 취소되며 이 게임을 다시 진행할 수 없습니다.' : next === 'NIGHT' ? '밤을 시작할까요? 첫날 밤에는 참가자에게 자신의 역할이 표시됩니다.' : '밤을 마치고 사망 상태를 모두에게 공개할까요?')) await run('phase', { phase: next }); };
   return <div className="space-y-6">
     <div className="flex flex-wrap gap-3">{room.phase === 'ENDED' ? <button disabled={busy} className={button} onClick={() => { if (confirm('새 게임을 준비할까요? 이전 게임은 보관되고 화면은 새 게임으로 전환됩니다.')) void run('create'); }}>새 게임 준비</button> : <>
-      <button disabled={busy || layoutEditing || rolesEditing || informationEditing || (room.phase==='SETUP' && (invalidSetup||invalidInformation||(room.roles_released&&members.some(m=>!m.role_confirmed)))) || (room.phase==='NIGHT'&&((state.mission_progress??[]).some(m=>m.completed<m.total)||pending.length>0||state.engine?.night!==room.night||!state.engine?.finished)) || (state.votes??[]).some(v=>v.status==='WAITING'||v.status==='RUNNING')} className={button} onClick={()=>{if(confirm(`${nextFlowLabel(state)} 단계로 넘어갈까요?${room.phase==='DAY'&&room.day_stage==='NOMINATIONS'?' 현재 단독 최다 처형 후보가 있으면 처형합니다.':''}`))void run('flow_next',{revision:room.flow_revision??0});}}>다음 페이즈 · {nextFlowLabel(state)}</button>
+<ClocktowerPhaseBar><button disabled={busy || layoutEditing || rolesEditing || informationEditing || (room.phase==='SETUP' && (invalidSetup||invalidInformation||(room.roles_released&&members.some(m=>!m.role_confirmed)))) || (room.phase==='NIGHT'&&((state.mission_progress??[]).some(m=>m.completed<m.total)||pending.length>0||state.engine?.night!==room.night||!state.engine?.finished)) || (state.votes??[]).some(v=>v.status==='WAITING'||v.status==='RUNNING')} className={button} onClick={()=>{if(confirm(`${nextFlowLabel(state)} 단계로 넘어갈까요?${room.phase==='DAY'&&room.day_stage==='NOMINATIONS'?' 현재 단독 최다 처형 후보가 있으면 처형합니다.':''}`))void run('flow_next',{revision:room.flow_revision??0});}}>다음 페이즈 · {nextFlowLabel(state)}</button></ClocktowerPhaseBar>
       <button disabled={busy} className={subtle} onClick={() => void phase('ENDED')}>게임 종료</button>
     </>}</div>
     <ClocktowerReadiness state={state} busy={busy} editing={[...(layoutEditing?['자리 배치 편집을 저장하거나 취소해 주세요.']:[]),...(rolesEditing?['역할 배정 초안을 저장하거나 취소해 주세요.']:[]),...(informationEditing?['비밀 정보 초안을 저장하거나 취소해 주세요.']:[])]}/>
