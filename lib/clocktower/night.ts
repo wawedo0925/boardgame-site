@@ -151,6 +151,10 @@ function calculateProposal(task:NightTask,targets:string[],e:NightEngine,members
     else {const decoy=members.find(x=>x.user_id!==actual.user_id&&x.user_id!==m.user_id)??members.find(x=>x.user_id!==actual.user_id)!;const pair=[actual,decoy].sort((a,b)=>a.seat-b.seat);p.result=`${pair.map(x=>name(x.user_id)).join(' 또는 ')} 중 한 명은 ${actual.actual_role}입니다.`;}
     reason.push('제시할 두 사람과 역할의 기본 제안입니다. 원하는 조합이나 위장 감지를 반영해 수정할 수 있습니다.');
     if(m.actual_role==='주정뱅이'){
+      if(clue?.storytellerEdited){
+        reason.push('이야기꾼이 시작 전에 직접 수정하여 저장한 정보입니다. 자동 거짓 정보 대신 이 조합을 사용합니다.');
+        return p;
+      }
       const format=(pair:LiveMember[],role:string)=>`${[...pair].sort((a,b)=>a.seat-b.seat).map(x=>name(x.user_id)).join(' 또는 ')} 중 한 명은 ${role}입니다.`;
       // A saved Drunk clue may itself be false: recompute a valid reference clue.
       const valid=members.find(x=>x.user_id!==m.user_id&&roleType(perceived(x))===type);

@@ -2,7 +2,7 @@ import type { LiveMember } from './live';
 import { roleType, setupRoles, shuffle } from './setup';
 
 export const clueTypes: Record<string,string> = {세탁부:'주민',사서:'외지인',수사관:'하수인'};
-export type InitialClue = { role:string; correct:string; decoy:string; none?:boolean };
+export type InitialClue = { role:string; correct:string; decoy:string; none?:boolean; storytellerEdited?:boolean };
 export type InformationSetup = { roster:string; bluffs:string[]; clues:Record<string,InitialClue>; registrations:Record<string,string> };
 export const rosterKey=(members:LiveMember[])=>[...members].sort((a,b)=>a.user_id.localeCompare(b.user_id)).map(m=>`${m.user_id}:${m.actual_role}:${m.shown_role}`).join('|');
 export const bluffOptions=(members:LiveMember[])=>setupRoles.filter(r=>['주민','외지인'].includes(r.type)&&!members.some(m=>m.actual_role===r.name||m.shown_role===r.name));
