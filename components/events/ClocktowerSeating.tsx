@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ClocktowerPopup from './ClocktowerPopup';
 import {clickedSeatOrder,seatOrderSwaps} from '@/lib/clocktower/seat-order';
-import { SEATING_X_SCALE, SEATING_Y_SCALE, seatingView } from '@/lib/clocktower/seating-view';
+import { SEATING_X_SCALE, SEATING_Y_SCALE, SEATING_EDIT_HEIGHT, seatingPoint, seatingView } from '@/lib/clocktower/seating-view';
 import useClocktowerPinch from './useClocktowerPinch';
 import ClocktowerPersonalNotes from './ClocktowerPersonalNotes';
 import useClocktowerMemberNotes from './useClocktowerMemberNotes';
@@ -68,7 +68,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
   const fittedZoom = Math.max(minimumZoom, fit);
   const scale = Math.max(minimumZoom, zoom ?? fittedZoom);
   const geometry = seatingView(positions, rotation);
-  const boardHeight = mode === 'move' ? 1050 : geometry.height;
+  const boardHeight = mode === 'move' ? SEATING_EDIT_HEIGHT : geometry.height;
   const editing = editable && mode === 'move';
   const pinch = useClocktowerPinch(viewport, scale, setZoom, editing, () => { drag.current = null; }, minimumZoom);
   const tallying = storyteller && phase === 'DAY' && vote?.status === 'RUNNING' && !!onRecordVote;
@@ -85,7 +85,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
 
   function point(clientX: number, clientY: number) {
     const rect = board.current!.getBoundingClientRect();
-    return { x: (clientX - rect.left) / scale / SEATING_X_SCALE, y: (clientY - rect.top) / scale / SEATING_Y_SCALE };
+    return seatingPoint((clientX - rect.left) / scale, (clientY - rect.top) / scale);
   }
   function move(id: string, x: number, y: number) {
     setDraft(current => ({ ...(current ?? positions), [id]: { x: clamp(x, 60, 940), y: clamp(y, 40, 660) } }));
@@ -146,8 +146,8 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
     {editable && mode === 'order' && <p role="status" className="mt-3 text-sm text-violet-200">누른 순서대로 1번부터 지정됩니다. 전체 {members.length}명 중 {chosen.length}명 선택. 다시 누르면 선택을 취소합니다. 두 명만 선택했다면 ‘두 사람 순번 바꾸기’를 누르세요. 마지막에 ‘순서 저장’을 눌러 반영합니다.</p>}
     <div className="mt-4 flex flex-wrap items-center gap-2"><button className={control} onClick={() => setZoom(fittedZoom)}>전체 보기</button><button className={control} onClick={() => setZoom(1)}>읽기 편하게</button><button className={control} disabled={scale <= minimumZoom} onClick={() => setZoom(Math.max(minimumZoom, scale - 0.15))} aria-label="배치 축소">−</button><span className="w-12 text-center text-xs text-zinc-400">{Math.round(scale * 100)}%</span><button className={control} onClick={() => setZoom(Math.min(2.5, scale + 0.15))} aria-label="배치 확대">＋</button><button disabled={mode!=='view'} aria-pressed={rotating} className={control} onClick={()=>setRotating(!rotating)}>배치 돌리기</button><label className="ml-auto flex items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={showOrder} onChange={e => setShowOrder(e.target.checked)} />이웃 연결선</label></div>
     {rotating && <div className="mt-3 flex flex-wrap items-center gap-3"><label className="flex items-center gap-3 text-sm">회전 {rotation}°<input aria-label="배치 회전 각도" type="range" min="0" max="360" step="5" value={rotation} onChange={e=>setRotation(Number(e.target.value))} /></label><button className={control} onClick={()=>setRotation(0)}>원래 방향</button><span className="text-xs text-zinc-400">내 화면에만 적용됩니다.</span></div>}
-    <div ref={viewport} {...pinch} className="mt-4 overflow-auto rounded-2xl border border-white/10 bg-zinc-950" style={{ maxWidth: 600, height: Math.min(1000, (boardHeight + 96) * fittedZoom), touchAction: 'none' }}>
-      {!ordered.length ? <p className="p-10 text-center text-zinc-400">아직 배정된 참가자가 없습니다.</p> : <div style={{ width: (geometry.width + 160) * scale, height: (boardHeight + 96) * scale }} className="relative">
+    <div ref={viewport} {...pinch} className="mt-4 overflow-auto rounded-2xl border border-white/10 bg-zinc-950" style={{ maxWidth: 600, width: (geometry.width + 160) * scale, height: Math.min(1000, (boardHeight + 160) * fittedZoom), touchAction: 'none' }}>
+      {!ordered.length ? <p className="p-10 text-center text-zinc-400">아직 배정된 참가자가 없습니다.</p> : <div style={{ width: (geometry.width + 160) * scale, height: (boardHeight + 160) * scale }} className="relative">
         <div ref={board} data-testid="seating-board" className="absolute origin-top-left" style={{ left:80*scale,top:80*scale,width: geometry.width, height: boardHeight, transform: `scale(${scale})`, backgroundImage: 'radial-gradient(#ffffff16 1px, transparent 1px)', backgroundSize: '20px 20px' }} onClick={e => { if (editing && !busy && selected) { const p = point(e.clientX, e.clientY); move(selected, p.x, p.y); setSelected(null); } }}>
           {!storyteller && mode==='view' && <p className="pointer-events-none absolute left-0 -top-16 z-10 text-xs leading-5 text-zinc-300">멤버를 클릭하여<br/>예상 역할/메모<br/>작성해보세요</p>}
           {showOrder && ordered.length > 1 && <svg width={geometry.width} height={boardHeight} className="pointer-events-none absolute inset-0" aria-hidden="true">{ordered.map((member, i) => { const a = geometry.positions[member.user_id], b = geometry.positions[ordered[(i + 1) % ordered.length].user_id]; return <line key={member.user_id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#a78bfa" strokeOpacity="0.45" strokeWidth="2" strokeDasharray="6 6" />; })}</svg>}
