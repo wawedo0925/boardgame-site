@@ -90,6 +90,8 @@ function formatTime(dateValue: string) {
 }
 
 function getEventStatus(event: EventRow) {
+  if (event.event_status === "CANCELLED") return "취소됨";
+  if (event.event_status === "CLOSED") return "종료";
   const now = new Date();
   const start = new Date(event.started_at);
   const end = event.ended_at ? new Date(event.ended_at) : null;

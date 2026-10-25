@@ -132,6 +132,7 @@ function renderEventTitle(event: Pick<EventRow, "title" | "event_kind">) {
 
 function getStatus(event: EventRow): "예정" | "진행 중" | "종료" | "취소됨" {
   if (event.event_status === "CANCELLED") return "취소됨";
+  if (event.event_status === "CLOSED") return "종료";
   const now = Date.now();
   const start = new Date(event.started_at).getTime();
   const end = event.ended_at ? new Date(event.ended_at).getTime() : null;
@@ -211,8 +212,8 @@ export default function EventsPage() {
       const sevenDaysAgo=new Date(Date.now()-7*24*60*60*1000).toISOString();
       const fields=`id,title,started_at,ended_at,location,description,created_by,max_participants,participation_fee,event_kind,event_status,murder_mysteries(title),event_participants(id,user_id,participation_role,gm_pending)`;
       const [activeResult,recentEndedResult, waitlistResult] = await Promise.all([
-        supabase.from("events").select(fields).or(`ended_at.is.null,ended_at.gte.${now}`).order("started_at", { ascending: true }),
-        supabase.from("events").select(fields).lt("ended_at",now).gte("ended_at",sevenDaysAgo).order("started_at",{ascending:false}),
+        supabase.from("events").select(fields).neq("event_status", "CLOSED").or(`ended_at.is.null,ended_at.gte.${now}`).order("started_at", { ascending: true }),
+        supabase.from("events").select(fields).or(`and(ended_at.lt.${now},ended_at.gte.${sevenDaysAgo}),and(event_status.eq.CLOSED,started_at.gte.${sevenDaysAgo})`).order("started_at",{ascending:false}),
         currentUserId
           ? supabase.from("event_waitlist").select("event_id").eq("user_id", currentUserId)
           : Promise.resolve({ data: [], error: null }),
@@ -239,7 +240,7 @@ export default function EventsPage() {
 
   async function loadAllEndedEvents(){
     setAllEndedLoading(true);setAllEndedEvents(null);
-    const {data,error}=await supabase.from("events").select(`id,title,started_at,ended_at,location,description,created_by,max_participants,participation_fee,event_kind,event_status,murder_mysteries(title),event_participants(id,user_id,participation_role,gm_pending)`).lt("ended_at",new Date().toISOString()).order("started_at",{ascending:false}).limit(200);
+    const {data,error}=await supabase.from("events").select(`id,title,started_at,ended_at,location,description,created_by,max_participants,participation_fee,event_kind,event_status,murder_mysteries(title),event_participants(id,user_id,participation_role,gm_pending)`).or(`event_status.eq.CLOSED,ended_at.lt.${new Date().toISOString()}`).order("started_at",{ascending:false}).limit(200);
     if(error){console.error("전체 종료 일정 조회 오류:",error);setErrorMessage("전체 종료 일정을 불러오지 못했습니다.");setAllEndedEvents([]);}else setAllEndedEvents((data??[]) as EventRow[]);
     setAllEndedLoading(false);
   }
