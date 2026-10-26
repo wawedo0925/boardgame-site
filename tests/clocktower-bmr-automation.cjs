@@ -76,3 +76,25 @@ for(let game=0;game<120;game++){
  assert.ok(count<800,`non-terminating game ${game} ${x.tasks[x.cursor]?.role}`);
 }
 console.log(`PASS: 120 seeded 5–15-player games, ${transitions} transitions, no empty choices or infinite progress`);
+// Initial setup suggestions stay pending until storyteller confirmation.
+{
+ const members=['푸카','미치광이','할머니','선원','객실 청소부','암살자','도박사'].map((role,i)=>({user_id:String(i),name:'P'+i,seat:i+1,alive:true,actual_role:role,shown_role:role==='미치광이'?'푸카':role}));
+ let initial=task(startBmr(members),'미치광이',1);
+ assert.equal(initial.pending.decision.key,'lunatic-info');
+ assert.ok(initial.pending.decision.initial.includes('하수인:'));
+ assert.ok(initial.pending.decision.initial.includes('게임에 없는 선한 캐릭터:'));
+ assert.equal(initial.out.notices.length,0);
+ let confirmed=decide(initial,initial.pending.decision.initial);
+ assert.equal(confirmed.out.notices[0].result,initial.pending.decision.initial);
+ confirmed=decide(initial,'이야기꾼이 수정한 초기 정보');
+ assert.equal(confirmed.out.notices[0].result,'이야기꾼이 수정한 초기 정보');
+ initial=task(startBmr(members),'할머니',1);
+ const suggested=initial.pending.decision.initial;
+ assert.ok(initial.pending.decision.options.some(o=>o.value===suggested));
+ assert.notEqual(suggested,'2');assert.equal(initial.players.find(p=>p.id===suggested).faction,'GOOD');
+ assert.equal(initial.grandchildren['2'],undefined);
+ confirmed=decide(initial,suggested);assert.equal(confirmed.grandchildren['2'],suggested);
+ const alternate=initial.pending.decision.options.find(o=>o.value!==suggested).value;
+ confirmed=decide(initial,alternate);assert.equal(confirmed.grandchildren['2'],alternate);
+}
+console.log('PASS: initial information defaults, manual overrides, valid suggested grandchild, confirmation required');

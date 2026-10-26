@@ -157,7 +157,7 @@ function resolveTask(e:BmrAuto,op:Extract<Operation,{kind:'task'}>,answers:Recor
  }
  if(role==='미치광이'&&init){
   e.awake.push(p.id);
-  notice(e,p.id,information(answers,'lunatic-info','미치광이에게 보낼 초기 정보','본인이 믿는 악마에 맞는 가짜 하수인·블러프 정보를 입력하세요.'));
+  notice(e,p.id,information(answers,'lunatic-info','미치광이에게 보낼 초기 정보','기본 가짜 하수인·블러프 정보를 준비했습니다. 그대로 전달하거나 수정하세요.',bmrInformationDraft('미치광이',e.players.map(x=>({user_id:x.id,name:x.name,seat:x.seat,alive:publicAlive(x),actual_role:x.role,shown_role:x.shown})))));
   // Pukka acts on the first night as well as receiving its setup information.
   if(p.shown==='푸카')e.tasks.splice(e.cursor+1,0,{actor:p.id,role:'미치광이 선택',key:`${e.night}:${++e.serial}`});
   return '초기 정보 전달';
@@ -170,7 +170,7 @@ function resolveTask(e:BmrAuto,op:Extract<Operation,{kind:'task'}>,answers:Recor
   if(init){
    e.awake.push(p.id);
    const candidates=e.players.filter(x=>x.id!==p.id&&x.faction==='GOOD');
-   const id=choose(answers,{key:'grandchild',title:`${p.name} · 손주 선택`,description:'선한 참가자 중 손주를 선택하세요.',options:options(candidates)});
+   const id=choose(answers,{key:'grandchild',title:`${p.name} · 손주 선택`,description:'선한 참가자 중 기본 손주를 추천했습니다. 그대로 확정하거나 다른 사람을 선택하세요.',initial:candidates[0]?.id,options:options(candidates)});
    e.grandchildren[p.id]=id;
    notice(e,p.id,bmrImpaired(e,p.id)?information(answers,'false-grandmother','할머니 · 무효 상태 정보','취함·중독 상태입니다. 전달할 참가자와 역할 정보를 입력하세요.'):`손주: ${player(e,id).name} · ${player(e,id).role}`);
   }else if(works(e,p)&&e.deaths.some(d=>d.id===e.grandchildren[p.id]&&d.night===e.night&&d.phase==='NIGHT'&&d.demon))kill(e,p.id,'할머니',answers);

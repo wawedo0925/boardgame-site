@@ -1,6 +1,6 @@
 "use client";
 import ClocktowerPhaseBar from './ClocktowerPhaseBar';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BMR_ROLES, BMR_HINTS, bmrRandomRoles, bmrInformationDraft, bmrOrder, bmrPreset, bmrSetupErrors, bmrExecutionCandidate, type BmrMemberState, type BmrRequestOptions } from '@/lib/clocktower/bmr';
 import type { LiveMember, LiveRequest, LiveState } from '@/lib/clocktower/live';
 import { nextFlowLabel } from '@/lib/clocktower/flow';
@@ -19,12 +19,23 @@ export default function ClocktowerBmrHost({state,run,busy,error}:{state:LiveStat
  const [stepNote,setStepNote]=useState('');
  const [draftRevision,setDraftRevision]=useState(state.bmr_revision??0);
  const setupErrors=bmrSetupErrors(members);
+ const autoDrafted=useRef('');
+ const roster=members.map(m=>m.user_id).sort().join('|');
+ useEffect(()=>{
+  if(room.phase!=='SETUP'||room.roles_released||busy||members.length<5||members.length>15||members.some(m=>m.actual_role)||autoDrafted.current===roster)return;
+  autoDrafted.current=roster;
+  setDraftRevision(state.bmr_revision??0);setRandomDraft(bmrRandomRoles(members));
+ // Generate once per new empty roster; never replace saved roles or cancelled drafts.
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[room.phase,room.roles_released,busy,roster,state.bmr_revision]);
+ const draftChanged=!!randomDraft&&(randomDraft.map(m=>m.user_id).sort().join('|')!==roster||draftRevision!==(state.bmr_revision??0));
+ const draftErrors=randomDraft?bmrSetupErrors(randomDraft):[];
  const active=requests.find(q=>q.status==='OPEN'||q.status==='SUBMITTED');
  const pending=requests.filter(q=>q.status==='OPEN'||q.status==='SUBMITTED'||q.status==='RESOLVED'&&!q.acknowledged);
  const remainingMissions=(state.mission_progress??[]).some(m=>m.completed<m.total);
  const locked=busy||layoutEditing;
  const automated=!!state.bmr?.automated;
- const nextDisabled=locked||room.phase==='SETUP'&&(setupErrors.length>0||!!room.roles_released&&members.some(m=>!m.role_confirmed))||room.phase==='NIGHT'&&(!state.bmr?.completed||pending.length>0||remainingMissions)||(state.votes??[]).some(v=>['WAITING','RUNNING'].includes(v.status));
+ const nextDisabled=locked||!!randomDraft||room.phase==='SETUP'&&(setupErrors.length>0||!!room.roles_released&&members.some(m=>!m.role_confirmed))||room.phase==='NIGHT'&&(!state.bmr?.completed||pending.length>0||remainingMissions)||(state.votes??[]).some(v=>['WAITING','RUNNING'].includes(v.status));
  return <div className="space-y-6">
   <section className="rounded-2xl border border-amber-300/30 bg-amber-300/5 p-5"><h2 className="text-xl font-bold text-amber-200">피로 물든 달 · 이야기꾼 진행</h2><p className="mt-2 text-sm leading-7 text-zinc-300">{automated?'자동으로 차례와 능력 효과를 처리하고 이야기꾼의 선택이 필요하면 비공개 팝업으로 안내합니다.':'기존 수동 진행방입니다. 능력 효과를 직접 판정하고 마도서에 기록하세요.'}</p><div className="mt-4 flex flex-wrap gap-2">{room.phase!=='ENDED'&&(!automated||room.phase==='SETUP')&&<><ClocktowerPhaseBar><button disabled={nextDisabled} className={button} onClick={()=>setFlowOpen(true)}>다음 페이즈 · {nextFlowLabel(state)}</button></ClocktowerPhaseBar><button disabled={locked||room.phase==='SETUP'} className={subtle} onClick={()=>{setDraftRevision(state.bmr_revision??0);setEndOpen(true);}}>승리 판정·게임 종료</button></>}{room.phase==='ENDED'&&<p>{room.result_round_id?'플레이 결과 저장 완료':'게임 종료'}</p>}<button className={subtle} onClick={()=>{setDraftRevision(state.bmr_revision??0);setNotesOpen(true);}}>진행 메모</button></div></section>
   {(room.phase==='SETUP'||!automated)&&<ClocktowerReadiness state={state} busy={busy} editing={layoutEditing?['자리 배치 편집을 저장하거나 취소해 주세요.']:[]}/>}
@@ -40,7 +51,7 @@ export default function ClocktowerBmrHost({state,run,busy,error}:{state:LiveStat
   <section className="space-y-3"><h3 className="text-xl font-bold">비공개 요청·결과 · 미확인 {pending.length}</h3>{requests.map(q=><BmrRequestReview key={q.id} q={q} members={members} run={run} busy={locked} ended={room.phase==='ENDED'} automatic={automated}/>)}</section>
   {!!state.mission_progress?.length&&<details className="rounded-2xl border border-white/15 p-4"><summary>공통 미션 현황</summary>{state.mission_progress.map(m=><div key={m.user_id} className="mt-3 flex items-center justify-between gap-3"><span>{members.find(x=>x.user_id===m.user_id)?.name} {m.completed}/{m.total}</span>{m.completed<m.total&&<button disabled={busy} className={subtle} onClick={()=>{if(confirm('현장에서 미션을 확인했나요?'))void run('mission_offline',{user_id:m.user_id});}}>현장 완료</button>}</div>)}</details>}
   <details className="rounded-2xl border border-white/15 p-4"><summary>밤·낮 판정 기록</summary>{state.bmr?.history?.map((h,i)=><p key={i} className="mt-3 whitespace-pre-wrap text-sm">{h.night}일차 · {h.step}: {h.note}</p>)}</details>
-  {randomDraft&&<ClocktowerPopup title="무작위 역할 초안" busy={busy} onClose={()=>setRandomDraft(null)}><div className="space-y-3">{randomDraft.map(m=><p key={m.user_id}>{m.name} · {m.actual_role}{m.actual_role!==m.shown_role?` (본인 표시: ${m.shown_role})`:null}</p>)}<p className="text-sm text-zinc-400">저장 후 마도서에서 개별 역할을 수정할 수 있습니다.</p>{error&&<p role="alert">{error}</p>}<button disabled={busy} className={subtle} onClick={()=>{setDraftRevision(state.bmr_revision??0);setRandomDraft(bmrRandomRoles(members));}}>다시 섞기</button><button disabled={busy} className={button} onClick={async()=>{if(await run('bmr_save_roles',{bmr_revision:draftRevision,rows:randomDraft.map(m=>({user_id:m.user_id,actual_role:m.actual_role,shown_role:m.shown_role}))}))setRandomDraft(null);}}>이 배정 저장</button></div></ClocktowerPopup>}
+  {randomDraft&&<ClocktowerPopup title="자동 기본 세팅 · 역할 확인" busy={busy} onClose={()=>setRandomDraft(null)}><div className="space-y-3"><p className="text-sm text-zinc-300">인원에 맞춰 기본 역할을 준비했어요. 그대로 저장하거나 아래에서 바꿔 주세요. 저장만으로 역할이 공개되지는 않습니다.</p>{randomDraft.map(m=><div key={m.user_id} className="space-y-2"><label className="block text-sm">{m.name}<select disabled={busy} className={field} value={m.actual_role??''} onChange={e=>{const role=e.target.value;setRandomDraft(randomDraft.map(x=>x.user_id===m.user_id?{...x,actual_role:role,shown_role:role==='미치광이'?BMR_ROLES.find(r=>r.type==='악마')!.name:role}:x));}}>{BMR_ROLES.map(r=><option key={r.name} value={r.name}>{r.type} · {r.name}</option>)}</select></label>{m.actual_role==='미치광이'&&<label className="block text-sm">본인에게 표시할 악마<select disabled={busy} className={field} value={m.shown_role??''} onChange={e=>setRandomDraft(randomDraft.map(x=>x.user_id===m.user_id?{...x,shown_role:e.target.value}:x))}>{BMR_ROLES.filter(r=>r.type==='악마').map(r=><option key={r.name}>{r.name}</option>)}</select></label>}</div>)}{draftErrors.map(message=><p key={message} className="text-sm text-amber-200">{message}</p>)}{draftChanged&&<p role="alert">참가자 또는 저장된 설정이 바뀌었습니다. 다시 섞어 최신 명단으로 준비해 주세요.</p>}<p className="text-sm text-zinc-400">저장 후 마도서에서 개별 역할을 수정할 수 있습니다.</p>{error&&<p role="alert">{error}</p>}<button disabled={busy} className={subtle} onClick={()=>{setDraftRevision(state.bmr_revision??0);setRandomDraft(bmrRandomRoles(members));}}>다시 섞기</button><button disabled={busy||draftChanged||draftErrors.length>0} className={button} onClick={async()=>{if(await run('bmr_save_roles',{bmr_revision:draftRevision,rows:randomDraft.map(m=>({user_id:m.user_id,actual_role:m.actual_role,shown_role:m.shown_role}))}))setRandomDraft(null);}}>이 설정으로 준비 완료</button></div></ClocktowerPopup>}
   {edit&&<ClocktowerPopup title={`${edit.name} · 역할·상태`} onClose={()=>setEdit(null)} busy={busy}><BmrMemberEditor key={edit.user_id} member={edit} revision={draftRevision} setup={room.phase==='SETUP'} run={run} busy={busy} close={()=>setEdit(null)} error={error}/></ClocktowerPopup>}
   {notesOpen&&<ClocktowerPopup title="이야기꾼 진행 메모" onClose={()=>setNotesOpen(false)} busy={busy}><Notes initial={state.bmr?.notes??''} busy={busy} readOnly={room.phase==='ENDED'} save={async notes=>{if(await run('bmr_notes',{notes,bmr_revision:draftRevision}))setNotesOpen(false);}}/><p className="mt-3 text-xs text-zinc-400">손주, 이전 선택, 포 충전, 취함 기간, 공개 발언, 낮 사망, 주모자의 추가 낮 등을 기록하세요. 이야기꾼만 볼 수 있습니다.</p>{error&&<p role="alert">{error}</p>}</ClocktowerPopup>}
   {flowOpen&&<BmrFlow state={state} run={run} busy={busy} close={()=>setFlowOpen(false)} error={error}/>}

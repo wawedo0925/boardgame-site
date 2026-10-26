@@ -75,6 +75,14 @@ export function bmrRandomRoles(members:LiveMember[],random=Math.random):LiveMemb
 export function bmrInformationDraft(step:string,members:LiveMember[]):string {
  const demons=members.filter(m=>BMR_ROLES.find(r=>r.name===m.actual_role)?.type==='악마');
  const minions=members.filter(m=>BMR_ROLES.find(r=>r.name===m.actual_role)?.type==='하수인');
+ if(step==='미치광이'){
+  if(members.length<7)return '7명 미만으로 초기 악한 팀 정보가 없습니다.';
+  const lunatic=members.find(m=>m.actual_role==='미치광이');
+  const count=composition(members.length,false)![2];
+  const fake=members.filter(m=>m.user_id!==lunatic?.user_id).slice(0,count);
+  const bluffs=BMR_ROLES.filter(r=>['주민','외지인'].includes(r.type)&&!members.some(m=>m.actual_role===r.name)).slice(0,3);
+  return `하수인: ${fake.map(m=>m.name).join(', ')}\n게임에 없는 선한 캐릭터: ${bluffs.map(r=>r.name).join(', ')}`;
+ }
  if(step==='하수인 정보')return members.length<7?'7명 미만으로 초기 악한 팀 정보가 없습니다.':`악마: ${demons.map(m=>m.name).join(', ')}`;
  if(step==='악마 정보')return members.length<7?'7명 미만으로 초기 악한 팀 정보가 없습니다.':`하수인: ${minions.map(m=>m.name).join(', ')}\n게임에 없는 선한 캐릭터: ${BMR_ROLES.filter(r=>['주민','외지인'].includes(r.type)&&!members.some(m=>m.actual_role===r.name)).slice(0,3).map(r=>r.name).join(', ')}${members.some(m=>m.actual_role==='미치광이')?'\n미치광이: '+members.find(m=>m.actual_role==='미치광이')!.name:''}`;
  if(step==='대부')return '참여 중인 외지인: '+(members.filter(m=>BMR_ROLES.find(r=>r.name===m.actual_role)?.type==='외지인').map(m=>m.actual_role).join(', ')||'없음');
