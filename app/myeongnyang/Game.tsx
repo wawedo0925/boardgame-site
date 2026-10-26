@@ -13,6 +13,7 @@ export default function Game() {
  const [user,setUser]=useState<string|null>(null),[ready,setReady]=useState(false);
  const [phase,setPhase]=useState<"idle"|"loading"|"countdown"|"playing"|"done">("idle");
  const [queue,setQueue]=useState<number[]>([0,1,1,0,1]),[index,setIndex]=useState(0);
+ const [mistakes,setMistakes]=useState(0);
  const [score,setScore]=useState(0),[seconds,setSeconds]=useState(30),[feedback,setFeedback]=useState("");
  const [stats,setStats]=useState<Stats|null>(null),[error,setError]=useState(""),[save,setSave]=useState("");
  const [countdown,setCountdown]=useState(2),[muted,setMuted]=useState(false);
@@ -43,13 +44,13 @@ export default function Game() {
  },[phase]);
  const choose=useCallback((pet:PetType)=>{
   const r=run.current;if(!playing.current||!r)return;const now=performance.now();if(now>=r.deadline){finish();return;}if(now-r.last<50||r.choices.length>=r.queue.length)return;r.last=now;
-  const correct=r.queue[r.choices.length]===pet;sounds.current?.play(correct?(pet===0?"dog":"cat"):"wrong");r.choices.push(pet);setIndex(r.choices.length);setScore(scoreChoices(r.queue,r.choices));setFeedback(correct?"정답 +1":"앗! -1");
+  const correct=r.queue[r.choices.length]===pet;sounds.current?.play(correct?(pet===0?"dog":"cat"):"wrong");r.choices.push(pet);if(!correct)setMistakes(count=>count+1);setIndex(r.choices.length);setScore(scoreChoices(r.queue,r.choices));setFeedback(correct?"정답 +1":"앗! -1");
  },[finish]);
  useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if(e.repeat||e.altKey||e.ctrlKey||e.metaKey||!playing.current)return;if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();choose(e.key==="ArrowLeft"?0:1);}};window.addEventListener("keydown",onKey);return()=>window.removeEventListener("keydown",onKey);},[choose]);
  async function start(restart=false){if(starting.current||phase==="countdown"||(playing.current&&!restart)||saving.current)return;starting.current=true;playing.current=false;sounds.current??=new PetSounds();sounds.current.muted=muted;sounds.current.unlock();setPhase("loading");setError("");setSave("");setRetry(false);let id:string|null=null;let animals:number[];
   if(user){const {data,error}=await db.rpc("myeongnyang_start");if(!mounted.current){starting.current=false;return;}if(error){starting.current=false;setError(error.message);setPhase("idle");return;}id=data.id;animals=data.queue;}
   else {const random=new Uint8Array(600);crypto.getRandomValues(random);animals=Array.from(random,n=>n%2);}
-  run.current={id,queue:animals,choices:[],deadline:0,last:0};setQueue(animals);setIndex(0);setScore(0);setSeconds(30);setFeedback("");setCountdown(2);countdownEnd.current=performance.now()+2000;starting.current=false;setPhase("countdown");
+  run.current={id,queue:animals,choices:[],deadline:0,last:0};setQueue(animals);setIndex(0);setScore(0);setMistakes(0);setSeconds(30);setFeedback("");setCountdown(2);countdownEnd.current=performance.now()+2000;starting.current=false;setPhase("countdown");
  }
  const top=stats?.leaders[0];
  return <main className={s.page}><div className={s.shell}>
@@ -63,6 +64,7 @@ export default function Game() {
    {phase==="countdown"&&<div className={s.overlay}><div className={s.countdown} role="status" aria-live="polite"><span>준비하세요!</span><b>{countdown}</b><p>강아지 ← · → 고양이</p></div></div>}
    {phase!=="playing"&&phase!=="countdown"&&<div className={s.overlay}><section className={s.card} aria-label={phase==="done"?"게임 결과":"게임 시작"}>
     <div className={s.duo}><Pet cat={false}/><Pet cat/></div><h2>{phase==="done"?`${score}점! 잘했어요 🐾`:"멍멍? 야옹!"}</h2>
+    {phase==="done"&&<p className={s.mistakes}>실수 <strong>{mistakes}회</strong></p>}
     <p>{phase==="done"?save:"30초 동안 강아지는 왼쪽, 고양이는 오른쪽!"}</p><p className={s.hint}>정답 +1 · 오답 -1 (최소 0점)<br/>터치 버튼 또는 키보드 ← →</p>
     {retry&&<button className={s.start} onClick={()=>void persist()}>기록 저장 다시 시도</button>}
     <button className={s.start} disabled={!ready||phase==="loading"||save==="기록 저장 중…"} onClick={()=>void start()}>{phase==="loading"?"준비 중…":phase==="done"?"한 번 더 도전!":user?"30초 도전 시작":"30초 연습 시작"}</button>
