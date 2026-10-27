@@ -1,12 +1,12 @@
 'use client';
 import ClocktowerPhaseBar from './ClocktowerPhaseBar';
 import { useEffect, useRef, useState } from 'react';
-import { advanceBmr, bmrProjection, startBmr, type BmrAuto, type BmrInput, type Decision } from '@/lib/clocktower/bmr-engine';
+import { advanceBmr, bmrProjection, startBmr, withNightGossip, bmrSelectionStatus, type BmrAuto, type BmrInput, type Decision } from '@/lib/clocktower/bmr-engine';
 import { bmrExecutionCandidate } from '@/lib/clocktower/bmr';
 import type { LiveState } from '@/lib/clocktower/live';
 import ClocktowerPopup from './ClocktowerPopup';
 import ClocktowerReadiness from './ClocktowerReadiness';
-import { gossipJudgment } from './ClocktowerGossip';
+import ClocktowerMemberChoices from './ClocktowerMemberChoices';
 type Props={state:LiveState;busy:boolean;error:string;run:(action:string,data?:Record<string,unknown>)=>Promise<boolean>};
 const button='rounded-xl bg-violet-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40';
 const field='w-full rounded-xl border border-white/20 bg-zinc-900 p-3 text-white';
@@ -36,12 +36,12 @@ export default function ClocktowerBmrAutomatic({state,busy,error,run}:Props){
   const key=`${room.id}:${state.bmr_revision}:${request?.id??''}:${request?.status??''}`;
   if(attempted.current===key)return;attempted.current=key;
   const input:BmrInput=request?.status==='SUBMITTED'?{type:'answer',id:request.id,targets:request.targets,answer:request.bmr_answer}:{type:'tick'};
-  void Promise.resolve().then(()=>commit(engine?advanceBmr(engine,input):startBmr(state.members??[]),input)).catch(e=>{setLocalError(e instanceof Error?e.message:'자동 판정 오류');setPaused(true);});
+  void Promise.resolve().then(()=>commit(engine?advanceBmr(withNightGossip(engine,state.gossip_declarations??[]),input):startBmr(state.members??[]),input)).catch(e=>{setLocalError(e instanceof Error?e.message:'자동 판정 오류');setPaused(true);});
  // The persisted revision/request status is the idempotency boundary, not callback identity.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[busy,paused,room.id,room.phase,state.bmr_revision,request?.id,request?.status]);
  const pending=(state.requests??[]).some(q=>q.status==='OPEN'||q.status==='SUBMITTED'||q.status==='RESOLVED'&&!q.acknowledged)||(state.mission_progress??[]).some(m=>m.completed<m.total);
- const unjudged=(state.gossip_declarations??[]).filter(g=>g.day===room.night&&g.truth==null);
+
  const unread=(state.requests??[]).filter(q=>q.status==='RESOLVED'&&!q.acknowledged);
  const voting=(state.votes??[]).some(v=>['WAITING','RUNNING'].includes(v.status));
  const candidate=bmrExecutionCandidate((state.votes??[]).filter(v=>v.day===room.night));
@@ -61,11 +61,12 @@ export default function ClocktowerBmrAutomatic({state,busy,error,run}:Props){
   {!!unread.length&&<details><summary>전달 완료 · 확인 대기 {unread.length}건</summary>{unread.map(q=><p className="mt-2 text-sm" key={q.id}>{state.members?.find(m=>m.user_id===q.user_id)?.name} · {q.prompt}</p>)}</details>}
   {engine&&<details><summary>자동 판정 기록</summary>{engine.log.map((line,i)=><p className="mt-2 text-sm text-zinc-300" key={i}>{line}</p>)}</details>}
   {engine?.pending&&hiddenDecision===`${state.bmr_revision}:${engine.pending.decision.key}`&&<button className={button} onClick={()=>setHiddenDecision('')}>이야기꾼 판정 계속하기</button>}
-  {engine?.pending&&hiddenDecision!==`${state.bmr_revision}:${engine.pending.decision.key}`&&<DecisionPopup key={`${state.bmr_revision}:${engine.pending.decision.key}`} decision={engine.pending.decision} busy={busy} error={error||localError} close={()=>setHiddenDecision(`${state.bmr_revision}:${engine.pending!.decision.key}`)} decide={value=>dispatch({type:'choice',key:engine.pending!.decision.key,value})}/>}
-  {executionOpen&&<ClocktowerPopup title="처형 확정" busy={busy} onClose={()=>setExecutionOpen(false)}><>{unjudged.length>0&&<div className="my-4 space-y-4"><p className="font-bold text-amber-200">보류하거나 아직 판단하지 않은 험담이 있습니다. 참·거짓을 정하면 진행할 수 있습니다.</p>{unjudged.map(g=><article key={g.id}><p>{state.members?.find(m=>m.user_id===g.actor)?.name}: {g.statement}</p>{gossipJudgment({g,state,busy,blocked:!!engine?.pending,run})}</article>)}</div>}</><p className="my-4">처형 대상: {state.members?.find(m=>m.user_id===candidate)?.name??'없음'}</p><p className="mb-4 text-sm text-zinc-300">보호·생존 능력과 후속 효과를 자동으로 확인합니다. 평화주의자의 구제가 가능하면 별도 판정 창이 열립니다.</p><button className={button} disabled={busy||voting||unjudged.length>0} onClick={()=>void dispatch({type:'execution',target:candidate})}>확정</button></ClocktowerPopup>}
+  {engine?.pending&&hiddenDecision!==`${state.bmr_revision}:${engine.pending.decision.key}`&&<DecisionPopup key={`${state.bmr_revision}:${engine.pending.decision.key}`} engine={engine} decision={engine.pending.decision} busy={busy} error={error||localError} close={()=>setHiddenDecision(`${state.bmr_revision}:${engine.pending!.decision.key}`)} decide={value=>dispatch({type:'choice',key:engine.pending!.decision.key,value})}/>}
+  {executionOpen&&<ClocktowerPopup title="처형 확정" busy={busy} onClose={()=>setExecutionOpen(false)}><></><p className="my-4">처형 대상: {state.members?.find(m=>m.user_id===candidate)?.name??'없음'}</p><p className="mb-4 text-sm text-zinc-300">보호·생존 능력과 후속 효과를 자동으로 확인합니다. 평화주의자의 구제가 가능하면 별도 판정 창이 열립니다.</p><button className={button} disabled={busy||voting} onClick={()=>void dispatch({type:'execution',target:candidate})}>확정</button></ClocktowerPopup>}
  </section>;
 }
-function DecisionPopup({decision,busy,error,decide,close}:{decision:Decision;busy:boolean;error:string;decide:(value:string)=>Promise<void>;close:()=>void}){
+function DecisionPopup({engine,decision,busy,error,decide,close}:{engine:BmrAuto;decision:Decision;busy:boolean;error:string;decide:(value:string)=>Promise<void>;close:()=>void}){
  const [value,setValue]=useState(decision.initial??'');
- return <ClocktowerPopup title={decision.title} busy={busy} onClose={close}><p className="my-4 whitespace-pre-wrap text-sm text-zinc-300">{decision.description}</p>{decision.text?<form onSubmit={e=>{e.preventDefault();void decide(value);}}><textarea required maxLength={2000} className={field} rows={5} value={value} onChange={e=>setValue(e.target.value)}/><button disabled={busy||!value.trim()} className={`${button} mt-3`}>확정 · 비공개 전달</button></form>:<div className="grid gap-3">{decision.initial&&decision.options.some(o=>o.value===decision.initial)&&<button disabled={busy} className={button} onClick={()=>void decide(decision.initial!)}>기본 설정으로 진행 · {decision.options.find(o=>o.value===decision.initial)?.label}</button>}{decision.options.map(o=><button key={o.value} disabled={busy} className={button} onClick={()=>void decide(o.value)}>{o.label}</button>)}</div>}{error&&<p className="mt-3 text-red-300" role="alert">{error}</p>}<p className="mt-3 text-xs text-zinc-400">이 판정은 이야기꾼에게만 보입니다. 확정하면 상태를 반영하고 다음 차례로 이어집니다. 잠시 닫아도 판정은 유지됩니다.</p></ClocktowerPopup>;
+ const memberOptions=decision.options.filter(o=>engine.players.some(p=>p.id===o.value));
+ return <ClocktowerPopup title={decision.title} busy={busy} onClose={close}><p className="my-4 whitespace-pre-wrap text-sm text-zinc-300">{decision.description}</p>{decision.text?<form onSubmit={e=>{e.preventDefault();void decide(value);}}><textarea required maxLength={2000} className={field} rows={5} value={value} onChange={e=>setValue(e.target.value)}/><button disabled={busy||!value.trim()} className={`${button} mt-3`}>확정 · 비공개 전달</button></form>:<div className="space-y-3">{!!memberOptions.length&&<ClocktowerMemberChoices members={engine.players.map(p=>({id:p.id,name:p.name,role:p.role,...bmrSelectionStatus(engine,p)}))} allowed={memberOptions.map(o=>o.value)} busy={busy} onChoose={id=>void decide(id)}/>}<div className="grid gap-3">{decision.initial&&decision.options.some(o=>o.value===decision.initial)&&<button disabled={busy} className={button} onClick={()=>void decide(decision.initial!)}>기본 설정으로 진행 · {decision.options.find(o=>o.value===decision.initial)?.label}</button>}{decision.options.filter(o=>!memberOptions.includes(o)).map(o=><button key={o.value} disabled={busy} className={button} onClick={()=>void decide(o.value)}>{o.label}</button>)}</div></div>}{error&&<p className="mt-3 text-red-300" role="alert">{error}</p>}<p className="mt-3 text-xs text-zinc-400">이 판정은 이야기꾼에게만 보입니다. 확정하면 상태를 반영하고 다음 차례로 이어집니다. 잠시 닫아도 판정은 유지됩니다.</p></ClocktowerPopup>;
 }

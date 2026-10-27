@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
-import { approveEffects, beginNight, emptyEngine, evil, nextTask, propose, taskRequest, type NightEngine, type NightTask } from '@/lib/clocktower/night';
+import { approveEffects, beginNight, emptyEngine, evil, impaired, nextTask, propose, taskRequest, type NightEngine, type NightTask } from '@/lib/clocktower/night';
 import type { LiveMember, LiveRequest, LiveState } from '@/lib/clocktower/live';
 import { canAdvanceNight } from '@/lib/clocktower/request-progress';
 import ClocktowerNightTimeline from './ClocktowerNightTimeline';
 import ClocktowerPopup from './ClocktowerPopup';
+import ClocktowerMemberChoices from './ClocktowerMemberChoices';
 import { ClocktowerName } from './ClocktowerSeating';
 type Run=(action:string,data?:Record<string,unknown>)=>Promise<boolean>;
 const button='rounded-xl border border-white/20 px-4 py-3 text-sm disabled:opacity-40';
@@ -55,6 +56,14 @@ export default function ClocktowerNightFlow({state,run,busy,allowPopup,error}:{s
     </>}
   </section>;
 }
+function memberChoices(members:LiveMember[],engine:NightEngine) {
+  return members.map(m=>{
+    const monk=members.find(x=>x.user_id===engine.protection?.source);
+    const protectedNow=(m.actual_role==='군인'&&!impaired(m,engine,members)) || (engine.protection?.target===m.user_id&&engine.protection.night===engine.night&&!!monk?.alive&&monk.actual_role==='수도사'&&!impaired(monk,engine,members));
+    const tone = !m.alive?'dead':protectedNow?'protected':evil(m)?'evil':'normal';
+    return {id:m.user_id,name:m.name,role:m.actual_role??'미배정',tone: tone as 'dead'|'protected'|'evil'|'normal',label:!m.alive?'사망':protectedNow?`${evil(m)?'악한 팀 · ':''}악마 공격으로부터 보호`:evil(m)?'악한 팀':'생존'};
+  });
+}
 function ProposalReview({task,request,engine,members,busy,allowPopup,error,approve}:{allowPopup:boolean;error:string;task:NightTask;request:LiveRequest;engine:NightEngine;members:LiveMember[];busy:boolean;approve:(result:string,p:ReturnType<typeof propose>)=>Promise<boolean>}){
   const [closed,setClosed]=useState(false);
   const [editing,setEditing]=useState(false);const [text,setText]=useState<string|null>(null);
@@ -77,12 +86,12 @@ function ProposalReview({task,request,engine,members,busy,allowPopup,error,appro
       </div>
       {choosingReplacement&&<div className="space-y-3">
         <p className="text-sm font-bold">시장 대신 공격받을 플레이어를 선택하세요</p>
-        <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto">{members.filter(m=>m.user_id!==request.targets[0]).map(m=><button key={m.user_id} disabled={busy} aria-pressed={victim===m.user_id} className={`${button} text-left ${victim===m.user_id?'border-violet-300 bg-violet-400/20':''}`} onClick={()=>{setVictim(m.user_id);setSuccessor(undefined);}}><span className="block font-bold">{m.seat}. {m.name}</span><span className="text-xs text-zinc-400">{m.actual_role}{m.alive?'':' · 이미 사망'}</span></button>)}</div>
+        <ClocktowerMemberChoices members={memberChoices(members,engine)} allowed={members.filter(m=>m.user_id!==request.targets[0]).map(m=>m.user_id)} busy={busy} selected={victim} onChoose={id=>{setVictim(id);setSuccessor(undefined);}}/>
         <p className="text-xs text-zinc-400">군인·수도사의 보호는 그대로 적용됩니다. 이미 사망한 사람을 선택해도 추가 사망은 없습니다.</p>
       </div>}
       <p className="text-xs text-zinc-400">대상 선택만으로 적용되지 않습니다. 판정을 확인한 뒤 아래 ‘확인하고 전달’을 누르세요.</p>
     </div>}
-    {proposal.choices&&proposal.choices.length>1&&<label className="block">승계할 하수인<select className={field} value={successor??''} onChange={e=>setSuccessor(e.target.value)}><option value="">이야기꾼 선택 필요</option>{proposal.choices.map(m=><option key={m.user_id} value={m.user_id}>{m.name} · {m.actual_role}</option>)}</select></label>}
+    {proposal.choices&&proposal.choices.length>1&&<div className="space-y-2"><p>승계할 하수인</p><ClocktowerMemberChoices members={memberChoices(members,engine)} allowed={proposal.choices.map(m=>m.user_id)} busy={busy} selected={successor} onChoose={setSuccessor}/></div>}
     <h4 className="text-sm font-bold">멤버에게 전달될 내용</h4>
     {proposal.falseResult!==undefined&&<div className="space-y-3 rounded-xl border border-amber-300/30 p-4">
       <p className="text-sm text-amber-200">주정뱅이 · 같은 조건에서는 저장된 기본 거짓 답을 유지합니다. 직접 수정·진실 정보 선택은 이번 차례에만 적용되고, 다음 밤에는 기본 거짓 답으로 돌아갑니다. 선택만으로 전달되지는 않습니다.</p>
@@ -96,7 +105,7 @@ function ProposalReview({task,request,engine,members,busy,allowPopup,error,appro
 }
 function NightSettings({engine,members,locked,busy,save}:{engine:NightEngine;members:LiveMember[];locked:boolean;busy:boolean;save:(state:NightEngine)=>Promise<void>}){
   const [draft,setDraft]=useState(engine);
-  return <div className="space-y-4 rounded-2xl border border-white/15 p-4"><label className="block text-sm">점쟁이의 허상 (게임 동안 고정)<select disabled={locked||busy} className={field} value={draft.red_herring??''} onChange={e=>setDraft({...draft,red_herring:e.target.value||undefined})}><option value="">첫 밤에 시스템이 선한 참가자 한 명 지정</option>{members.filter(m=>!evil(m)).map(m=><option key={m.user_id} value={m.user_id}>{m.name}</option>)}</select></label>
+  return <div className="space-y-4 rounded-2xl border border-white/15 p-4"><div className="space-y-3"><p className="text-sm">점쟁이의 허상 (게임 동안 고정)</p><button type="button" disabled={locked||busy} className={button} aria-pressed={!draft.red_herring} onClick={()=>setDraft({...draft,red_herring:undefined})}>첫 밤에 시스템이 선한 참가자 한 명 지정</button><ClocktowerMemberChoices members={memberChoices(members,engine)} allowed={members.filter(m=>!evil(m)).map(m=>m.user_id)} busy={locked||busy} selected={draft.red_herring} onChoose={id=>setDraft({...draft,red_herring:id})}/></div>
     <details className="rounded-xl border border-white/10 p-3">
       <summary className="cursor-pointer text-sm font-semibold text-zinc-300">고급 설정 · 수동 보정{members.some(m=>draft.conditions[m.user_id]?.drunk||draft.conditions[m.user_id]?.poisoned)&&<span className="ml-2 text-xs text-amber-200">수동 상태 설정 있음</span>}</summary>
       <p className="my-3 text-xs leading-6 text-zinc-400">일반적인 자동 진행에서는 변경하지 않아도 됩니다. 독살범의 중독과 실제 주정뱅이 역할은 자동 처리됩니다. 예외 상황에서 상태를 직접 추가하거나 해제할 때만 사용하세요. 실제 주정뱅이 역할은 이 체크박스로 해제되지 않습니다.</p>

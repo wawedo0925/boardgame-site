@@ -16,7 +16,7 @@ export type BmrAuto = {
  previous:Record<string,{night:number;targets:string[]}>; charged:Record<string,boolean>; regurgitated?:Record<string,number>;
  grandchildren:Record<string,string>; goonNight:Record<string,number>;
  deaths:{id:string;role:string;night:number;phase:string;demon:boolean}[];
- gossip?:{day:number;text:string;truth:boolean;actor?:string;declaration_id?:string}; moon:Record<string,{due:number;target?:string;good?:boolean}>;
+ gossip?:{day:number;text:string;truth:boolean|null;actor?:string;declaration_id?:string}; moon:Record<string,{due:number;target?:string;good?:boolean}>;
  mastermind?:{day:number;source:string}; winner?:'GOOD'|'EVIL'; reason?:string;
  log:string[]; out:Out;
 };
@@ -82,6 +82,17 @@ function protectedFromDeath(e:BmrAuto,p:Player,execution:boolean):boolean {
   if(a.faction==='GOOD'&&b.faction==='GOOD'&&(a.id===p.id||b.id===p.id))return true;
  }
  return false;
+}
+export function bmrSelectionStatus(e:BmrAuto,p:Player):{tone:'dead'|'protected'|'evil'|'normal';label:string} {
+ if(p.life==='DEAD')return {tone:'dead',label:'사망'};
+ if(protectedFromDeath(e,p,false)||(p.role==='어릿광대'&&!p.spent&&works(e,p))||(p.role==='좀비얼'&&p.life==='ALIVE'&&works(e,p)))return {tone:'protected',label:`${p.faction==='EVIL'?'악한 팀 · ':''}${p.role==='좀비얼'?'첫 사망 시 위장':'현재 일반 사망 방지'}`};
+ return p.faction==='EVIL'?{tone:'evil',label:p.life==='ZOMBIE'?'악 · 사망 위장 중':'악한 팀'}:{tone:'normal',label:'생존'};
+}
+export function withNightGossip(e:BmrAuto,declarations:{id:string;actor:string;day:number;statement:string}[]):BmrAuto {
+ if(e.phase!=='NIGHT'||e.pending)return e;
+ const declaration=declarations.find(g=>g.day===e.night-1&&e.players.some(p=>p.id===g.actor&&p.role==='험담꾼'));
+ if(!declaration||e.gossip?.declaration_id===declaration.id)return e;
+ return {...e,gossip:{day:declaration.day,text:declaration.statement,truth:null,actor:declaration.actor,declaration_id:declaration.id}};
 }
 function kill(e:BmrAuto,id:string,cause:string,answers:Record<string,string>,execution=false,pierce=false,demon=false){
  const p=player(e,id);if(!actualAlive(p)||e.winner)return;
@@ -177,8 +188,10 @@ function resolveTask(e:BmrAuto,op:Extract<Operation,{kind:'task'}>,answers:Recor
   return '할머니 처리';
  }
  if(role==='험담꾼'){
-  if(e.gossip?.day===e.night-1&&e.gossip.truth&&(!e.gossip.actor||e.gossip.actor===p.id)&&works(e,p)){
-   const id=choose(answers,{key:'gossip-victim',title:'험담꾼 · 사망 대상',description:`참인 공개 발언: ${e.gossip.text}`,options:options(e.players.filter(actualAlive))});kill(e,id,'험담꾼',answers);
+  if(e.gossip?.day===e.night-1&&(!e.gossip.actor||e.gossip.actor===p.id)&&works(e,p)){
+   const truth=e.gossip.truth??(choose(answers,{key:'gossip-truth',title:'험담꾼 · 발언한 내용이 진실입니까?',description:`${p.name}님의 공개 발언:\n${e.gossip.text}`,options:[{value:'true',label:'참 · 사망 대상 선택'},{value:'false',label:'거짓 · 다음 차례'}]})==='true');
+   e.gossip.truth=truth;
+   if(truth){const id=choose(answers,{key:'gossip-victim',title:'험담꾼 · 사망 대상',description:`참인 공개 발언: ${e.gossip.text}`,options:options(e.players)});kill(e,id,'험담꾼',answers);}
   }return '험담 처리';
  }
  if(role==='땜장이'){
