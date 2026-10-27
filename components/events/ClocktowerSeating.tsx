@@ -114,7 +114,7 @@ export default function ClocktowerSeating({ vote, onRecordVote, roomId, members,
   }
 
   return <section className="rounded-3xl border border-violet-400/25 bg-violet-400/[0.025] p-4 sm:p-6">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold">마을 자리 배치</h2><div className="flex flex-wrap gap-2">{roomId && myId && <ClocktowerPersonalNotes key={`${roomId}:${myId}`} roomId={roomId} userId={myId} />}{editable && sync && <button disabled={busy || mode !== 'view'} onClick={sync} className={control}>일정 참가자 불러오기</button>}</div></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold">마을 자리 배치</h2><div className="flex flex-wrap gap-2">{roomId && myId && <ClocktowerPersonalNotes key={`${roomId}:${myId}`} roomId={roomId} userId={myId} />}{editable && sync && <button disabled={busy || mode !== 'view'} onClick={sync} className={control}>참가자 불러오기</button>}</div></div>
     <p className="mt-3 text-sm leading-6 text-zinc-400">{editable ? '실제로 앉은 위치에 맞춰 카드를 자유롭게 배치하세요. 저장하면 참가자들에게도 같은 모양으로 보입니다.' : '실제 앉은 위치에 맞춰 이야기꾼이 배치한 자리입니다. 작게 보이면 확대해서 확인하세요.'}</p>
     <p className="mt-2 text-xs text-zinc-400">흰색: 생존 · 회색: 사망 · ●: 남은 투표권 · ○: 투표권 사용 완료{storyteller?' · 직업·상태·메모는 이야기꾼에게만 표시됩니다.':''}</p>
     {tallying && vote && <div className="mt-4 rounded-xl bg-violet-400/15 p-4"><p className="font-bold">{members.find(m=>m.user_id===vote.nominee)?.name} 처형 투표 · 찬성 {Object.values(vote.ballots).filter(Boolean).length}표 / 필요 {vote.threshold}표</p><p className="mt-2 text-sm">손 든 멤버의 카드를 누르면 찬성표로 집계됩니다. 다시 누르면 취소됩니다. 모두 확인한 뒤 위의 지목·투표 섹션에서 집계 완료를 눌러 주세요.</p></div>}

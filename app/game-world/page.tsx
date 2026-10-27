@@ -1,3 +1,4 @@
+import ClocktowerWorldCard from "@/components/clocktower/ClocktowerWorldCard";
 import Link from "next/link";
 
 export const metadata = {
@@ -60,6 +61,7 @@ export default function GameWorldPage() {
         </header>
 
         <section className="mt-9 grid gap-5 md:mt-12 md:grid-cols-2">
+          <ClocktowerWorldCard />
           {games.map((game) => (
             <Link
               key={game.href}

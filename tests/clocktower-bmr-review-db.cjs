@@ -6,19 +6,21 @@ const {startBmr,advanceBmr,bmrProjection,correctBmrMember}=require('../lib/clock
 const {makeBmrInformation}=require('../lib/clocktower/bmr-information.ts');
 (async()=>{
  const db=await createTestDb();for(const migration of ['20260927010000_clocktower_bmr_automation.sql','20260927020000_clocktower_gossip.sql','20260927030000_clocktower_moonchild.sql','20260927040000_clocktower_public_actions.sql','20261027010000_clocktower_night_gossip.sql','20261027020000_clocktower_bmr_review.sql'])await db.exec(fs.readFileSync('supabase/migrations/'+migration,'utf8'));
- const host='10000000-0000-0000-0000-000000000001',eid='20000000-0000-0000-0000-000000000001';
+ const world=process.env.CLOCKTOWER_WORLD_TEST==='1';
+ await db.exec(fs.readFileSync('supabase/migrations/20261027030000_clocktower_game_world.sql','utf8'));
+ const host='10000000-0000-0000-0000-000000000001';let eid='20000000-0000-0000-0000-000000000001';
  const ids=Array.from({length:7},(_,i)=>`30000000-0000-0000-0000-${String(i+1).padStart(12,'0')}`);
  await db.query('insert into auth.users(id) select unnest($1::uuid[])',[[host,...ids]]);
  await db.query("insert into public.profiles(id,activity_name,site_role) values($1,'Host','MAIN_ADMIN')",[host]);
  for(let i=0;i<ids.length;i++)await db.query('insert into public.profiles(id,activity_name) values($1,$2)',[ids[i],'P'+i]);
- await db.query("insert into public.events(id,title,event_kind,created_by) values($1,'피로 물든 달 자동 테스트','CLOCKTOWER',$2)",[eid,host]);
+ if(!world)await db.query("insert into public.events(id,title,event_kind,created_by) values($1,'피로 물든 달 자동 테스트','CLOCKTOWER',$2)",[eid,host]);
  await db.query("insert into public.games(name) values('시계탑에 흐른 피')");
- await db.query('insert into public.event_participants(event_id,user_id) select $1,unnest($2::uuid[])',[eid,ids]);
+ if(!world)await db.query('insert into public.event_participants(event_id,user_id) select $1,unnest($2::uuid[])',[eid,ids]);
  const login=uid=>db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid]);await login(host);
  const snap=async()=>(await db.query('select public.clocktower_live_snapshot($1) s',[eid])).rows[0].s;
  const raw=(action,data)=>db.query('select public.clocktower_live_command($1,$2,$3::jsonb)',[eid,action,JSON.stringify(data)]);
  const action=async(a,data={})=>{const s=await snap();return raw(a,{room_id:s.room.id,bmr_revision:s.bmr_revision,revision:s.room.flow_revision,...data});};
- await raw('create',{});let s=await snap();assert.equal(s.bmr.automated,true);
+ if(world){const created=await db.query("select public.clocktower_world_rooms('create',null,'{\"title\":\"테스트 방\",\"script\":\"BMR\"}') s");eid=created.rows[0].s.id;for(const id of ids){await login(id);await db.query("select public.clocktower_world_rooms('join',$1)",[eid]);}await login(host);}else await raw('create',{});let s=await snap();assert.equal(s.bmr.automated,true);
  const roles=['선원','객실 청소부','교수','평화주의자','어릿광대','악마의 변호사','샤발로스'];
  await action('bmr_save_roles',{rows:ids.map((id,i)=>({user_id:id,actual_role:roles[i],shown_role:roles[i]}))});
  await assert.rejects(()=>action('flow_next'),/비밀 정보/);

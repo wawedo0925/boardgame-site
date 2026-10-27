@@ -1,0 +1,22 @@
+'use client';
+import Link from 'next/link';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {useRouter} from 'next/navigation';
+import {createClient} from '@/lib/supabase/client';
+type Room={id:string;title:string;script:string;phase:string;roles_released:boolean;host_name:string;is_host:boolean;joined:boolean;members:number};
+type Lobby={enabled:boolean;rooms:Room[]};
+const button='rounded-xl bg-violet-300 px-5 py-3 font-bold text-zinc-950 disabled:opacity-40';
+export default function ClocktowerLobby(){
+ const client=useMemo(()=>createClient(),[]),router=useRouter(),lock=useRef(false);
+ const [state,setState]=useState<Lobby|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[title,setTitle]=useState(''),[script,setScript]=useState('TB');
+ const load=useCallback(async()=>{try{const {data,error}=await client.rpc('clocktower_world_rooms');if(error)throw error;setState(data as Lobby);}catch{setError('대기실을 불러오지 못했습니다. 새로고침해 주세요.');}},[client]);
+ useEffect(()=>{void Promise.resolve().then(load);const timer=setInterval(()=>{if(document.visibilityState==='visible')void load();},5000);return()=>clearInterval(timer);},[load]);
+ async function act(action:string,room?:Room){if(lock.current)return;lock.current=true;setBusy(true);setError('');try{const {data,error}=await client.rpc('clocktower_world_rooms',{p_action:action,p_room_id:room?.id??null,p_data:{title:title.trim(),script}});if(error)throw error;router.push(`/clocktower/${data.id}`);}catch(e){setError(e instanceof Error?e.message:typeof e==='object'&&e&&'message'in e?String(e.message):'다시 시도해 주세요.');}finally{setBusy(false);lock.current=false;}}
+ return <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,#241336,#09090b_65%)] px-4 py-8 text-white"><div className="mx-auto max-w-5xl"><Link href="/game-world" className="text-sm text-zinc-400">← 게임월드</Link><p className="mt-7 text-xs tracking-[0.3em] text-violet-300">BLOOD ON THE CLOCKTOWER</p><h1 className="mt-3 text-3xl font-black">시계탑에 흐른 피</h1><p className="mt-3 text-sm leading-7 text-zinc-400">일정 신청 없이 방에 입장해 함께 진행하세요. 방을 만든 사람이 이야기꾼이 됩니다. 플레이어 5~15명이 모이면 준비할 수 있어요.</p>
+ {error&&<p role="alert" className="my-4 text-red-300">{error}</p>}
+ {state?.enabled&&<form className="my-7 space-y-4 rounded-3xl border border-violet-400/30 bg-black/25 p-5" onSubmit={e=>{e.preventDefault();void act('create');}}><h2 className="text-xl font-bold">이야기꾼으로 방 만들기</h2><label className="block text-sm">방 이름<input required maxLength={80} value={title} onChange={e=>setTitle(e.target.value)} placeholder="예: 우영의 시계탑" className="mt-2 w-full rounded-xl border border-white/20 bg-zinc-900 p-3"/></label><label className="block text-sm">시나리오<select value={script} onChange={e=>setScript(e.target.value)} className="mt-2 w-full rounded-xl border border-white/20 bg-zinc-900 p-3"><option value="TB">점철되는 혼란</option><option value="BMR">피로 물든 달</option></select></label><button className={button} disabled={busy||!title.trim()}>방 만들기</button></form>}
+ {state&&!state.enabled&&<p className="my-6 rounded-2xl border border-white/15 p-5 text-zinc-300">현재 새로운 방 만들기와 입장은 쉬고 있어요. 이미 참가한 방은 계속 이용할 수 있습니다.</p>}
+ <div className="mt-8 flex items-center justify-between"><h2 className="text-xl font-bold">진행방</h2><button className="rounded-xl border border-white/20 px-4 py-2 text-sm" onClick={()=>void load()}>새로고침</button></div>
+ {!state?<p className="mt-6">방을 불러오는 중…</p>:!state.rooms.length?<p className="mt-6 rounded-2xl border border-white/10 p-8 text-zinc-400">아직 열린 방이 없어요.</p>:<div className="mt-5 grid gap-4 sm:grid-cols-2">{state.rooms.map(room=>{const mine=room.is_host||room.joined,open=state.enabled&&room.phase==='SETUP'&&!room.roles_released&&room.members<15;return <article key={room.id} className="rounded-3xl border border-white/15 bg-zinc-950/70 p-5"><p className="text-xs text-violet-300">{room.script==='BMR'?'피로 물든 달':'점철되는 혼란'} · {room.phase==='ENDED'?'종료':room.phase==='SETUP'&&!room.roles_released?'참가자 모집 중':'게임 진행 중'}</p><h3 className="mt-3 break-words text-xl font-bold">{room.title}</h3><p className="mt-3 text-sm text-zinc-400">이야기꾼 {room.host_name} · 플레이어 {room.members}/15명</p><button disabled={busy||!mine&&!open} onClick={()=>mine?router.push(`/clocktower/${room.id}`):void act('join',room)} className={`${button} mt-5 w-full`}>{mine?(room.phase==='ENDED'?'종료된 방 보기':room.is_host?'이야기꾼으로 입장':'다시 입장'):open?'참가하기':room.members>=15?'정원 마감':'입장 마감'}</button></article>;})}</div>}
+ </div></main>;
+}
