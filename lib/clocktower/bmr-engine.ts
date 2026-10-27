@@ -8,6 +8,11 @@ type Task = { actor:string; role:string; key:string };
 export type Decision = { key:string; title:string; description:string; options:{value:string;label:string}[]; text?:boolean; initial?:string };
 type Operation = { kind:'task'; task:Task; targets:string[]; answer:{character?:string;pass?:boolean}; requestId?:string } | {kind:'execution';target:string|null} | {kind:'tinker';target:string};
 export type BmrAuto = {
+ manual?:Record<string,{drunk:boolean;poisoned:boolean;protected:boolean}>;
+ reviewEnabled?:boolean;
+ initialInformation?:Record<string,string>;
+ initialGrandchildren?:Record<string,string>;
+ review?:{op:Operation;answers:Record<string,string>;result:string;notices:{user_id:string;result:string}[];changes:string[]};
  moonBluffs?:Record<string,boolean>; executionPending?:boolean;
  version:1; night:number; phase:'NIGHT'|'DAY'|'ENDED'; players:Player[]; effects:Effect[];
  tasks:Task[]; cursor:number; serial:number; finished:boolean; awake:string[];
@@ -23,6 +28,7 @@ export type BmrAuto = {
 export type RequestSpec = {user_id:string;target_count:number;allow_self:boolean;prompt:string;options:BmrRequestOptions & {engine_key:string}};
 type Out = { request?:RequestSpec; resolved?:{id:string;result:string}; notices:{user_id:string;result:string}[]; retry?:string };
 export type BmrInput = {type:'tick'} | {type:'answer';id:string;targets:string[];answer?:{character?:string;pass?:boolean}}
+ | {type:'approve';result?:string;notices?:string[]} | {type:'revise'} | {type:'skip'}
  | {type:'choice';key:string;value:string} | {type:'dawn'} | {type:'execution';target:string|null}
  | {type:'moon_night'} | {type:'gossip';text:string;truth:boolean} | {type:'moon';actor:string;target:string} | {type:'tinker';target:string};
 const kind=(role:string)=>BMR_ROLES.find(r=>r.name===role)?.type;
@@ -44,6 +50,7 @@ function tasks(e:BmrAuto):Task[]{
 const player=(e:BmrAuto,id:string)=>{const p=e.players.find(x=>x.id===id);if(!p)throw Error('참가자가 변경되었습니다.');return p;};
 // Self-intoxication persists; mutually intoxicating sources use the first effect as the tie break.
 export function bmrImpaired(e:BmrAuto,id:string,visited:string[]=[]):boolean {
+ if(e.manual?.[id]?.drunk||e.manual?.[id]?.poisoned)return true;
  if(visited.includes(id))return false;
  return e.effects.some(f=>f.target===id&&['drunk','poison'].includes(f.kind)&&effectOn(e,f,[...visited,id]));
 }
@@ -74,6 +81,7 @@ function checkWin(e:BmrAuto){
  if(e.winner){e.phase='ENDED';note(e,e.reason!);}
 }
 function protectedFromDeath(e:BmrAuto,p:Player,execution:boolean):boolean {
+ if(e.manual?.[p.id]?.protected)return true;
  if(p.role==='선원'&&works(e,p))return true;
  if(e.effects.some(f=>f.target===p.id&&(f.kind==='safe'&&e.phase==='NIGHT'||f.kind==='execution'&&execution)&&effectOn(e,f)))return true;
  const alive=e.players.filter(publicAlive).sort((a,b)=>a.seat-b.seat);
@@ -89,7 +97,7 @@ export function bmrSelectionStatus(e:BmrAuto,p:Player):{tone:'dead'|'protected'|
  return p.faction==='EVIL'?{tone:'evil',label:p.life==='ZOMBIE'?'악 · 사망 위장 중':'악한 팀'}:{tone:'normal',label:'생존'};
 }
 export function withNightGossip(e:BmrAuto,declarations:{id:string;actor:string;day:number;statement:string}[]):BmrAuto {
- if(e.phase!=='NIGHT'||e.pending)return e;
+ if(e.phase!=='NIGHT'||e.pending||e.review)return e;
  const declaration=declarations.find(g=>g.day===e.night-1&&e.players.some(p=>p.id===g.actor&&p.role==='험담꾼'));
  if(!declaration||e.gossip?.declaration_id===declaration.id)return e;
  return {...e,gossip:{day:declaration.day,text:declaration.statement,truth:null,actor:declaration.actor,declaration_id:declaration.id}};
@@ -163,12 +171,13 @@ function resolveTask(e:BmrAuto,op:Extract<Operation,{kind:'task'}>,answers:Recor
  if(role==='하수인 정보'||role==='악마 정보'||role==='대부'&&init){
   let draft=bmrInformationDraft(role,e.players.map(x=>({user_id:x.id,name:x.name,seat:x.seat,alive:publicAlive(x),actual_role:x.role,shown_role:x.shown})));
   if(role==='악마 정보'&&e.players.length<7){const lunatic=e.players.find(x=>x.role==='미치광이');if(lunatic)draft+=`\n미치광이: ${lunatic.name}`;}
-  const result=role==='악마 정보'?information(answers,'evil-info','악마 초기 정보 · 블러프 확인','참여하지 않는 선한 캐릭터 3개 등 전달할 초기 정보를 확인하세요.',draft):role==='대부'&&bmrImpaired(e,p.id)?information(answers,'false-godfather','대부 · 무효 상태 정보','취함·중독 상태에서 전달할 외지인 정보를 입력하세요.',draft):draft;
+  const saved=init?e.initialInformation?.[`${role}:${p.id}`]:undefined;
+  const result=saved??(role==='악마 정보'?information(answers,'evil-info','악마 초기 정보 · 블러프 확인','참여하지 않는 선한 캐릭터 3개 등 전달할 초기 정보를 확인하세요.',draft):role==='대부'&&bmrImpaired(e,p.id)?information(answers,'false-godfather','대부 · 무효 상태 정보','취함·중독 상태에서 전달할 외지인 정보를 입력하세요.',draft):draft);
   if(role==='대부')e.awake.push(p.id);notice(e,p.id,result);return result;
  }
  if(role==='미치광이'&&init){
   e.awake.push(p.id);
-  notice(e,p.id,information(answers,'lunatic-info','미치광이에게 보낼 초기 정보','기본 가짜 하수인·블러프 정보를 준비했습니다. 그대로 전달하거나 수정하세요.',bmrInformationDraft('미치광이',e.players.map(x=>({user_id:x.id,name:x.name,seat:x.seat,alive:publicAlive(x),actual_role:x.role,shown_role:x.shown})))));
+  notice(e,p.id,e.initialInformation?.[`미치광이:${p.id}`]??information(answers,'lunatic-info','미치광이에게 보낼 초기 정보','기본 가짜 하수인·블러프 정보를 준비했습니다. 그대로 전달하거나 수정하세요.',bmrInformationDraft('미치광이',e.players.map(x=>({user_id:x.id,name:x.name,seat:x.seat,alive:publicAlive(x),actual_role:x.role,shown_role:x.shown})))));
   // Pukka acts on the first night as well as receiving its setup information.
   if(p.shown==='푸카')e.tasks.splice(e.cursor+1,0,{actor:p.id,role:'미치광이 선택',key:`${e.night}:${++e.serial}`});
   return '초기 정보 전달';
@@ -181,7 +190,8 @@ function resolveTask(e:BmrAuto,op:Extract<Operation,{kind:'task'}>,answers:Recor
   if(init){
    e.awake.push(p.id);
    const candidates=e.players.filter(x=>x.id!==p.id&&x.faction==='GOOD');
-   const id=choose(answers,{key:'grandchild',title:`${p.name} · 손주 선택`,description:'선한 참가자 중 기본 손주를 추천했습니다. 그대로 확정하거나 다른 사람을 선택하세요.',initial:candidates[0]?.id,options:options(candidates)});
+   const prepared=e.night===1?e.initialGrandchildren?.[p.id]:undefined;
+   const id=prepared&&candidates.some(x=>x.id===prepared)?prepared:choose(answers,{key:'grandchild',title:`${p.name} · 손주 선택`,description:'선한 참가자 중 기본 손주를 추천했습니다. 그대로 확정하거나 다른 사람을 선택하세요.',initial:candidates[0]?.id,options:options(candidates)});
    e.grandchildren[p.id]=id;
    notice(e,p.id,bmrImpaired(e,p.id)?information(answers,'false-grandmother','할머니 · 무효 상태 정보','취함·중독 상태입니다. 전달할 참가자와 역할 정보를 입력하세요.'):`손주: ${player(e,id).name} · ${player(e,id).role}`);
   }else if(works(e,p)&&e.deaths.some(d=>d.id===e.grandchildren[p.id]&&d.night===e.night&&d.phase==='NIGHT'&&d.demon))kill(e,p.id,'할머니',answers);
@@ -253,11 +263,18 @@ function validateTargets(e:BmrAuto,w:NonNullable<BmrAuto['waiting']>,targets:str
  if(['악마의 변호사','구마사제'].includes(w.task.role)&&e.previous[p.id]?.night===e.night-1&&e.previous[p.id].targets[0]===targets[0])return '지난 밤과 다른 참가자를 선택해 주세요.';
  return null;
 }
-function execute(e:BmrAuto,op:Operation,answers:Record<string,string>):BmrAuto {
- const draft=structuredClone(e);delete draft.pending;
+function execute(e:BmrAuto,op:Operation,answers:Record<string,string>,approval?:Extract<BmrInput,{type:'approve'}>):BmrAuto {
+ const draft=structuredClone(e);delete draft.pending;delete draft.review;
  try{
   if(op.kind==='task'){
-   const result=resolveTask(draft,op,answers);
+   let result=resolveTask(draft,op,answers);
+   if(e.reviewEnabled&&!approval){
+    delete e.pending;
+    e.review={op,answers,result,notices:draft.out.notices,changes:[...draft.log.slice(e.log.length),...draft.players.flatMap(p=>{const before=player(e,p.id),life={ALIVE:'생존',DEAD:'사망',ZOMBIE:'사망 위장'};return [...(before.life!==p.life?[`${p.name}: ${life[before.life]} → ${life[p.life]}`]:[]),...(before.spent!==p.spent?[`${p.name}: 일회용 능력 ${p.spent?'소모':'회복'}`]:[]),...(before.faction!==p.faction?[`${p.name}: ${p.faction==='EVIL'?'악한':'선한'} 팀으로 변경`]:[]),...(!!e.charged[p.id]!==!!draft.charged[p.id]?[`${p.name}: ${draft.charged[p.id]?'다음 공격 3명 충전':'충전 해제'}`]:[])];}),...draft.effects.filter(f=>!e.effects.some(old=>JSON.stringify(old)===JSON.stringify(f))).map(f=>`${player(draft,f.target).name}: ${({drunk:'취함',poison:'중독',safe:'밤 사망 보호',execution:'처형 사망 보호',exorcism:'구마'})[f.kind]} (${f.role})`)]};
+    return e;
+   }
+   if(approval?.result!==undefined){if(!approval.result.trim()||approval.result.length>2000)throw Error('전달 내용을 1~2000자로 입력하세요.');result=approval.result;}
+   if(approval?.notices){if(approval.notices.length!==draft.out.notices.length||approval.notices.some(t=>!t.trim()||t.length>2000))throw Error('비공개 안내 내용을 확인하세요.');draft.out.notices=draft.out.notices.map((n,i)=>({...n,result:approval.notices![i]}));}
    if(op.requestId)draft.out.resolved={id:op.requestId,result};
    delete draft.waiting;draft.cursor++;note(draft,`${op.task.role}: 처리 완료`);
   }else if(op.kind==='execution'){
@@ -277,6 +294,21 @@ function beginNextNight(e:BmrAuto){
 export function advanceBmr(previous:BmrAuto,input:BmrInput):BmrAuto {
  const e=structuredClone(previous);e.out=emptyOut();
  if(e.phase==='ENDED')throw Error('종료된 게임입니다.');
+ if(input.type==='skip'){
+  if(e.phase!=='NIGHT'||e.finished||!e.tasks[e.cursor]||e.pending&&e.pending.op.kind!=='task')throw Error('현재 밤 능력 차례만 건너뛸 수 있습니다.');
+  note(e,`${e.tasks[e.cursor].role}: 이야기꾼이 효과 없이 건너뜀`);
+  delete e.waiting;delete e.pending;delete e.review;e.cursor++;return e;
+ }
+ if(input.type==='approve'){
+  if(!e.review)throw Error('검토할 판정이 없습니다.');
+  return execute(e,e.review.op,e.review.answers,input);
+ }
+ if(input.type==='revise'){
+  if(!e.review)throw Error('검토할 판정이 없습니다.');
+  const op=e.review.op;delete e.review;
+  return execute(e,op,{});
+ }
+ if(e.review)throw Error('이야기꾼이 확인하고 전달한 뒤 진행할 수 있습니다.');
  if(input.type==='choice'){
   if(!e.pending||e.pending.decision.key!==input.key)throw Error('이미 처리되었거나 변경된 판정입니다.');
   const {op,answers}=e.pending;return execute(e,op,{...answers,[input.key]:input.value});
@@ -339,4 +371,38 @@ export function advanceBmr(previous:BmrAuto,input:BmrInput):BmrAuto {
  const request=spec(e,t);e.waiting={task:t,spec:request};e.out.request=request;return e;
 }
 
-export function bmrProjection(e:BmrAuto):{user_id:string;bmr:BmrMemberState}[]{return e.players.map(p=>({user_id:p.id,bmr:{life:p.life,faction:p.faction,spent:p.spent,drunk:e.effects.some(f=>f.target===p.id&&f.kind==='drunk'&&effectOn(e,f)),poisoned:e.effects.some(f=>f.target===p.id&&f.kind==='poison'&&effectOn(e,f)),protected:protectedFromDeath(e,p,e.phase==='DAY')}}));}
+export function bmrProjection(e:BmrAuto):{user_id:string;bmr:BmrMemberState}[]{return e.players.map(p=>({user_id:p.id,bmr:{life:p.life,faction:p.faction,spent:p.spent,drunk:!!e.manual?.[p.id]?.drunk||e.effects.some(f=>f.target===p.id&&f.kind==='drunk'&&effectOn(e,f)),poisoned:!!e.manual?.[p.id]?.poisoned||e.effects.some(f=>f.target===p.id&&f.kind==='poison'&&effectOn(e,f)),protected:protectedFromDeath(e,p,e.phase==='DAY')}}));}
+
+// Explicit storyteller correction. Discard any unapproved calculation and rerun
+// it against the corrected state; never silently approve an old preview.
+export function correctBmrMember(previous:BmrAuto,id:string,role:string,shown:string,flags:BmrMemberState):{auto:BmrAuto;cancelRequest:boolean} {
+ const e=structuredClone(previous),p=player(e,id);
+ if(e.phase==='ENDED'||e.executionPending||e.pending&&e.pending.op.kind!=='task')throw Error('진행 중인 처형 판정을 마친 뒤 수정해 주세요.');
+ if(!kind(role)||role==='미치광이'&&kind(shown)!=='악마'||role!=='미치광이'&&shown!==role)throw Error('역할과 표시 역할을 확인해 주세요.');
+ if(!['ALIVE','DEAD','ZOMBIE'].includes(flags.life)||flags.life==='ZOMBIE'&&role!=='좀비얼'||!['GOOD','EVIL'].includes(flags.faction))throw Error('상태를 확인해 주세요.');
+ const changed=p.role!==role||p.shown!==shown,was=p.life;
+ const cancelRequest=!!e.waiting&&e.waiting.task.actor===id&&(changed||flags.life==='DEAD');
+ const currentRole=e.tasks[e.cursor]?.role;
+ p.role=role;p.shown=shown;p.faction=flags.faction;
+ if(changed){e.effects=e.effects.filter(f=>f.source!==id);delete e.previous[id];delete e.charged[id];delete e.grandchildren[id];}
+ if(was==='DEAD'&&flags.life==='ALIVE'){
+  const count=e.tasks.length;revive(e,id);
+  if(e.phase==='NIGHT'&&e.finished&&e.tasks.length>count)e.finished=false;
+ }
+ p.life=flags.life;p.spent=flags.spent;
+ if(was!==flags.life&&flags.life!=='ALIVE'){
+  e.deaths.push({id,role,night:e.night,phase:e.phase,demon:false});
+  if(role==='달의 자손'||e.moonBluffs?.[id])e.moon[id]={due:e.night+1};
+ }
+ e.manual={...e.manual,[id]:{drunk:flags.drunk,poisoned:flags.poisoned,protected:flags.protected}};
+ delete e.pending;delete e.review;
+ if(cancelRequest)delete e.waiting;
+ if(changed&&e.phase==='NIGHT'&&!e.finished){
+  const order=bmrOrder(e.night),rank=(r:string)=>order.indexOf(r.replace('초기:','').replace('샤발로스 부활','샤발로스'));
+  const remaining=e.tasks.slice(e.cursor).filter(t=>t.actor!==id);
+  const added=tasks(e).filter(t=>t.actor===id&&rank(t.role)>=rank(currentRole??''));
+  e.tasks=[...e.tasks.slice(0,e.cursor),...[...remaining,...added].sort((a,b)=>rank(a.role)-rank(b.role))];
+ }
+ e.out=emptyOut();note(e,`${p.name}: 이야기꾼이 역할·상태를 직접 수정`);
+ return {auto:e,cancelRequest};
+}

@@ -92,12 +92,12 @@ export default function ClocktowerLive({ eventId, expectedRoomId }: { eventId: s
       {['SETUP','DAY'].includes(room.phase)&&<section className="my-5 rounded-2xl border border-white/15 p-4"><h2 className="text-xl font-bold">공개 행동</h2>
         {room.script==='BMR'?<>
           {!state.is_host&&<ClocktowerMoonchildToggle state={state} run={run} busy={busy} error={error}/>}
-          {room.phase==='DAY'&&<ClocktowerGossip key={room.id} allowPopup={allowPopup&&!moonPopup&&!state.bmr?.auto?.pending&&!(state.votes??[]).some(v=>v.status==='RUNNING'||v.status==='WAITING')} state={state} run={run} busy={busy} error={error}/>}
+          {room.phase==='DAY'&&<ClocktowerGossip key={room.id} allowPopup={allowPopup&&!moonPopup&&!state.bmr?.auto?.pending&&!state.bmr?.auto?.review&&!(state.votes??[]).some(v=>v.status==='RUNNING'||v.status==='WAITING')} state={state} run={run} busy={busy} error={error}/>}
         </>:room.phase==='DAY'?<ClocktowerSlayer allowPopup={allowPopup} error={error} state={state} run={run} busy={busy}/>:<p className="mt-3 text-sm text-zinc-400">낮이 되면 처단자 공개 선언을 사용할 수 있습니다.</p>}
       </section>}
-      {room.script==='BMR'&&room.phase==='NIGHT'&&<ClocktowerGossip state={state} run={run} busy={busy} error={error} allowPopup={allowPopup&&!state.bmr?.auto?.pending}/> }
-      {room.script==='BMR'&&<ClocktowerMoonchild key={`moon:${room.id}`} state={state} run={run} busy={busy} error={error} allowPopup={allowPopup&&room.phase==='DAY'&&!state.bmr?.auto?.pending&&!(state.votes??[]).some(v=>v.status==='RUNNING'||v.status==='WAITING')}/>}
-      {state.is_host ? room.script==='BMR' ? <ClocktowerBmrHost key={room.id} state={state} run={run} busy={busy} error={error}/> : <Host key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} /> : <Player key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup&&!moonPopup} error={error} />}
+      {room.script==='BMR'&&room.phase==='NIGHT'&&<ClocktowerGossip state={state} run={run} busy={busy} error={error} allowPopup={allowPopup&&!state.bmr?.auto?.pending&&!state.bmr?.auto?.review}/> }
+      {room.script==='BMR'&&<ClocktowerMoonchild key={`moon:${room.id}`} state={state} run={run} busy={busy} error={error} allowPopup={allowPopup&&room.phase==='DAY'&&!state.bmr?.auto?.pending&&!state.bmr?.auto?.review&&!(state.votes??[]).some(v=>v.status==='RUNNING'||v.status==='WAITING')}/>}
+      {state.is_host ? room.script==='BMR' ? <ClocktowerBmrHost key={room.id} state={state} run={run} busy={busy} error={error} allowPopup={allowPopup&&!moonPopup}/> : <Host key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup} error={error} /> : <Player key={room.id} state={state} run={run} busy={busy} allowPopup={allowPopup&&!moonPopup} error={error} />}
       {state.is_host&&<ClocktowerEvilSurvivors state={state} run={run} busy={busy} error={error} allowPopup={allowPopup&&!moonPopup}/> }
       <ClocktowerRecap key={`recap:${room.id}`} roomId={room.id} />
     </>}

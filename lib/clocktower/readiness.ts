@@ -2,6 +2,7 @@ import type { LiveState } from './live';
 import { validateAssignments } from './setup';
 import { informationErrors } from './information';
 import { bmrSetupErrors } from './bmr';
+import { bmrInformationErrors } from './bmr-information';
 
 export function readiness(state:LiveState, editing:string[]=[], busy=false):string[] {
  const room=state.room;
@@ -11,7 +12,7 @@ export function readiness(state:LiveState, editing:string[]=[], busy=false):stri
  const name=(id:string)=>members.find(m=>m.user_id===id)?.name??'참가자';
  if(room.phase==='SETUP'){
   for(const m of members)if(!m.actual_role||!m.shown_role)reasons.push(m.name+'님의 역할과 표시 역할을 선택하고 저장해 주세요.');
-  if(room.script==='BMR')reasons.push(...bmrSetupErrors(members));
+  if(room.script==='BMR'){reasons.push(...bmrSetupErrors(members));if(state.bmr?.automated&&!room.roles_released)reasons.push(...bmrInformationErrors(state.bmr.information,members));}
   else {
    reasons.push(...validateAssignments(members.map(m=>({user_id:m.user_id,actual_role:m.actual_role??'',shown_role:m.shown_role??''}))));
    reasons.push(...informationErrors(state.engine?.information,state.engine?.red_herring,members));
