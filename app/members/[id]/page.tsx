@@ -63,7 +63,7 @@ export default function MemberProfilePage() {
               <div className="mt-3 flex flex-wrap gap-2 text-sm text-zinc-400"><span className="rounded-full bg-white/[0.05] px-3 py-1.5">활동 지역 · {profile.region?.trim() || "미등록"}</span><span className="rounded-full bg-white/[0.05] px-3 py-1.5">가입 · {joinedLabel(profile.created_at)}</span></div>
             </div>
           </div>
-          <p className="mt-6 rounded-2xl bg-white/[0.03] p-4 text-sm leading-6 text-zinc-500">공개 프로필에는 활동명과 활동 지역, 공개 이벤트 플레이 기록만 표시됩니다. 이메일과 로그인 정보는 공개되지 않습니다.</p>
+          <p className="mt-6 rounded-2xl bg-white/[0.03] p-4 text-sm leading-6 text-zinc-500">공개 프로필에는 활동명과 활동 지역, 공개 플레이 기록만 표시됩니다. 이메일과 로그인 정보는 공개되지 않습니다.</p>
         </section>
         <Achievements userId={memberId} publicView />
         <EventPlayHistory userId={memberId}/>

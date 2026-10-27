@@ -55,7 +55,9 @@ type EventRoundPlay = {
         created_at: string;
         event_game_sessions:
           | {
-              event_id: string;
+              event_id: string | null;
+              clocktower_room_id: string | null;
+              world_title: string | null;
               games: GameInfo | GameInfo[] | null;
               events:
                 | { id: string; title: string; started_at: string }
@@ -63,7 +65,9 @@ type EventRoundPlay = {
                 | null;
             }
           | {
-              event_id: string;
+              event_id: string | null;
+              clocktower_room_id: string | null;
+              world_title: string | null;
               games: GameInfo | GameInfo[] | null;
               events:
                 | { id: string; title: string; started_at: string }
@@ -343,14 +347,15 @@ export default function MyPage() {
                 id,
                 created_at,
                 event_game_sessions!inner (
-                  event_id,
+                  event_id, clocktower_room_id, world_title,
                   games (id, name),
                   events (id, title, started_at)
                 )
               )
             `,
           )
-          .eq("user_id", currentUser.id),
+          .eq("user_id", currentUser.id)
+          .eq("is_gm", false),
         supabase
           .from("game_reviews")
           .select(
@@ -663,9 +668,10 @@ export default function MyPage() {
       : null;
     const event = session ? getSingleRelation(session.events) : null;
     const game = session ? getSingleGame(session.games) : null;
-    if (!event || !game) return;
+    if (!round || !session || !game || (!event && !session.clocktower_room_id)) return;
+    const sourceId = event?.id ?? session.clocktower_room_id!;
 
-    const existing = eventPlayMap.get(event.id);
+    const existing = eventPlayMap.get(sourceId);
     if (existing) {
       const existingGame = existing.games.find((item) => item.name === game.name);
       if (existingGame) existingGame.playCount += 1;
@@ -673,10 +679,10 @@ export default function MyPage() {
       return;
     }
 
-    eventPlayMap.set(event.id, {
-      id: `event-${event.id}`,
-      playedAt: event.started_at,
-      eventName: event.title,
+    eventPlayMap.set(sourceId, {
+      id: `play-${sourceId}`,
+      playedAt: event?.started_at ?? round.created_at,
+      eventName: event?.title ?? `게임월드 · ${session.world_title || "시계탑"}`,
       games: [{ name: game.name, playCount: 1 }],
     });
   });
@@ -688,7 +694,7 @@ export default function MyPage() {
         new Date(b.playedAt).getTime() - new Date(a.playedAt).getTime(),
     )
     .slice(0, 5);
-  const totalEventCount = playRecords.length + eventPlayMap.size;
+  const totalEventCount = playRecords.length + new Set(eventRoundPlays.flatMap(row => { const round = getSingleRelation(row.event_game_rounds); const session = round ? getSingleRelation(round.event_game_sessions) : null; return session?.event_id ? [session.event_id] : []; })).size;
 
   const grade = getPlayerGrade(totalPlayCount);
 
