@@ -135,6 +135,9 @@ function eligible(e:BmrAuto,t:Task){
  const p=player(e,t.actor),role=t.role.replace('초기:','');
  if(role==='달의 자손')return !!e.moon[p.id]?.target&&e.moon[p.id].due===e.night;
  if(!actualAlive(p))return false;
+ // The Chambermaid must not wake when two other living targets are unavailable.
+ // Zombuul's apparent death also excludes it from her choices.
+ if(role==='객실 청소부'&&e.players.filter(x=>x.id!==p.id&&publicAlive(x)).length<2)return false;
  if(['교수','암살자','궁정대신'].includes(role)&&p.spent)return false;
  if(role==='할머니'&&!t.role.startsWith('초기:')&&e.night>1)return !!e.grandchildren[p.id];
  if(role==='대부'&&e.night>1&&!t.role.startsWith('초기:'))return e.deaths.some(d=>d.phase==='DAY'&&d.night===e.night-1&&kind(d.role)==='외지인');

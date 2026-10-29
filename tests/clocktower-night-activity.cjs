@@ -43,3 +43,12 @@ values=[];now=0;const three={...props,count:3,members:[...props.members,{user_id
 for(let i=0;i<3;i++){const all=buttons(render(three));assert.equal(all.at(-1).props.disabled,true);all[i].props.onClick();}
 buttons(render(three)).at(-1).props.onClick();assert.equal(submitted.join(','),'a,b,c');
 console.log('PASS: delayed character/pass controls and three distinct targets');
+// Reverse seat order, then deselect/reselect: badges and submitted order must agree.
+values=[];now=0;tree=render(three);effects[0]();now=3000;tick();
+for(const i of [2,0,1])buttons(render(three))[i].props.onClick();
+const badge=i=>nodes(buttons(render(three))[i]).find(n=>n.type==='span'&&n.props['aria-label']);
+assert.equal(badge(2).props.children,1);assert.equal(badge(0).props.children,2);assert.equal(badge(1).props.children,3);
+buttons(render(three))[0].props.onClick();assert.equal(badge(0),undefined);assert.equal(badge(1).props.children,2);
+buttons(render(three))[0].props.onClick();assert.equal(badge(0).props.children,3);
+buttons(render(three)).at(-1).props.onClick();assert.equal(submitted.join(','),'c,b,a');
+console.log('PASS: visible selection order follows clicks, removal and reselection');
