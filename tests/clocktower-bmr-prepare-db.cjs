@@ -1,0 +1,45 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Node CommonJS test harness. */
+const assert=require('node:assert/strict'),fs=require('fs'),ts=require('typescript');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2017}}).outputText,f);
+const {createTestDb}=require('./clocktower-bmr-db.cjs');
+const {makeBmrInformation}=require('../lib/clocktower/bmr-information.ts');
+(async()=>{
+ const db=await createTestDb();for(const migration of ['20260927010000_clocktower_bmr_automation.sql','20260927020000_clocktower_gossip.sql','20260927030000_clocktower_moonchild.sql','20260927040000_clocktower_public_actions.sql','20261027010000_clocktower_night_gossip.sql','20261027020000_clocktower_bmr_review.sql'])await db.exec(fs.readFileSync('supabase/migrations/'+migration,'utf8'));
+ const world=process.env.CLOCKTOWER_WORLD_TEST==='1';
+ await db.exec(fs.readFileSync('supabase/migrations/20261027030000_clocktower_game_world.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migrations/20261030010000_clocktower_bmr_prepare.sql','utf8'));
+ const host='10000000-0000-0000-0000-000000000001';let eid='20000000-0000-0000-0000-000000000001';
+ const ids=Array.from({length:7},(_,i)=>`30000000-0000-0000-0000-${String(i+1).padStart(12,'0')}`);
+ await db.query('insert into auth.users(id) select unnest($1::uuid[])',[[host,...ids]]);
+ await db.query("insert into public.profiles(id,activity_name,site_role) values($1,'Host','MAIN_ADMIN')",[host]);
+ for(let i=0;i<ids.length;i++)await db.query('insert into public.profiles(id,activity_name) values($1,$2)',[ids[i],'P'+i]);
+ if(!world)await db.query("insert into public.events(id,title,event_kind,created_by) values($1,'피로 물든 달 자동 테스트','CLOCKTOWER',$2)",[eid,host]);
+ await db.query("insert into public.games(name) values('시계탑에 흐른 피')");
+ if(!world)await db.query('insert into public.event_participants(event_id,user_id) select $1,unnest($2::uuid[])',[eid,ids]);
+ const login=uid=>db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid]);await login(host);
+ const snap=async()=>(await db.query('select public.clocktower_live_snapshot($1) s',[eid])).rows[0].s;
+ const raw=(action,data)=>db.query('select public.clocktower_live_command($1,$2,$3::jsonb)',[eid,action,JSON.stringify(data)]);
+ const action=async(a,data={})=>{const s=await snap();return raw(a,{room_id:s.room.id,bmr_revision:s.bmr_revision,revision:s.room.flow_revision,...data});};
+ if(world){const created=await db.query("select public.clocktower_world_rooms('create',null,'{\"title\":\"테스트 방\",\"script\":\"BMR\"}') s");eid=created.rows[0].s.id;for(const id of ids){await login(id);await db.query("select public.clocktower_world_rooms('join',$1)",[eid]);}await login(host);}else await raw('create',{});let s=await snap();assert.equal(s.bmr.automated,true);
+ const roles=['할머니','선원','교수','평화주의자','어릿광대','악마의 변호사','샤발로스'];
+ const draft=s.members.map((m,i)=>({...m,actual_role:roles[i],shown_role:roles[i]}));
+ const info=makeBmrInformation(draft),rows=draft.map(m=>({user_id:m.user_id,actual_role:m.actual_role,shown_role:m.shown_role}));
+ const payload={room_id:s.room.id,bmr_revision:s.bmr_revision,rows,information:info};
+ const bad=structuredClone(payload);bad.information.grandchildren[draft[0].user_id]=draft[6].user_id;
+ await assert.rejects(()=>raw('bmr_prepare',bad),/손주/);
+ assert.deepEqual((await snap()).members.map(m=>m.actual_role),s.members.map(m=>m.actual_role),'invalid information rolls back all roles');
+ assert.equal((await snap()).bmr_revision,s.bmr_revision);
+ await login(ids[0]);await assert.rejects(()=>raw('bmr_prepare',payload),/이야기꾼/);await login(host);
+ await raw('bmr_prepare',payload);
+ s=await snap();assert.deepEqual(s.bmr.information,info);assert.deepEqual(s.members.map(m=>m.actual_role),roles);
+ await assert.rejects(()=>raw('bmr_prepare',payload),/최신/);
+ // The host can change only the grandchild or one message, and release without regenerating.
+ const edited=structuredClone(info);edited.grandchildren[draft[0].user_id]=draft[2].user_id;
+ edited.messages[`악마 정보:${draft[6].user_id}`]='이야기꾼이 수정한 정보';
+ await action('bmr_information',{information:edited});
+ await login(ids[0]);assert.equal((await snap()).bmr,undefined);await login(host);
+ await action('flow_next');s=await snap();assert.equal(s.room.roles_released,true);assert.deepEqual(s.bmr.information,edited);
+ await assert.rejects(()=>action('bmr_prepare',{rows,information:info}),/배포 전/);
+ console.log(`PASS: ${world?'world':'event'} automatic role + information save, grandchild, atomic rollback, stale draft, permissions, host edits, release`);
+ await db.close();
+})().catch(e=>{console.error(e.message,e.where||'',e.stack);process.exit(1)});
