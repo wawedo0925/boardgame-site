@@ -9,6 +9,7 @@ import ClocktowerNightActivity from './ClocktowerNightActivity';
 const button='min-h-12 rounded-xl bg-violet-400 px-5 py-3 font-bold text-zinc-950 disabled:opacity-40';
 export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,error}:{state:LiveState;run:(action:string,data?:Record<string,unknown>)=>Promise<boolean>;busy:boolean;allowPopup:boolean;error:string}) {
   const [confirmedPrivate,setConfirmedPrivate]=useState<string[]>([]);
+  const [introduced,setIntroduced]=useState<string[]>([]);
   const [dismissed,setDismissed]=useState<string[]>([]);
   const members=state.members??[];
   const requests=(state.requests??[]).filter(q=>q.night===state.room?.night);
@@ -18,6 +19,7 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
   const q=activeNight?actionable.find(q=>!dismissed.includes(`request:${q.id}:${q.status}`)):undefined;
   const mission=activeNight&&!q?missions.find(m=>!dismissed.includes(`mission:${m.id}`)):undefined;
   const key=q?`request:${q.id}:${q.status}`:mission?`mission:${mission.id}`:'';
+  const needsIntroduction=!!q&&!introduced.includes(q.id);
   const privateResult=!!q&&(q.private_once||q.prompt.startsWith('첩자 · '));
   const close=()=>{setDismissed([...dismissed,key])};
   const reopen=(key:string)=>{setDismissed(dismissed.filter(k=>k!==key))};
@@ -28,7 +30,8 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
       {!actionable.length&&!missions.length&&<p className="mt-3 text-sm">{requests.some(q=>q.status==='SUBMITTED')?'이야기꾼이 제출한 선택을 확인하고 있습니다.':'다음 활동을 기다리고 있습니다.'}</p>}
       {!!state.missions?.length&&<p className="mt-3 text-xs text-zinc-500">공통 미션 {state.missions.filter(m=>m.completed&&!m.challenge.superseded).length}/{state.missions.filter(m=>!m.challenge.superseded).length} 완료</p>}
     </div>}
-    {allowPopup&&(q||mission)&&<ClocktowerPopup key={key} title='밤 활동' subtitle={`${state.room?.night}일차 · 나에게 온 안내`} onClose={close} busy={busy||privateResult}>
+    {allowPopup&&(q||mission)&&<ClocktowerPopup key={key} title={needsIntroduction?'본인 능력 발동 시간입니다':q?'캐릭터 능력 · 선택 및 정보':'공통 미션'} subtitle={`${state.room?.night}일차 · 나에게 온 안내`} onClose={close} busy={busy||privateResult&&!needsIntroduction}>
+      {needsIntroduction?<div className="space-y-5 text-center"><p className="text-lg leading-8">지금은 본인 캐릭터의 능력 차례입니다.<br/>확인을 누르면 능력을 사용하거나 전달된 정보를 볼 수 있습니다.</p><button type="button" disabled={busy} className={`${button} w-full`} onClick={()=>setIntroduced(ids=>[...ids,q!.id])}>확인</button></div>:<>
       {error&&<p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-3 text-sm text-red-300">{error}</p>}
       {q&&<ClocktowerNightActivity key={key} id={key}
         prompt={q.status==='RESOLVED'?'도착한 안내를 확인해 주세요.':q.prompt}
@@ -51,7 +54,8 @@ export default function ClocktowerPlayerActivity({state,run,busy,allowPopup,erro
         onConfirm={async (targets,answer)=>{await run('mission_complete',{mission_id:mission.id,selection:answer,answer:mission.kind==='SELECT'?targets.join(','):mission.kind==='NOTICE'?'ACK':mission.kind==='NUMBERS'?[...(mission.challenge.tiles??[])].sort((a,b)=>a-b).join(','):mission.challenge.text});}}
       />}
       {!privateResult&&<p className="mt-4 text-center text-xs text-zinc-500">팝업을 닫아도 제출·확인 처리되지 않습니다.</p>}
+      </>}
     </ClocktowerPopup>}
-    <details className="rounded-2xl border border-white/10 p-5"><summary>내 요청·결과 기록</summary><div className="mt-4 space-y-3">{state.requests?.filter(q=>!q.private_once&&!q.prompt.startsWith('첩자 · ')).map(q=><div key={q.id} className="rounded-xl bg-white/5 p-4"><p className="text-sm text-violet-300">{q.night}일차 · {q.status==='OPEN'?'선택 대기':q.status==='SUBMITTED'?'이야기꾼 확인 중':q.status==='CANCELLED'?'취소':'결과 도착'}</p><p className="mt-2 whitespace-pre-wrap">{q.prompt}</p>{q.targets.length>0&&<p className="mt-2 text-sm text-zinc-400">제출: {q.targets.map(id=><span key={id} className="mr-2">{name(id)}</span>)}</p>}{q.result&&<p className="mt-3 whitespace-pre-wrap font-semibold text-violet-200">{q.result}</p>}</div>)}</div></details>
+    <details className="rounded-2xl border border-white/10 p-5"><summary>내 요청·결과 기록</summary><div className="mt-4 space-y-3">{state.requests?.filter(q=>!q.private_once&&!q.prompt.startsWith('첩자 · ')&&(!activeNight||!actionable.some(p=>p.id===q.id)||introduced.includes(q.id))).map(q=><div key={q.id} className="rounded-xl bg-white/5 p-4"><p className="text-sm text-violet-300">{q.night}일차 · {q.status==='OPEN'?'선택 대기':q.status==='SUBMITTED'?'이야기꾼 확인 중':q.status==='CANCELLED'?'취소':'결과 도착'}</p><p className="mt-2 whitespace-pre-wrap">{q.prompt}</p>{q.targets.length>0&&<p className="mt-2 text-sm text-zinc-400">제출: {q.targets.map(id=><span key={id} className="mr-2">{name(id)}</span>)}</p>}{q.result&&<p className="mt-3 whitespace-pre-wrap font-semibold text-violet-200">{q.result}</p>}</div>)}</div></details>
   </section>;
 }

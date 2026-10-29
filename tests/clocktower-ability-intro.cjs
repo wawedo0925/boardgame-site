@@ -1,0 +1,26 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+let values=[],cursor=0,calls=[];
+const react={useState:initial=>{const i=cursor++;if(!(i in values))values[i]=initial;return [values[i],v=>values[i]=typeof v==='function'?v(values[i]):v];}};
+const compile=file=>ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020}}).outputText;
+const queue={exports:{}};vm.runInNewContext(compile('lib/clocktower/request-progress.ts'),{module:queue,exports:queue.exports});
+const Popup=()=>null,Activity=()=>null,mod={exports:{}};
+vm.runInNewContext(compile('components/events/ClocktowerPlayerActivity.tsx'),{module:mod,exports:mod.exports,require:n=>n==='react'?react:n==='@/lib/clocktower/request-progress'?queue.exports:n==='./ClocktowerPopup'?{default:Popup}:n==='./ClocktowerNightActivity'?{default:Activity}:n==='./ClocktowerSeating'?{ClocktowerName:()=>null}:require(n)});
+const request={id:'q1',night:1,status:'OPEN',prompt:'비밀 능력 안내',targets:[],allow_self:true,target_count:1};
+const props={state:{room:{id:'room',night:1,phase:'NIGHT'},my_id:'me',members:[],requests:[request],missions:[]},busy:false,allowPopup:true,error:'',run:async(...args)=>{calls.push(args);return true;}};
+const nodes=x=>!x||typeof x!=='object'?[]:Array.isArray(x)?x.flatMap(nodes):[x,...nodes(x.props?.children)];
+const render=(p=props)=>{cursor=0;return mod.exports.default(p);};
+const introConfirm=t=>nodes(t).find(n=>n.type==='button'&&n.props.children==='확인');
+let t=render();assert.equal(nodes(t).find(n=>n.type===Popup).props.title,'본인 능력 발동 시간입니다');assert.equal(nodes(t).some(n=>n.type===Activity),false);
+assert.equal(JSON.stringify(t).includes('비밀 능력 안내'),false,'history must not bypass introduction');
+introConfirm(t).props.onClick();t=render();assert.equal(calls.length,0,'introduction must not submit or acknowledge');assert.equal(nodes(t).some(n=>n.type===Activity),true);
+const result={...props,state:{...props.state,requests:[{...request,status:'RESOLVED',result:'비밀 결과'}]}};
+assert.equal(introConfirm(render(result)),undefined,'same request result does not repeat ability introduction');
+values=[];t=render(result);assert.ok(introConfirm(t));assert.equal(JSON.stringify(t).includes('비밀 결과'),false);
+introConfirm(t).props.onClick();assert.ok(JSON.stringify(render(result)).includes('비밀 결과'));
+const next={...props,state:{...props.state,requests:[{...request,id:'q2'}]}};assert.ok(introConfirm(render(next)),'new ability gets a fresh introduction');
+const cover={...props,state:{...props.state,requests:[],missions:[{id:'m1',round:1,kind:'NOTICE',challenge:{text:'공통 안내'}}]}};
+t=render(cover);assert.equal(introConfirm(t),undefined);assert.equal(nodes(t).find(n=>n.type===Popup).props.title,'공통 미션');assert.equal(nodes(t).some(n=>n.type===Activity),true);
+assert.equal(nodes(render({...props,allowPopup:false})).some(n=>n.type===Popup),false);
+values=[];t=render({...result,state:{...result.state,requests:[{...result.state.requests[0],private_once:true}]}});assert.ok(introConfirm(t));assert.equal(nodes(t).some(n=>n.type===Activity),false);
+console.log('PASS: ability introduction, result privacy, no premature submission/ack, once per request, new requests, fake missions, phase popup priority, private results');
