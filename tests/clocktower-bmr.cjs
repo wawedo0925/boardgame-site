@@ -8,6 +8,7 @@ assert.ok(BMR_OTHER.indexOf('교수')<BMR_OTHER.indexOf('객실 청소부'));
 for(let n=5;n<=15;n++)for(let i=0;i<100;i++){
  const draft=bmrRandomRoles(Array.from({length:n},(_,j)=>({user_id:String(j),name:'P'+j,seat:j+1,alive:true})));
  assert.deepEqual(bmrSetupErrors(draft),[],`invalid random ${n}`);
+ assert.ok(draft.every(m=>m.actual_role!=='미치광이'),'random drafts exclude Lunatic');
  const draftInfo=bmrInformationDraft('악마 정보',draft);
  assert.ok(!draftInfo.includes('undefined'));
 }

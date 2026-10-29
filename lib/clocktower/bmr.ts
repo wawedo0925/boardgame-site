@@ -70,7 +70,7 @@ export function bmrRandomRoles(members:LiveMember[],random=Math.random):LiveMemb
  const base=composition(members.length,false);if(!base)return members;
  const minions=shuffle(BMR_ROLES.filter(r=>r.type==='하수인'),random).slice(0,base[2]);
  const adjustment=minions.some(r=>r.name==='대부')?(base[1]===0?1:random()<0.5?-1:1):0;
- const selected=[...shuffle(BMR_ROLES.filter(r=>r.type==='주민'),random).slice(0,base[0]-adjustment),...shuffle(BMR_ROLES.filter(r=>r.type==='외지인'),random).slice(0,base[1]+adjustment),...minions,...shuffle(BMR_ROLES.filter(r=>r.type==='악마'),random).slice(0,1)];
+ const selected=[...shuffle(BMR_ROLES.filter(r=>r.type==='주민'),random).slice(0,base[0]-adjustment),...shuffle(BMR_ROLES.filter(r=>r.type==='외지인'&&r.name!=='미치광이'),random).slice(0,base[1]+adjustment),...minions,...shuffle(BMR_ROLES.filter(r=>r.type==='악마'),random).slice(0,1)];
  const shuffled=shuffle(selected,random);return members.map((m,i)=>({...m,actual_role:shuffled[i].name,shown_role:shuffled[i].name==='미치광이'?selected.find(r=>r.type==='악마')!.name:shuffled[i].name}));
 }
 export function bmrInformationDraft(step:string,members:LiveMember[]):string {
