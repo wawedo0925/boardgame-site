@@ -1,5 +1,6 @@
 "use client";
 import ClocktowerWorldRoomActions from '@/components/clocktower/ClocktowerWorldRoomActions';
+import ClocktowerCompositionGuide from '@/components/clocktower/ClocktowerCompositionGuide';
 import ClocktowerPhaseBar from './ClocktowerPhaseBar';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -81,6 +82,7 @@ export default function ClocktowerLive({ eventId, expectedRoomId, world=false }:
   return <div className={`clocktower-mobile mt-6 min-w-0 ${state?.is_host&&state.room?.phase!=='ENDED'?'pb-[calc(100px+env(safe-area-inset-bottom))]':''}`}>
     {world&&room&&<ClocktowerWorldRoomActions id={room.id} host={!!state?.is_host} preparing={room.phase==='SETUP'&&!room.roles_released}/>}
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-zinc-400">화면을 켜 두세요. 투표 차례는 서버 시간에 맞춰 자동으로 표시됩니다.</span><div className="flex gap-2"><button className={subtle} onClick={() => setHidden(!hidden)}>{hidden ? '화면 다시 보기' : '화면 가리기'}</button><button className={subtle} onClick={() => void refresh()}>새로고침</button></div></div>
+    <div className="mb-5"><ClocktowerCompositionGuide playerCount={state?.members?.length ?? 0}/></div>
     {connectionError && <p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-4 text-red-300">{connectionError}</p>}
     {error && <p role="alert" className="mb-4 rounded-xl bg-red-400/10 p-4 text-red-300">{error}</p>}
     {hidden ? <div className="rounded-3xl border border-white/10 p-16 text-center text-zinc-500">화면을 가렸습니다.</div> : !state ? <p>진행방을 불러오는 중…</p> : !room ? <div className="rounded-3xl border border-white/10 p-6">
