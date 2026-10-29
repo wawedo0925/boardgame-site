@@ -208,6 +208,12 @@ function resolveTask(e:BmrAuto,op:Extract<Operation,{kind:'task'}>,answers:Recor
   }return '험담 처리';
  }
  if(role==='땜장이'){
+  if(bmrImpaired(e,p.id)){
+   const status=bmrProjection(e).find(x=>x.user_id===p.id)!.bmr;
+   const reason=[status.drunk?'취한':null,status.poisoned?'중독된':null].filter(Boolean).join(' · ');
+   choose(answers,{key:'tinker-impaired',title:`땜장이 · ${p.name} · 능력 무효 안내`,description:`땜장이가 ${reason} 상태입니다.\n이번에는 땜장이 자신의 능력으로 사망시킬 수 없습니다. 악마의 공격이나 다른 능력에 의한 사망은 별도로 처리됩니다. 이 상태는 참가자에게 알려주지 않습니다.`,options:[{value:'acknowledge',label:'확인 · 효과 없이 진행'}]});
+   return '땜장이 처리';
+  }
   if(works(e,p)&&choose(answers,{key:'tinker',title:`땜장이 · ${p.name}`,description:'이번에 능력으로 사망시킬까요? 사망 방지 능력은 적용됩니다.',options:[{value:'no',label:'그대로 두기'},{value:'yes',label:'사망시키기'}]})==='yes')kill(e,p.id,'땜장이',answers);
   return '땜장이 처리';
  }
