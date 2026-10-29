@@ -231,7 +231,14 @@ function resolveTask(e:BmrAuto,op:Extract<Operation,{kind:'task'}>,answers:Recor
  if(role==='포')e.charged[p.id]=false;
  if(role==='샤발로스')e.previous[p.id]={night:e.night,targets:[...targets]};
  if(['악마의 변호사','구마사제'].includes(role))e.previous[p.id]={night:e.night,targets:[...targets]};
- if(!sequential&&bmrImpaired(e,p.id))return role==='객실 청소부'?choose(answers,{key:'false-chambermaid',title:'객실 청소부 · 무효 상태 정보',description:'취함·중독 상태입니다. 전달할 숫자를 선택하세요.',options:[0,1,2].map(n=>({value:`${n}명`,label:`${n}명`}))}):'선택을 확인했습니다.';
+ if(!sequential&&bmrImpaired(e,p.id)){
+  if(role==='여관 주인'){
+   const status=bmrProjection(e).find(x=>x.user_id===p.id)!.bmr;
+   const reason=[status.drunk?'취한':null,status.poisoned?'중독된':null].filter(Boolean).join(' · ');
+   choose(answers,{key:'innkeeper-impaired',title:'여관 주인 · 능력 무효 안내',description:`${p.name} · 여관 주인이 ${reason} 상태입니다.\n선택한 대상: ${targets.map(id=>player(e,id).name).join(', ')}\n두 사람에게 밤 사망 보호가 적용되지 않으며, 여관 주인 능력으로 취하는 사람도 없습니다. 이 상태는 참가자에게 알려주지 않습니다.`,options:[{value:'acknowledge',label:'확인 · 효과 없이 진행'}]});
+  }
+  return role==='객실 청소부'?choose(answers,{key:'false-chambermaid',title:'객실 청소부 · 무효 상태 정보',description:'취함·중독 상태입니다. 전달할 숫자를 선택하세요.',options:[0,1,2].map(n=>({value:`${n}명`,label:`${n}명`}))}):'선택을 확인했습니다.';
+ }
  if(role==='선원'||role==='여관 주인'){
   const ids=role==='선원'?[...new Set([p.id,...targets])]:targets;
   const id=choose(answers,{key:'drink',title:`${role} · 취할 사람 선택`,description:'선택한 사람의 능력 무효화와 기간은 자동 반영됩니다.',options:options(ids.map(id=>player(e,id)))});
