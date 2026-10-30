@@ -52,3 +52,12 @@ buttons(render(three))[0].props.onClick();assert.equal(badge(0),undefined);asser
 buttons(render(three))[0].props.onClick();assert.equal(badge(0).props.children,3);
 buttons(render(three)).at(-1).props.onClick();assert.equal(submitted.join(','),'c,b,a');
 console.log('PASS: visible selection order follows clicks, removal and reselection');
+values=[];now=0;
+const living={...props,options:{living:true},members:[{user_id:'a',seat:1,alive:false},{user_id:'b',seat:2,alive:true,bmr:{life:'ZOMBIE'}},{user_id:'c',seat:3,alive:true}]};
+tree=render(living);effects[0]();now=3000;tick();all=buttons(render(living));
+assert.equal(all[0].props.disabled,true);assert.equal(all[1].props.disabled,true);assert.equal(all[2].props.disabled,false);
+all[0].props.onClick();all[1].props.onClick();assert.equal(buttons(render(living)).at(-1).props.disabled,true);
+all[2].props.onClick();assert.equal(buttons(render(living)).at(-1).props.disabled,false);
+const died={...living,members:living.members.map(m=>({...m,alive:false}))};
+assert.equal(buttons(render(died)).at(-1).props.disabled,true,'target dying during selection blocks confirmation');
+console.log('PASS: living-only requests reject dead and disguised-dead targets in UI');

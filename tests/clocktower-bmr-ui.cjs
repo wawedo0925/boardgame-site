@@ -2,8 +2,9 @@ const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm'),ts=
 require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,f);
 let values=[],cursor=0,calls=[];
 const react={useState:initial=>{const i=cursor++;if(!(i in values))values[i]=typeof initial==='function'?initial():initial;return [values[i],v=>values[i]=typeof v==='function'?v(values[i]):v];}};
+react.useEffect=()=>{};react.useRef=initial=>{const [value]=react.useState({current:initial});return value;};
 const mod={exports:{}};
-vm.runInNewContext(ts.transpileModule(fs.readFileSync('components/events/ClocktowerBmrHost.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020}}).outputText,{module:mod,exports:mod.exports,require:n=>n==='react'?react:n==='@/lib/clocktower/bmr'?require('../lib/clocktower/bmr.ts'):n==='@/lib/clocktower/flow'?{nextFlowLabel:()=>''}:n.startsWith('./Clocktower')?{default:n}:require(n),confirm:()=>true});
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('components/events/ClocktowerBmrHost.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020}}).outputText,{module:mod,exports:mod.exports,require:n=>n==='react'?react:n==='@/lib/clocktower/bmr'?require('../lib/clocktower/bmr.ts'):n==='@/lib/clocktower/flow'?{nextFlowLabel:()=>''}:n.startsWith('./Clocktower')?{default:n}:n.startsWith('@/lib/')?require('../'+n.slice(2)+'.ts'):require(n),confirm:()=>true});
 function nodes(x){if(!x||typeof x!=='object')return [];if(Array.isArray(x))return x.flatMap(nodes);return [x,...nodes(x.props?.children)];}
 function text(x){if(typeof x==='string'||typeof x==='number')return String(x);if(Array.isArray(x))return x.map(text).join('');return x?.props?text(x.props.children):'';}
 const base={room:{id:'room',phase:'NIGHT',night:2,flow_revision:3},bmr_revision:7,bmr:{cursor:0,notes:'old'},members:[{user_id:'u',name:'Alice',seat:1,alive:true,actual_role:'선원',shown_role:'선원'}],requests:[]};

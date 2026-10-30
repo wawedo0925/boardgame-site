@@ -44,7 +44,7 @@ for(let game=0;game<120;game++){
   if(x.waiting){
    const w=x.waiting,o=w.spec.options,actor=x.players.find(p=>p.id===w.task.actor);
    if(o.pass&&random()<.5){x=answer(x,[],{pass:true});continue;}
-   let choices=x.players.filter(p=>(w.spec.allow_self||p.id!==actor.id)&&(!o.living||p.life==='ALIVE'||w.task.role==='악마의 변호사'&&p.life==='ZOMBIE')&&(!o.dead||p.life!=='ALIVE')&&(!['악마의 변호사','구마사제'].includes(w.task.role)||x.previous[actor.id]?.night!==x.night-1||x.previous[actor.id].targets[0]!==p.id));
+   let choices=x.players.filter(p=>(w.spec.allow_self||p.id!==actor.id)&&(!o.living||p.life==='ALIVE')&&(!o.dead||p.life!=='ALIVE')&&(!['악마의 변호사','구마사제'].includes(w.task.role)||x.previous[actor.id]?.night!==x.night-1||x.previous[actor.id].targets[0]!==p.id));
    if(choices.length<w.spec.target_count&&o.pass){x=answer(x,[],{pass:true});continue;}
    assert.ok(choices.length>=w.spec.target_count,`not enough targets ${w.task.role}`);
    const targets=[];while(targets.length<w.spec.target_count){const p=pick(choices);targets.push(p.id);choices=choices.filter(c=>c.id!==p.id);}

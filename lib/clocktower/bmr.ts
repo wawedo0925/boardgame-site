@@ -13,14 +13,14 @@ export type BmrState = { cursor:number; notes:string; completed:boolean; automat
 export type BmrRequestOptions = { character?:boolean; pass?:boolean; living?:boolean; dead?:boolean; engine_key?:string };
 export const BMR_HINTS:Record<string,string> = {
  '황혼':'확인: 지난 효과의 만료, 원인 캐릭터의 사망·취함·중독, 낮의 사망·처형, 지속 효과를 마도서에서 갱신하세요. 표시는 자동 해제되지 않습니다.',
- '하수인 정보':'7명 이상: 각 하수인에게 악마가 누구인지 전달하세요. 미치광이는 실제 악마가 아닙니다.',
+ '하수인 정보':'7명 이상: 각 하수인에게 악마와 모든 하수인이 누구인지 이름을 전달하세요. 구체적인 역할은 공개하지 않습니다. 미치광이는 실제 악마가 아닙니다.',
  '악마 정보':'7명 이상: 실제 악마에게 하수인과 게임에 없는 선한 캐릭터 3개를 알려 주세요. 미치광이가 있다면 그 사람과 선택도 따로 알려 주세요.',
  '미치광이':'실제 역할을 노출하지 말고 본인이 믿는 악마에 맞춰 요청하세요. 첫 밤의 가짜 하수인·블러프는 이야기꾼이 정합니다. 이후 선택은 실제 악마에게 전달하며 실제 사망 효과는 없습니다.',
  '선원':'생존자 1명(본인 가능). 선원 또는 대상 중 한 명을 다음 황혼까지 취하게 합니다. 건강한 선원은 사망하지 않습니다. 건달을 처음 선택했다면 취함과 진영 변경을 먼저 확인하세요.',
  '여관 주인':'첫 밤 제외, 2명 선택. 오늘 밤 사망에서 보호하고 한 명을 다음 황혼까지 취하게 합니다. 여관 주인 자신이 취하면 보호가 무효일 수 있습니다.',
  '궁정대신':'게임당 1번, 플레이어가 아니라 캐릭터 선택. 즉시 3일 밤·3일 낮 동안 취함. 없는 캐릭터도 선택 가능하며 취함·중독 중 시도도 소모됩니다. 원인의 사망·능력 무효와 남은 기간을 메모하세요.',
  '도박사':'첫 밤 제외. 플레이어 1명과 추측 캐릭터 선택. 틀리면 도박사가 사망합니다. 맞았는지는 알려주지 않습니다. 자기 자신·사망자도 선택 가능합니다.',
- '악마의 변호사':'생존자 1명, 전날과 다른 대상. 다음 낮의 처형 사망만 보호합니다. 사망 위장 중인 좀비얼도 실제로 생존해 있다면 대상이 될 수 있습니다.',
+ '악마의 변호사':'생존자 1명, 전날과 다른 대상. 다음 낮의 처형 사망만 보호합니다. 사망자로 표시된 좀비얼을 포함해 사망자는 선택할 수 없습니다.',
  '구마사제':'첫 밤 제외. 전날과 다른 1명. 실제 악마라면 구마사제의 신원을 알려주고 악마 자신의 능력 사용을 위한 깨움을 건너뜁니다. 푸카의 기존 중독 사망 등 지속 효과는 따로 판정하세요.',
  '좀비얼':'첫 밤 제외. 오늘 낮에 아무도 사망하지 않았을 때만 1명 공격. 첫 사망은 실제 사망 대신 사망 위장으로 표시합니다. 위장 중 지목·생존자 수·유령표는 사망자로 취급하고 악마 생존 판정은 따로 합니다.',
  '푸카':'첫 밤부터 새 대상 1명을 중독. 두 번째 밤부터 이전 중독자는 새 선택 뒤 사망하고 건강해집니다. 사망 판정 시점까지는 중독입니다. 푸카의 취함·사망·구마사제 영향을 따로 확인하세요.',
@@ -84,7 +84,7 @@ export function bmrInformationDraft(step:string,members:LiveMember[]):string {
   const bluffs=BMR_ROLES.filter(r=>['주민','외지인'].includes(r.type)&&!members.some(m=>m.actual_role===r.name)).slice(0,3);
   return `하수인: ${fake.map(m=>m.name).join(', ')}\n게임에 없는 선한 캐릭터: ${bluffs.map(r=>r.name).join(', ')}`;
  }
- if(step==='하수인 정보')return members.length<7?'7명 미만으로 초기 악한 팀 정보가 없습니다.':`악마: ${demons.map(m=>m.name).join(', ')}`;
+ if(step==='하수인 정보')return members.length<7?'7명 미만으로 초기 악한 팀 정보가 없습니다.':`악마: ${demons.map(m=>m.name).join(', ')}\n하수인: ${minions.map(m=>m.name).join(', ')}`;
  if(step==='악마 정보')return members.length<7?'7명 미만으로 초기 악한 팀 정보가 없습니다.':`하수인: ${minions.map(m=>m.name).join(', ')}\n게임에 없는 선한 캐릭터: ${BMR_ROLES.filter(r=>['주민','외지인'].includes(r.type)&&!members.some(m=>m.actual_role===r.name)).slice(0,3).map(r=>r.name).join(', ')}${members.some(m=>m.actual_role==='미치광이')?'\n미치광이: '+members.find(m=>m.actual_role==='미치광이')!.name:''}`;
  if(step==='대부')return '참여 중인 외지인: '+(members.filter(m=>BMR_ROLES.find(r=>r.name===m.actual_role)?.type==='외지인').map(m=>m.actual_role).join(', ')||'없음');
  return '';

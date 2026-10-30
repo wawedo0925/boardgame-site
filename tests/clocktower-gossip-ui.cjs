@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Node CommonJS test harness. */
 const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm'),ts=require('typescript');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,f);
 let values=[],cursor=0,calls=[];const react={useState:initial=>{const i=cursor++;if(!(i in values))values[i]=initial;return [values[i],v=>values[i]=v];}};
-const mod={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('components/events/ClocktowerGossip.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020}}).outputText,{module:mod,exports:mod.exports,require:n=>n==='react'?react:n==='./ClocktowerPopup'?{default:'Popup'}:require(n)});
+const mod={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('components/events/ClocktowerGossip.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2020}}).outputText,{module:mod,exports:mod.exports,require:n=>n==='react'?react:n==='./ClocktowerPopup'?{default:'Popup'}:n==='./ClocktowerMemberChoices'?{default:'MemberChoices'}:n.startsWith('@/lib/')?require('../'+n.slice(2)+'.ts'):require(n)});
 const nodes=x=>!x||typeof x!=='object'?[]:Array.isArray(x)?x.flatMap(nodes):[x,...nodes(x.props?.children)];
 const text=x=>typeof x==='string'||typeof x==='number'?String(x):Array.isArray(x)?x.map(text).join(''):x?.props?text(x.props.children):'';
 const base={room:{id:'r',phase:'DAY',night:1},my_id:'p',members:[{user_id:'p',name:'아라',alive:true},{user_id:'q',name:'우영',alive:true}],gossip_declarations:[{id:'g1',actor:'q',day:1,statement:'악마가 모자를 썼습니다.',acknowledged:false},{id:'g2',actor:'p',day:1,statement:'블러핑입니다.',acknowledged:false}]};

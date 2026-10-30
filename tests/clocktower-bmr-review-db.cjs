@@ -5,9 +5,8 @@ const {createTestDb}=require('./clocktower-bmr-db.cjs');
 const {startBmr,advanceBmr,bmrProjection,correctBmrMember}=require('../lib/clocktower/bmr-engine.ts');
 const {makeBmrInformation}=require('../lib/clocktower/bmr-information.ts');
 (async()=>{
- const db=await createTestDb();for(const migration of ['20260927010000_clocktower_bmr_automation.sql','20260927020000_clocktower_gossip.sql','20260927030000_clocktower_moonchild.sql','20260927040000_clocktower_public_actions.sql','20261027010000_clocktower_night_gossip.sql','20261027020000_clocktower_bmr_review.sql'])await db.exec(fs.readFileSync('supabase/migrations/'+migration,'utf8'));
+ const db=await createTestDb();for(const migration of fs.readdirSync('supabase/migrations').filter(f=>f.includes('clocktower')&&f>'20260926010000_clocktower_bad_moon_rising.sql').sort())await db.exec(fs.readFileSync('supabase/migrations/'+migration,'utf8'));
  const world=process.env.CLOCKTOWER_WORLD_TEST==='1';
- await db.exec(fs.readFileSync('supabase/migrations/20261027030000_clocktower_game_world.sql','utf8'));
  const host='10000000-0000-0000-0000-000000000001';let eid='20000000-0000-0000-0000-000000000001';
  const ids=Array.from({length:7},(_,i)=>`30000000-0000-0000-0000-${String(i+1).padStart(12,'0')}`);
  await db.query('insert into auth.users(id) select unnest($1::uuid[])',[[host,...ids]]);

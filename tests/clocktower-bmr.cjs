@@ -16,6 +16,9 @@ assert.equal(bmrPreset('포',2,true).count,3);assert.equal(bmrPreset('포',2,tru
 assert.equal(bmrPreset('포',2,false).options.pass,true);
 assert.equal(bmrPreset('궁정대신',1).options.character,true);assert.equal(bmrPreset('도박사',2).options.character,true);
 assert.equal(bmrPreset('객실 청소부',1).self,false);
+const evilRoster=['좀비얼','암살자','주모자','악마의 변호사','선원','교수','할머니'].map((role,i)=>({user_id:String(i),name:'P'+i,seat:i+1,alive:true,actual_role:role,shown_role:role}));
+assert.equal(bmrInformationDraft('하수인 정보',evilRoster),'악마: P0\n하수인: P1, P2, P3');
+assert.equal(bmrInformationDraft('하수인 정보',evilRoster.slice(0,6)),'7명 미만으로 초기 악한 팀 정보가 없습니다.');
 assert.equal(bmrExecutionCandidate([{nominee:'a',status:'DONE',threshold:2,ballots:{a:true,b:true}},{nominee:'b',status:'DONE',threshold:2,ballots:{a:true,b:true}}]),null);
 assert.equal(bmrExecutionCandidate([{nominee:'a',status:'DONE',threshold:2,ballots:{a:true,b:false}}]),null);
 assert.equal(bmrExecutionCandidate([{nominee:'a',status:'DONE',threshold:2,ballots:{a:true,b:true}}]),'a');

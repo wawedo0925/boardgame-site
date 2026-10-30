@@ -275,7 +275,7 @@ function validateTargets(e:BmrAuto,w:NonNullable<BmrAuto['waiting']>,targets:str
  const p=player(e,w.task.actor);
  if(targets.some(id=>!e.players.some(x=>x.id===id)||!w.spec.allow_self&&id===p.id))return '선택할 수 없는 참가자입니다.';
  if(o.character&&!BMR_ROLES.some(r=>r.name===answer?.character))return '캐릭터를 선택하세요.';
- if(o.living&&targets.some(id=>!publicAlive(player(e,id))&&!(w.task.role==='악마의 변호사'&&player(e,id).life==='ZOMBIE'))||o.dead&&targets.some(id=>publicAlive(player(e,id))))return '대상을 다시 선택해 주세요.';
+ if(o.living&&targets.some(id=>!publicAlive(player(e,id)))||o.dead&&targets.some(id=>publicAlive(player(e,id))))return '대상을 다시 선택해 주세요.';
  if(['악마의 변호사','구마사제'].includes(w.task.role)&&e.previous[p.id]?.night===e.night-1&&e.previous[p.id].targets[0]===targets[0])return '지난 밤과 다른 참가자를 선택해 주세요.';
  return null;
 }

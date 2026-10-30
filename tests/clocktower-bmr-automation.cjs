@@ -8,6 +8,13 @@ function task(e,role,night=2){e=structuredClone(e);e.phase='NIGHT';e.night=night
 const answer=(e,targets,extra={})=>advanceBmr(e,{type:'answer',id:'request',targets,answer:extra});
 const decide=(e,value)=>advanceBmr(e,{type:'choice',key:e.pending.decision.key,value});
 const effect=(e,source,target,kind='drunk',until=99)=>e.effects.push({source,role:e.players.find(p=>p.id===source).role,target,kind,until});
+for(const life of ['DEAD','ZOMBIE']){
+ let x=fixture(['좀비얼','악마의 변호사','교수','선원','할머니','어릿광대','객실 청소부']);
+ x.players[0].life=life;x=task(x,'악마의 변호사');
+ const rejected=answer(x,['0']);assert.ok(rejected.out.retry,'DA must reject '+life);
+ assert.ok(!rejected.effects.some(f=>f.kind==='execution'),'invalid target receives no protection');
+ assert.ok(answer(x,['2']).effects.some(f=>f.kind==='execution'&&f.target==='2'));
+}
 let e=fixture();e.players[2].life='DEAD';e.players[3].life='DEAD';e.previous['0']={night:2,targets:['2','3']};e=task(e,'샤발로스',3);
 assert.equal(e.pending.decision.key,'regurgitate');assert.equal(e.players[2].life,'DEAD','popup cannot mutate before confirmation');
 let revived=decide(e,'2');assert.equal(revived.players[2].life,'ALIVE');assert.equal(revived.players[2].spent,false);revived=advanceBmr(revived,{type:'tick'});assert.equal(revived.waiting.spec.target_count,2);
@@ -65,7 +72,7 @@ for(let game=0;game<120;game++){
   if(x.waiting){
    const w=x.waiting,o=w.spec.options,actor=x.players.find(p=>p.id===w.task.actor);
    if(o.pass&&random()<.5){x=answer(x,[],{pass:true});continue;}
-   let choices=x.players.filter(p=>(w.spec.allow_self||p.id!==actor.id)&&(!o.living||p.life==='ALIVE'||w.task.role==='악마의 변호사'&&p.life==='ZOMBIE')&&(!o.dead||p.life!=='ALIVE')&&(!['악마의 변호사','구마사제'].includes(w.task.role)||x.previous[actor.id]?.night!==x.night-1||x.previous[actor.id].targets[0]!==p.id));
+   let choices=x.players.filter(p=>(w.spec.allow_self||p.id!==actor.id)&&(!o.living||p.life==='ALIVE')&&(!o.dead||p.life!=='ALIVE')&&(!['악마의 변호사','구마사제'].includes(w.task.role)||x.previous[actor.id]?.night!==x.night-1||x.previous[actor.id].targets[0]!==p.id));
    if(choices.length<w.spec.target_count&&o.pass){x=answer(x,[],{pass:true});continue;}
    assert.ok(choices.length>=w.spec.target_count,`not enough targets ${w.task.role}`);
    const targets=[];while(targets.length<w.spec.target_count){const p=pick(choices);targets.push(p.id);choices=choices.filter(c=>c.id!==p.id);}
