@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm'),ts=require('typescript');
+const mod={exports:{}};
+const code=ts.transpileModule(fs.readFileSync('components/events/ClocktowerBmrAutomatic.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+vm.runInNewContext(code+'\nexports.testDecision=DecisionPopup;', {module:mod,exports:mod.exports,require:n=>n==='react'?{useState:v=>[v,()=>{}]}:n==='react/jsx-runtime'?require(n):n.includes('bmr-engine')?{bmrSelectionStatus:()=>({})}:{default:'Stub'}});
+const text=x=>typeof x==='string'||typeof x==='number'?String(x):Array.isArray(x)?x.map(text).join(''):x?.props?text(x.props.children):'';
+const decision={title:'객실 청소부 · 무효 상태 정보',description:'취함·중독 상태입니다.',options:[0,1,2].map(n=>({value:String(n),label:n+'명'}))};
+const engine={players:[{id:'c',name:'청소부이름',role:'객실 청소부'},{id:'a',name:'첫번째대상',role:'교수'},{id:'b',name:'두번째대상',role:'선원'}],pending:{decision,op:{kind:'task',task:{actor:'c',role:'객실 청소부'},targets:['b','a'],answer:{}}}};
+const render=e=>text(mod.exports.testDecision({engine:e,decision,busy:false,error:'',decide:async()=>{},close:()=>{}}));
+assert.ok(render(engine).includes('청소부이름 · 객실 청소부'));
+assert.ok(render(engine).includes('선택한 대상: 두번째대상 (선원), 첫번째대상 (교수)'));
+assert.ok(render(JSON.parse(JSON.stringify(engine))).includes('첫번째대상 (교수)'),'persisted pending choice retains target context');
+assert.ok(!render({...engine,pending:{op:{kind:'execution',target:'a'}}}).includes('선택한 대상'));
+console.log('PASS: storyteller decision displays actor, selected names and roles in order, including restored pending decisions');
