@@ -53,23 +53,24 @@ function remainingSeats(event: HomeEvent) {
 export default async function Home() {
   const supabase = await createClient();
   const now = new Date().toISOString();
-  const [{ data: noticeData }, { data: eventData }, { data: homeContent }, { data: role }] = await Promise.all([
+  const signal = AbortSignal.timeout(8_000);
+  const [{ data: noticeData, error: noticeError }, { data: eventData, error: eventError }, { data: homeContent }, { data: role }] = await Promise.all([
     supabase
       .from("notices")
       .select("id,title,important")
       .eq("is_update", false)
       .order("important", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(2),
+      .limit(2).abortSignal(signal),
     supabase
       .from("events")
       .select("id,title,started_at,ended_at,location,description,event_kind,participation_fee,max_participants,event_participants(id,participation_role,gm_pending)")
       .gte("started_at", now)
       .eq("event_status", "OPEN")
       .order("started_at", { ascending: true })
-      .limit(20),
-    supabase.from("home_content").select("eyebrow,title,description").eq("id", true).maybeSingle(),
-    supabase.rpc("current_site_role"),
+      .limit(20).abortSignal(signal),
+    supabase.from("home_content").select("eyebrow,title,description").eq("id", true).abortSignal(signal).maybeSingle(),
+    supabase.rpc("current_site_role").abortSignal(signal),
   ]);
   const content = homeContent ?? defaultHomeContent;
   const notices = (noticeData ?? []) as HomeNotice[];
@@ -203,7 +204,7 @@ export default async function Home() {
                   {notice.important && <span className="ml-auto rounded-full bg-amber-400/15 px-2 py-1 text-xs text-amber-300">중요</span>}
                 </Link>
               ))}
-              {notices.length === 0 && <Link href="/notice" className="block rounded-2xl border border-dashed border-white/15 p-8 text-center text-sm text-zinc-500">등록된 공지가 없습니다.</Link>}
+              {notices.length === 0 && <Link href="/notice" className="block rounded-2xl border border-dashed border-white/15 p-8 text-center text-sm text-zinc-500">{noticeError ? "공지를 잠시 불러오지 못했어요. 눌러서 다시 확인해 주세요." : "등록된 공지가 없습니다."}</Link>}
             </div>
           </div>
 
@@ -234,7 +235,7 @@ export default async function Home() {
                   <p className="mt-7 text-sm text-zinc-300">{eventDate(event.started_at)}</p>
                 </Link>
               ))}
-              {events.length === 0 && <Link href="/events" className="rounded-3xl border border-dashed border-white/15 p-8 text-center text-sm text-zinc-500 sm:col-span-2">예정된 이벤트가 없습니다.</Link>}
+              {events.length === 0 && <Link href="/events" className="rounded-3xl border border-dashed border-white/15 p-8 text-center text-sm text-zinc-500 sm:col-span-2">{eventError ? "일정을 잠시 불러오지 못했어요. 눌러서 다시 확인해 주세요." : "예정된 이벤트가 없습니다."}</Link>}
             </div>
           </div>
         </div>

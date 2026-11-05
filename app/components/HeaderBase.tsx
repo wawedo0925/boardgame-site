@@ -135,7 +135,7 @@ export default function Header() {
       if (profileResponse.error) {
         console.error("Profile Error:", profileResponse.error);
         console.log("Profile Response:", profileResponse);
-        
+
         setProfile(null);
       } else {
         setProfile(profileResponse.data as Profile | null);
@@ -291,7 +291,7 @@ export default function Header() {
                   <span className="hidden xl:inline">관리자</span>
                 </Link>
               )}
-              <div className="hidden lg:block"><NotificationBell userId={user.id} /></div>
+
               <Link
                 href="/mypage"
                 className="flex min-w-0 max-w-[9rem] items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 transition hover:border-amber-400/40 hover:bg-white/10 lg:max-w-none"
@@ -320,7 +320,7 @@ export default function Header() {
                   {displayName}
                 </span>
               </Link>
-              <div className="lg:hidden"><NotificationBell userId={user.id} /></div>
+              <NotificationBell userId={user.id} />
 
               <button
                 type="button"

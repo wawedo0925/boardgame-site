@@ -46,6 +46,7 @@ export async function updateSession(request: NextRequest) {
       .from("profiles")
       .select("activity_name,birth_year,region,gender")
       .eq("id", userId)
+      .abortSignal(AbortSignal.timeout(3_000))
       .maybeSingle();
 
     if (!profileError) {

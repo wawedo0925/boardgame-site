@@ -10,32 +10,56 @@ export default function NotificationBell({ userId }: { userId: string }) {
 
   useEffect(() => {
     let active = true;
+    let inFlight = false;
+    let failures = 0;
+    let nextRefresh = 0;
+    let timer: number | undefined;
+    let controller: AbortController | undefined;
 
-    async function loadCount() {
-      const { count: unread, error } = await supabase
-        .from("notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("recipient_id", userId)
-        .eq("is_read", false);
-
-      if (!active) return;
-      if (error) {
-        console.error("알림 개수 조회 오류:", error);
-        return;
+    async function refresh() {
+      if (!active || document.hidden || inFlight || Date.now() < nextRefresh) return;
+      inFlight = true;
+      controller = new AbortController();
+      const deadline = window.setTimeout(() => controller?.abort(), 8_000);
+      try {
+        const { count: unread, error } = await supabase
+          .from("notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("recipient_id", userId)
+          .eq("is_read", false)
+          .abortSignal(controller.signal);
+        if (!active) return;
+        if (error) {
+          failures += 1;
+        } else {
+          failures = 0;
+          setCount(unread ?? 0);
+        }
+      } catch {
+        failures += 1;
+      } finally {
+        window.clearTimeout(deadline);
+        inFlight = false;
+        if (active) {
+          const delay = Math.min(30_000 * 2 ** Math.min(failures, 3), 240_000);
+          nextRefresh = Date.now() + delay;
+          window.clearTimeout(timer);
+          timer = window.setTimeout(() => void refresh(), delay);
+        }
       }
-      setCount(unread ?? 0);
     }
 
-    void loadCount();
-
-    const refresh = () => void loadCount();
-    const interval = window.setInterval(refresh, 30_000);
-    window.addEventListener("focus", refresh);
+    const onVisible = () => void refresh();
+    void refresh();
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       active = false;
-      window.clearInterval(interval);
-      window.removeEventListener("focus", refresh);
+      controller?.abort();
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [supabase, userId]);
 
