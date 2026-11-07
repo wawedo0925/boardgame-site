@@ -24,10 +24,13 @@ const {makeBmrInformation}=require('../lib/clocktower/bmr-information.ts');
  await action('bmr_save_roles',{rows:ids.map((id,i)=>({user_id:id,actual_role:roles[i],shown_role:roles[i]}))});
  await assert.rejects(()=>action('flow_next'),/비밀 정보/);
  s=await snap();const info=makeBmrInformation(s.members);info.messages[`악마 정보:${ids[6]}`]='직접 수정한 악마 초기 정보';await action('bmr_information',{information:info});
+ await action('bmr_member',{user_id:ids[2],actual_role:'교수',shown_role:'교수',bmr:{life:'ALIVE',faction:'GOOD',drunk:true,poisoned:true,protected:false,spent:false}});
  await action('flow_next');for(const id of ids){await login(id);await action('role_ack');}await login(host);await action('flow_next');
  async function packet(next,input){const old=await snap(),qid=next.out.resolved?.id??(input?.type==='answer'?input.id:undefined),q=old.requests.find(q=>q.id===qid);const op=input?.type==='execution'?input:old.bmr.auto?.pending?.op.kind==='execution'?old.bmr.auto.pending.op:undefined;return {room_id:old.room.id,bmr_revision:old.bmr_revision,revision:old.room.flow_revision,auto:next,projection:bmrProjection(next),...(input?.type==='approve'||input?.type==='revise'?{operation:input.type}:{}),...(q?{request_id:q.id,targets:q.targets,answer:q.bmr_answer??{}}:{}),...(op?{operation:'execution',execution:op.target}:{})};}
  async function commit(next,input){const p=await packet(next,input);await raw('bmr_auto_commit',p);return p;}
  s=await snap();let e={...startBmr(s.members),reviewEnabled:true,initialInformation:info.messages,initialGrandchildren:info.grandchildren};const initial=await commit(e);await assert.rejects(()=>raw('bmr_auto_commit',initial),/먼저 저장/);
+ const restored=await snap();assert.equal(restored.bmr.auto.manual[ids[2]].drunk,true);assert.equal(restored.bmr.auto.manual[ids[2]].poisoned,true);
+ assert.equal(restored.members.find(m=>m.user_id===ids[2]).bmr.drunk,true);assert.equal(restored.members.find(m=>m.user_id===ids[2]).bmr.poisoned,true);
  await login(ids[0]);await assert.rejects(()=>raw('bmr_auto_commit',initial),/이야기꾼/);s=await snap();assert.equal(s.bmr,undefined);assert.equal(s.engine,undefined);await login(host);
  // Full first night: host decisions, player choices, private results, dawn.
  let steps=0;

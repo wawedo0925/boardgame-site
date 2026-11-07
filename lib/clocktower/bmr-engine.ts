@@ -37,6 +37,8 @@ const publicAlive=(p:Player)=>p.life==='ALIVE';
 const emptyOut=():Out=>({notices:[]});
 export function startBmr(members:LiveMember[]):BmrAuto {
  const e:BmrAuto={version:1,night:1,phase:'NIGHT',players:members.map(m=>({id:m.user_id,name:m.name,seat:m.seat,role:m.actual_role!,shown:m.shown_role!,life:'ALIVE',faction:kind(m.actual_role!)==='악마'||kind(m.actual_role!)==='하수인'?'EVIL':'GOOD',spent:false})),effects:[],tasks:[],cursor:0,serial:0,finished:false,awake:[],previous:{},charged:{},grandchildren:{},goonNight:{},deaths:[],moon:{},log:[],out:emptyOut()};
+ // Before the first night, these flags are storyteller corrections, not derived effects.
+ e.manual=Object.fromEntries(members.filter(m=>m.bmr).map(m=>[m.user_id,{drunk:!!m.bmr?.drunk,poisoned:!!m.bmr?.poisoned,protected:!!m.bmr?.protected}]));
  e.tasks=tasks(e);return e;
 }
 function tasks(e:BmrAuto):Task[]{
@@ -77,7 +79,7 @@ function checkWin(e:BmrAuto){
  if(!demons.length){
   if(e.mastermind&&works(e,player(e,e.mastermind.source)))return;
   e.winner='GOOD';e.reason='생존한 악마가 없습니다.';
- }else if(e.players.filter(publicAlive).length<=2){e.winner='EVIL';e.reason='생존자가 두 명 이하입니다.';}
+ }else if(e.players.filter(actualAlive).length<=2){e.winner='EVIL';e.reason='생존자가 두 명 이하입니다.';}
  if(e.winner){e.phase='ENDED';note(e,e.reason!);}
 }
 function protectedFromDeath(e:BmrAuto,p:Player,execution:boolean):boolean {
@@ -153,7 +155,7 @@ function spec(e:BmrAuto,t:Task):RequestSpec {
 function goon(e:BmrAuto,actor:Player,targets:string[]){
  for(const id of targets){const p=player(e,id);if(p.role!=='건달'||!works(e,p)||e.goonNight[id]===e.night)continue;
   e.goonNight[id]=e.night;effect(e,p,actor.id,'drunk');
-  if(p.faction!==actor.faction){p.faction=actor.faction;notice(e,p.id,`현재 당신은 ${p.faction==='EVIL'?'악한':'선한'} 팀입니다.`);}
+  if(p.faction!==actor.faction){p.faction=actor.faction;if(!e.awake.includes(p.id))e.awake.push(p.id);notice(e,p.id,`현재 당신은 ${p.faction==='EVIL'?'악한':'선한'} 팀입니다.`);}
   note(e,`${p.name}: 건달 발동 · ${actor.name} 취함`);
  }
 }
