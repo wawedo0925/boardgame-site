@@ -17,3 +17,35 @@ for(let n=5;n<=15;n++){
  assert.equal(changed.filter(m=>m.actual_role===random[1].actual_role).length,1);
 }
 console.log('PASS ownership labels, transfer, old owner clearing, no mutation, Lunatic disguise and random draft transfer');
+const {changeRole,changeShownRole,randomAssignments,validateAssignments}=require('../lib/clocktower/setup.ts');
+const {tbAssignedRoleLabel}=require('../lib/clocktower/role-assignment.ts');
+for(let n=5;n<=15;n++)for(const mode of ['include','exclude']){
+ const rows=randomAssignments(Array.from({length:n},(_,i)=>String(i)),mode);
+ const old=structuredClone(rows),moved=changeRole(rows,'0',rows[1].actual_role);
+ assert.equal(moved[1].actual_role,'');assert.equal(moved[1].shown_role,'');assert.deepEqual(rows,old);
+ assert(validateAssignments(moved).length,'unassigned members must block saving');
+ if(rows[1].actual_role==='남작')assert.deepEqual(moved.slice(2),rows.slice(2),'moving Baron does not alter composition');
+}
+const drunk=[{user_id:'a',name:'우영',actual_role:'주정뱅이',shown_role:'점쟁이'},{user_id:'b',name:'아라',actual_role:'요리사',shown_role:'요리사'}];
+assert.equal(tbAssignedRoleLabel('점쟁이',drunk),'점쟁이 (우영 · 주정뱅이 표시)');
+assert.equal(changeRole(drunk,'b','점쟁이')[0].actual_role,'');
+assert.equal(changeShownRole(drunk,'a','요리사')[1].actual_role,'');
+assert.deepEqual(changeRole(drunk,'a','주정뱅이'),drunk);
+console.log('PASS TB transfers, Baron ownership, Drunk display collisions and incomplete setup validation');
+const vm=require('vm');let values=[],cursor=0;
+const react={useEffect:()=>{},useState:initial=>{const i=cursor++;if(!(i in values))values[i]=typeof initial==='function'?initial():initial;return [values[i],v=>values[i]=typeof v==='function'?v(values[i]):v];}};
+const ui={exports:{}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('components/events/ClocktowerRoleSetup.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{module:ui,exports:ui.exports,require:n=>n==='react'?react:n==='./ClocktowerSeating'?{ClocktowerName:'name'}:n.startsWith('@/lib/')?require('../'+n.slice(2)+'.ts'):require(n)});
+const nodes=x=>!x||typeof x!=='object'?[]:Array.isArray(x)?x.flatMap(nodes):[x,...nodes(x.props?.children)];
+const text=x=>typeof x==='string'?x:Array.isArray(x)?x.map(text).join(''):x?.props?text(x.props.children):'';
+const uiMembers=['요리사','군인','시장','독살범','임프'].map((role,i)=>({user_id:String(i),name:['우영','아라','병준','민수','종서'][i],seat:i+1,alive:true,actual_role:role,shown_role:role}));
+const render=()=>{cursor=0;return ui.exports.default({members:uiMembers,busy:false,save:async()=>true,onEditingChange:()=>{}});};
+let tree=render();nodes(tree).find(n=>n.type==='button'&&text(n)==='역할 배정안 편집').props.onClick();tree=render();
+assert(nodes(tree).some(n=>n.type==='option'&&n.props.value==='군인'&&text(n)==='군인 (아라)'));
+nodes(tree).filter(n=>n.type==='select')[1].props.onChange({target:{value:'군인'}});tree=render();
+assert.equal(nodes(tree).filter(n=>n.type==='select')[2].props.value,'');
+assert(nodes(tree).some(n=>n.type==='option'&&n.props.value==='군인'&&text(n)==='군인 (우영)'));
+assert(nodes(tree).find(n=>n.type==='button'&&text(n)==='배정안 저장').props.disabled);
+nodes(tree).filter(n=>n.type==='select')[2].props.onChange({target:{value:'요리사'}});tree=render();
+assert.equal(nodes(tree).find(n=>n.type==='button'&&text(n)==='배정안 저장').props.disabled,false);
+console.log('PASS TB rendered labels, select values, ownership refresh and save gating');

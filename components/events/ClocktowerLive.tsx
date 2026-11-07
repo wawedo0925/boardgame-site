@@ -1,4 +1,5 @@
 "use client";
+import { tbAssignedRoleLabel } from '@/lib/clocktower/role-assignment';
 import ClocktowerWorldRoomActions from '@/components/clocktower/ClocktowerWorldRoomActions';
 import ClocktowerCompositionGuide from '@/components/clocktower/ClocktowerCompositionGuide';
 import ClocktowerPhaseBar from './ClocktowerPhaseBar';
@@ -167,12 +168,13 @@ function Host({ state, run, busy, allowPopup, error }: { state: LiveState; run: 
 
 function MemberEditor({ member, candidates, members, setup, busy, run, close }: { member: LiveMember; candidates: {user_id:string;name:string;birth_year?:string|null}[]; members: LiveMember[]; setup: boolean; busy: boolean; run: Run; close: ()=>void }) {
   const [draft, setDraft] = useState(member);
-  return <form className="rounded-3xl border border-amber-400/30 bg-zinc-950 p-5" onSubmit={async e=>{e.preventDefault(); if(await run('member',{...draft, seat: members.find(m => m.user_id === draft.user_id)?.seat ?? draft.seat})) close();}}>
-    <h2 className="mb-4 text-xl font-bold">참가자 역할·상태</h2><fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
+  const [expected] = useState(()=>members.map(m=>({user_id:m.user_id,actual_role:m.actual_role??'',shown_role:m.shown_role??''})));
+  return <form className="rounded-3xl border border-amber-400/30 bg-zinc-950 p-5" onSubmit={async e=>{e.preventDefault(); if(await run(setup?'tb_assign_role':'member',{...draft, expected, seat: members.find(m => m.user_id === draft.user_id)?.seat ?? draft.seat})) close();}}>
+    <h2 className="mb-4 text-xl font-bold">참가자 역할·상태</h2>{setup&&<p className="mb-4 text-sm text-amber-200">이미 배정된 역할을 선택해 저장하면 기존 멤버는 미배정으로 바뀝니다. 주정뱅이의 표시 역할도 중복할 수 없습니다.</p>}<fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
       <label>참가자<select required disabled={Boolean(member.user_id)} value={draft.user_id} onChange={e=>setDraft({...draft,user_id:e.target.value})} className={`${field} mt-2`}><option value="">선택하세요</option>{candidates.filter(c=>c.user_id===member.user_id||!members.some(m=>m.user_id===c.user_id)).map(c=><option key={c.user_id} value={c.user_id}>{c.name}</option>)}</select></label>
       <label>자리 번호<input disabled={Boolean(member.user_id) || !setup} required type="number" min={1} max={20} className={`${field} mt-2`} value={members.find(m => m.user_id === draft.user_id)?.seat ?? draft.seat} onChange={e=>setDraft({...draft,seat:Number(e.target.value)})}/></label>
-      <label>실제 역할<select required className={`${field} mt-2`} value={draft.actual_role} onChange={e=>setDraft({...draft,actual_role:e.target.value,shown_role:e.target.value==='주정뱅이'?'':e.target.value})}><option value="">역할 선택</option>{roles.map(c=><option key={c.name}>{c.name}</option>)}</select></label>
-      {draft.actual_role==='주정뱅이' && <label>본인에게 표시할 주민 역할<select required className={`${field} mt-2`} value={draft.shown_role} onChange={e=>setDraft({...draft,shown_role:e.target.value})}><option value="">주민 역할 선택</option>{roles.filter(c=>c.type==='주민').map(c=><option key={c.name}>{c.name}</option>)}</select></label>}
+      <label>실제 역할<select required className={`${field} mt-2`} value={draft.actual_role} onChange={e=>setDraft({...draft,actual_role:e.target.value,shown_role:e.target.value==='주정뱅이'?'':e.target.value})}><option value="">역할 선택</option>{roles.map(c=><option key={c.name} value={c.name}>{tbAssignedRoleLabel(c.name,members)}</option>)}</select></label>
+      {draft.actual_role==='주정뱅이' && <label>본인에게 표시할 주민 역할<select required className={`${field} mt-2`} value={draft.shown_role} onChange={e=>setDraft({...draft,shown_role:e.target.value})}><option value="">주민 역할 선택</option>{roles.filter(c=>c.type==='주민').map(c=><option key={c.name} value={c.name}>{tbAssignedRoleLabel(c.name,members)}</option>)}</select></label>}
       <label className="flex items-center gap-3"><input type="checkbox" checked={draft.alive} onChange={e=>setDraft({...draft,alive:e.target.checked})}/>생존 상태</label>
       <label className="sm:col-span-2">이야기꾼 전용 메모<textarea maxLength={2000} rows={3} className={`${field} mt-2`} value={draft.notes} onChange={e=>setDraft({...draft,notes:e.target.value})} placeholder="중독 / 보호 / 점쟁이 오인 대상 / 집사의 주인 / 사용한 능력 등" /></label>
     </fieldset><div className="mt-4 flex flex-wrap gap-3"><button disabled={busy} className={button}>배정·수정 저장</button><button type="button" className={subtle} onClick={close}>닫기</button>{setup && member.user_id && <button type="button" disabled={busy} className={subtle} onClick={async()=>{if(await run('remove_member',{user_id:member.user_id}))close();}}>배정 해제</button>}</div>

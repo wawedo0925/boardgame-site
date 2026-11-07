@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { changeRole, composition, groups, randomAssignments, roleType, setupRoles, validateAssignments, type Assignment } from '@/lib/clocktower/setup';
+import { changeRole, changeShownRole, composition, groups, randomAssignments, roleType, setupRoles, validateAssignments, type Assignment } from '@/lib/clocktower/setup';
+import { tbAssignedRoleLabel } from '@/lib/clocktower/role-assignment';
 import type { LiveMember } from '@/lib/clocktower/live';
 import { ClocktowerName } from './ClocktowerSeating';
 
@@ -12,6 +13,7 @@ export default function ClocktowerRoleSetup({members,busy,save,onEditingChange}:
   const [base,setBase]=useState<Assignment[]>([]);
   const [baron,setBaron]=useState<'random'|'include'|'exclude'>('random');
   const rows=draft??saved;
+  const labeledMembers=rows.map(row=>({...members.find(m=>m.user_id===row.user_id)!,...row}));
   const errors=validateAssignments(rows);
   const counts=composition(rows.length,rows.some(r=>r.actual_role==='남작'));
   useEffect(()=>()=>onEditingChange(false),[onEditingChange]);
@@ -25,8 +27,8 @@ export default function ClocktowerRoleSetup({members,busy,save,onEditingChange}:
     {!draft?<button disabled={busy||!counts} className={`${button} mt-4`} onClick={begin}>역할 배정안 편집</button>:<>
       <fieldset disabled={busy} className="mt-4 space-y-4">
         <div className="flex flex-wrap items-end gap-3"><label className="text-sm">자동 배정 시 남작<select className={field} value={baron} onChange={e=>setBaron(e.target.value as typeof baron)}><option value="random">무작위</option><option value="include">반드시 포함</option><option value="exclude">제외</option></select></label><button className={button} onClick={()=>setDraft(randomAssignments(rows.map(r=>r.user_id),baron))}>전체 무작위 배정안 만들기</button></div>
-        <p className="text-sm text-violet-200">아래에서 직접 역할을 선택하거나 자동 배정안을 수정하세요. 남작을 넣거나 빼면 다른 참가자 최대 2명의 주민·외지인 역할도 함께 바뀝니다. 저장 전 전체 명단을 확인해 주세요.</p>
-        <div className="grid gap-3 md:grid-cols-2">{rows.map(row=>{const member=members.find(m=>m.user_id===row.user_id)!;return <div key={row.user_id} className="rounded-2xl border border-white/10 p-4"><h3 className="font-bold">{member.seat}. <ClocktowerName member={member}/></h3><label className="mt-3 block text-sm">실제 역할<select className={field} value={row.actual_role} onChange={e=>setDraft(changeRole(rows,row.user_id,e.target.value))}><option value="">역할 선택</option>{groups.map(g=><optgroup key={g} label={g}>{setupRoles.filter(r=>r.type===g).map(r=><option key={r.name}>{r.name}</option>)}</optgroup>)}</select></label>{row.actual_role==='주정뱅이'&&<label className="mt-3 block text-sm text-amber-200">본인에게 표시할 주민 역할<select className={field} value={row.shown_role} onChange={e=>setDraft(rows.map(r=>r.user_id===row.user_id?{...r,shown_role:e.target.value}:r))}><option value="">주민 선택</option>{setupRoles.filter(r=>r.type==='주민').map(r=><option key={r.name}>{r.name}</option>)}</select></label>}</div>;})}</div>
+        <p className="text-sm text-violet-200">아래에서 직접 역할을 선택하거나 자동 배정안을 수정하세요. 이미 배정된 역할을 고르면 기존 멤버는 미배정으로 바뀝니다. 남작을 넣거나 빼면 다른 참가자 최대 2명의 주민·외지인 역할도 함께 바뀝니다. 저장 전 전체 명단을 확인해 주세요.</p>
+        <div className="grid gap-3 md:grid-cols-2">{rows.map(row=>{const member=members.find(m=>m.user_id===row.user_id)!;return <div key={row.user_id} className="rounded-2xl border border-white/10 p-4"><h3 className="font-bold">{member.seat}. <ClocktowerName member={member}/></h3><label className="mt-3 block text-sm">실제 역할<select className={field} value={row.actual_role} onChange={e=>setDraft(changeRole(rows,row.user_id,e.target.value))}><option value="">역할 선택</option>{groups.map(g=><optgroup key={g} label={g}>{setupRoles.filter(r=>r.type===g).map(r=><option key={r.name} value={r.name}>{tbAssignedRoleLabel(r.name,labeledMembers)}</option>)}</optgroup>)}</select></label>{row.actual_role==='주정뱅이'&&<label className="mt-3 block text-sm text-amber-200">본인에게 표시할 주민 역할<select className={field} value={row.shown_role} onChange={e=>setDraft(changeShownRole(rows,row.user_id,e.target.value))}><option value="">주민 선택</option>{setupRoles.filter(r=>r.type==='주민').map(r=><option key={r.name} value={r.name}>{tbAssignedRoleLabel(r.name,labeledMembers)}</option>)}</select></label>}</div>;})}</div>
       </fieldset>
       <div className="mt-4 flex gap-3"><button disabled={busy||errors.length>0} className="rounded-xl bg-violet-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40" onClick={async()=>{if(await save(rows,base))cancel();}}>배정안 저장</button><button disabled={busy} className={button} onClick={cancel}>취소</button></div>
     </>}

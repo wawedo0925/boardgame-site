@@ -37,7 +37,7 @@ export function randomAssignments(ids: string[], baron: 'random'|'include'|'excl
 // Only the two setup replacements caused by adding/removing the Baron are automatic.
 export function changeRole(rows: Assignment[], id: string, role: string) {
   const had=rows.some(r=>r.actual_role==='남작');
-  const next=rows.map(r=>r.user_id===id?{...r,actual_role:role,shown_role:role==='주정뱅이'?'':role}:{...r});
+  const next=rows.map(r=>r.user_id===id?{...r,actual_role:role,shown_role:role==='주정뱅이'?(r.actual_role===role?r.shown_role:''):role}:role&&(r.actual_role===role||r.shown_role===role)?{...r,actual_role:'',shown_role:''}:{...r});
   const has=next.some(r=>r.actual_role==='남작');
   if(had!==has){
     const from=has?'주민':'외지인', to=has?'외지인':'주민';
@@ -46,4 +46,8 @@ export function changeRole(rows: Assignment[], id: string, role: string) {
   }
   next.filter(r=>r.actual_role==='주정뱅이').forEach(r=>{if(roleType(r.shown_role)!=='주민'||next.some(a=>a!==r&&a.shown_role===r.shown_role))r.shown_role=setupRoles.find(t=>t.type==='주민'&&!next.some(a=>a.actual_role===t.name||a.shown_role===t.name))?.name??'';});
   return next;
+}
+
+export function changeShownRole(rows:Assignment[],id:string,role:string) {
+ return rows.map(r=>r.user_id===id?{...r,shown_role:role}:role&&(r.actual_role===role||r.shown_role===role)?{...r,actual_role:'',shown_role:''}:{...r});
 }
