@@ -1,6 +1,6 @@
 import type { LiveMember } from './live';
 import { roleType, setupRoles } from './setup';
-import { registeredRole, type InformationSetup } from './information';
+import { needsHerring, registeredRole, type InformationSetup } from './information';
 
 export const FIRST_NIGHT = ['하수인 정보','악마 정보','독살범','첩자','세탁부','사서','수사관','요리사','초공감자','점쟁이','집사'];
 export const OTHER_NIGHTS = ['독살범','수도사','첩자','역할 변경','임프','까마귀지기','장의사','초공감자','점쟁이','집사'];
@@ -176,7 +176,7 @@ function calculateProposal(task:NightTask,targets:string[],e:NightEngine,members
     reason.push(`${id?name(id):'없음'}의 ${task.role==='장의사'?'처형으로 사망했을 때':'현재'} 실제 역할입니다.`);
     if(['은둔자','첩자'].includes(target?.actual_role??''))reason.push('은둔자·첩자의 위장 기본값을 반영했습니다. 이번 감지에서 보여줄 역할을 수정할 수 있습니다.');
   }else if(task.role==='첩자'){
-    p.result=members.map(x=>`${name(x.user_id)}: ${x.actual_role}${x.actual_role!==x.shown_role?` (${x.shown_role}로 착각)`:''} / ${x.alive?'생존':'사망'}${impaired(x,e,members)?' / 능력 무효':''}${e.red_herring===x.user_id?' / 점쟁이 허상':''}${e.protection?.target===x.user_id?' / 보호 대상':''}${x.notes?` / ${x.notes}`:''}`).join('\n');
+    p.result=members.map(x=>`${name(x.user_id)}: ${x.actual_role}${x.actual_role!==x.shown_role?` (${x.shown_role}로 착각)`:''} / ${x.alive?'생존':'사망'}${impaired(x,e,members)?' / 능력 무효':''}${needsHerring(members)&&e.red_herring===x.user_id?' / 점쟁이 허상':''}${e.protection?.target===x.user_id?' / 보호 대상':''}${x.notes?` / ${x.notes}`:''}`).join('\n');
     reason.push('현재 마도서 정보입니다. 중독·취함이면 전달 내용을 수정하세요.');
   }
   if(e.information&&members.some(x=>perceived(x)!==x.actual_role))reason.push('은둔자·첩자의 저장된 위장 기본값을 적용한 제안입니다. 이번 감지 결과는 수정할 수 있습니다.');

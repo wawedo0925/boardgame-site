@@ -1,4 +1,5 @@
 "use client";
+import { needsHerring } from '@/lib/clocktower/information';
 import { useEffect, useRef, useState } from 'react';
 import { approveEffects, beginNight, emptyEngine, evil, impaired, nextTask, propose, taskRequest, type NightEngine, type NightTask } from '@/lib/clocktower/night';
 import type { LiveMember, LiveRequest, LiveState } from '@/lib/clocktower/live';
@@ -28,7 +29,7 @@ export default function ClocktowerNightFlow({state,run,busy,allowPopup,error}:{s
     attempted.current=key;
     if(engine.night!==room.night){
       const started=beginNight(engine,room.night,members);
-      if(!started.red_herring || (room.night===1&&!members.some(m=>m.user_id===started.red_herring&&!evil(m))))started.red_herring=members.find(m=>!evil(m))?.user_id;
+      if(needsHerring(members)&&(!started.red_herring || (room.night===1&&!members.some(m=>m.user_id===started.red_herring&&!evil(m)))))started.red_herring=members.find(m=>!evil(m))?.user_id;
       void run('engine_start',{version,state:started});
     }else{
       const updated=nextTask({...engine,cursor:engine.cursor+(current?1:0)},members);
@@ -105,7 +106,7 @@ function ProposalReview({task,request,engine,members,busy,allowPopup,error,appro
 }
 function NightSettings({engine,members,locked,busy,save}:{engine:NightEngine;members:LiveMember[];locked:boolean;busy:boolean;save:(state:NightEngine)=>Promise<void>}){
   const [draft,setDraft]=useState(engine);
-  return <div className="space-y-4 rounded-2xl border border-white/15 p-4"><div className="space-y-3"><p className="text-sm">점쟁이의 허상 (게임 동안 고정)</p><button type="button" disabled={locked||busy} className={button} aria-pressed={!draft.red_herring} onClick={()=>setDraft({...draft,red_herring:undefined})}>첫 밤에 시스템이 선한 참가자 한 명 지정</button><ClocktowerMemberChoices members={memberChoices(members,engine)} allowed={members.filter(m=>!evil(m)).map(m=>m.user_id)} busy={locked||busy} selected={draft.red_herring} onChoose={id=>setDraft({...draft,red_herring:id})}/></div>
+  return <div className="space-y-4 rounded-2xl border border-white/15 p-4">{needsHerring(members)&&<div className="space-y-3"><p className="text-sm">점쟁이의 허상 (게임 동안 고정)</p><button type="button" disabled={locked||busy} className={button} aria-pressed={!draft.red_herring} onClick={()=>setDraft({...draft,red_herring:undefined})}>첫 밤에 시스템이 선한 참가자 한 명 지정</button><ClocktowerMemberChoices members={memberChoices(members,engine)} allowed={members.filter(m=>!evil(m)).map(m=>m.user_id)} busy={locked||busy} selected={draft.red_herring} onChoose={id=>setDraft({...draft,red_herring:id})}/></div>}
     <details className="rounded-xl border border-white/10 p-3">
       <summary className="cursor-pointer text-sm font-semibold text-zinc-300">고급 설정 · 수동 보정{members.some(m=>draft.conditions[m.user_id]?.drunk||draft.conditions[m.user_id]?.poisoned)&&<span className="ml-2 text-xs text-amber-200">수동 상태 설정 있음</span>}</summary>
       <p className="my-3 text-xs leading-6 text-zinc-400">일반적인 자동 진행에서는 변경하지 않아도 됩니다. 독살범의 중독과 실제 주정뱅이 역할은 자동 처리됩니다. 예외 상황에서 상태를 직접 추가하거나 해제할 때만 사용하세요. 실제 주정뱅이 역할은 이 체크박스로 해제되지 않습니다.</p>

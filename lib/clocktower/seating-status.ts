@@ -1,3 +1,4 @@
+import {needsHerring} from './information';
 import type {LiveMember} from './live';
 import {emptyEngine,impaired,type NightEngine} from './night';
 export function seatingStatus(m:LiveMember,members:LiveMember[],saved:Partial<NightEngine>|null|undefined,phase:string,night:number) {
@@ -11,7 +12,7 @@ export function seatingStatus(m:LiveMember,members:LiveMember[],saved:Partial<Ni
  const monk=members.find(x=>x.user_id===e.protection?.source);
  if(phase==='NIGHT'&&e.protection?.target===m.user_id&&e.protection.night===night&&monk?.alive&&monk.actual_role==='수도사'&&!impaired(monk,e,members))flags.push('수도사 보호');
  if(m.alive&&m.actual_role==='군인'&&!impaired(m,e,members))flags.push('악마로부터 안전');
- if(e.red_herring===m.user_id)flags.push('점쟁이 허상');
+ if(needsHerring(members)&&e.red_herring===m.user_id)flags.push('점쟁이 허상');
  if(m.alive&&m.actual_role==='집사'&&!impaired(m,e,members)&&e.masters[m.user_id])flags.push(`주인: ${members.find(x=>x.user_id===e.masters[m.user_id])?.name??'미지정'}`);
  return flags;
 }

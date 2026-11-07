@@ -1,6 +1,7 @@
 import type { LiveMember } from './live';
 import { roleType, setupRoles, shuffle } from './setup';
 
+export const needsHerring=(members:LiveMember[])=>members.some(m=>m.actual_role==='점쟁이'||m.shown_role==='점쟁이');
 export const clueTypes: Record<string,string> = {세탁부:'주민',사서:'외지인',수사관:'하수인'};
 export type InitialClue = { role:string; correct:string; decoy:string; none?:boolean; storytellerEdited?:boolean };
 export type InformationSetup = { roster:string; bluffs:string[]; clues:Record<string,InitialClue>; registrations:Record<string,string> };
@@ -28,14 +29,14 @@ export function randomInformation(members:LiveMember[],random=Math.random): { in
     const decoy=shuffle(members.filter(m=>m.user_id!==target?.user_id),random)[0];
     information.clues[observer.user_id]={role:correct?registeredRole(correct,information):setupRoles.find(r=>r.type===type)!.name,correct:target?.user_id??'',decoy:decoy?.user_id??''};
   }
-  return {information,red_herring:shuffle(members.filter(m=>['주민','외지인'].includes(roleType(m.actual_role??'')??'')),random)[0]?.user_id};
+  return {information,red_herring:needsHerring(members)?shuffle(members.filter(m=>['주민','외지인'].includes(roleType(m.actual_role??'')??'')),random)[0]?.user_id:undefined};
 }
 export function informationErrors(info:InformationSetup|undefined,herring:string|undefined,members:LiveMember[]) {
   if(!info)return ['역할 저장 후 비밀 정보 초안을 만들고 저장해 주세요.'];
   const errors:string[]=[];
   if(info.roster!==rosterKey(members))errors.push('참가자 또는 역할 배정이 바뀌었습니다. 비밀 정보를 다시 확인하고 저장해 주세요.');
   if(info.bluffs.length!==3||new Set(info.bluffs).size!==3||info.bluffs.some(b=>!bluffOptions(members).some(r=>r.name===b)))errors.push('블러프는 사용하지 않는 선한 역할 3개를 중복 없이 골라 주세요. 주정뱅이의 표시 역할도 제외합니다.');
-  if(!members.some(m=>m.user_id===herring&&['주민','외지인'].includes(roleType(m.actual_role??'')??'')))errors.push('점쟁이 허상으로 선한 참가자 한 명을 골라 주세요.');
+  if(needsHerring(members)&&!members.some(m=>m.user_id===herring&&['주민','외지인'].includes(roleType(m.actual_role??'')??'')))errors.push('점쟁이 허상으로 선한 참가자 한 명을 골라 주세요.');
   for(const [id,role] of Object.entries(info.registrations))if(role&&!members.some(m=>m.user_id===id&&registrationOptions(m).some(r=>r.name===role)))errors.push('은둔자·첩자의 위장 역할을 다시 선택해 주세요.');
   for(const observer of members.filter(m=>clueTypes[m.shown_role??''])) {
     const clue=info.clues[observer.user_id],type=clueTypes[observer.shown_role!],prefix=`${observer.name} (${observer.shown_role})`;
