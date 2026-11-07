@@ -14,6 +14,13 @@ function render(state=base){cursor=0;return mod.exports.default({state,run,busy:
  let tree=render();nodes(tree).find(n=>n.type==='button'&&text(n).includes('Alice')).props.onClick();
  tree=render({...base,bmr_revision:8});const editor=nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='BmrMemberEditor');
  assert.equal(editor.props.revision,7,'member editor must retain opening revision across polling');
+ const editProps={...editor.props,setup:true,members:[...base.members,{user_id:'b',name:'아라',actual_role:'도박사',shown_role:'도박사'}],run};
+ values=[];cursor=0;let editTree=editor.type(editProps);
+ assert(nodes(editTree).some(n=>n.type==='option'&&text(n)==='주민 · 도박사 (아라)'));
+ nodes(editTree).find(n=>n.type==='select').props.onChange({target:{value:'도박사'}});
+ cursor=0;editTree=editor.type(editProps);assert(text(editTree).includes('아라님은 역할 미배정으로 바뀝니다.'));
+ await nodes(editTree).find(n=>n.type==='form').props.onSubmit({preventDefault(){}});
+ assert.equal(calls.at(-1).action,'bmr_assign_role');assert.equal(calls.at(-1).data.actual_role,'도박사');
  values=[];tree=render();nodes(tree).find(n=>n.type==='button'&&text(n)==='진행 메모').props.onClick();
  tree=render({...base,bmr_revision:8});await nodes(tree).find(n=>typeof n.type==='function'&&n.type.name==='Notes').props.save('edited');
  assert.equal(calls.at(-1).data.bmr_revision,7,'notes save must reject stale draft');
