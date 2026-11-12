@@ -423,12 +423,12 @@ export default function NewEventPage() {
         ) : (
           <form
             onSubmit={handleSubmit}
-            className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8"
+            className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8 [&_input]:min-w-0 [&_input]:w-full [&_select]:min-w-0 [&_select]:w-full [&_textarea]:min-w-0 [&_label]:min-w-0"
           >
-            <div className="grid gap-7">
+            <div className="grid min-w-0 grid-cols-1 gap-7">
               <div className="grid gap-3">
                 <span className="text-sm font-semibold text-zinc-200">이벤트 종류</span>
-                <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                <div className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-4 [&_button]:min-w-0 [&_button]:break-words">
                   <button type="button" onClick={() => selectEventKind("BOARDGAME")} className={`col-span-2 lg:col-span-4 rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "BOARDGAME" ? "border-amber-400 bg-amber-400/10 text-amber-300" : "border-white/10 text-zinc-500"}`}>보드게임</button>
                   <button type="button" onClick={() => selectEventKind("HALF_NIGHT")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "HALF_NIGHT" ? "border-indigo-400 bg-indigo-400/10 text-indigo-200" : "border-white/10 text-zinc-500"}`}>반나잇</button>
                   <button type="button" onClick={() => selectEventKind("MURDER_MYSTERY")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "MURDER_MYSTERY" ? "border-red-400 bg-red-400/10 text-red-300" : "border-white/10 text-zinc-500"}`}>머더미스터리</button>
@@ -439,15 +439,15 @@ export default function NewEventPage() {
               </div>
 
               {form.eventKind === "HALF_NIGHT" && <div className="rounded-2xl border border-indigo-400/30 bg-indigo-400/10 p-5"><p className="font-bold text-indigo-200">{halfNightTitle(form.date)} · Vol.번호 자동 부여</p><p className="mt-2 text-sm leading-7">총 6시간 · 1부 3시간 + 2부 3시간<br/>모두 참여 20,000원 · 한 부만 참여 10,000원<br/>금요일은 불금, 토요일은 불토로 등록되며 Vol.5부터 이어집니다.</p></div>}
-              {form.eventKind === "MURDER_MYSTERY" && <div className="grid gap-4 rounded-2xl border border-red-400/20 bg-red-400/[0.04] p-4">
-                <label className="grid gap-2"><span className="text-sm font-semibold text-red-200">진행 작품 *</span><select value={form.murderMysteryId} onChange={e => selectMurderMystery(e.target.value)} className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-3"><option value="">작품을 선택하세요</option>{murderMysteries.map(work => <option key={work.id} value={work.id}>{work.title} ({work.min_players ?? "?"}~{work.max_players ?? "?"}명)</option>)}</select></label>
-                {form.title && <div className="rounded-xl border border-red-400/20 bg-black/10 px-4 py-3"><p className="text-xs text-zinc-500">자동 생성 제목</p><p className="mt-1 font-bold text-red-200">{form.title}</p></div>}
+              {form.eventKind === "MURDER_MYSTERY" && <div className="grid min-w-0 grid-cols-1 gap-4 rounded-2xl border border-red-400/20 bg-red-400/[0.04] p-4">
+                <label className="grid min-w-0 grid-cols-1 gap-2"><span className="text-sm font-semibold text-red-200">진행 작품 *</span><select value={form.murderMysteryId} onChange={e => selectMurderMystery(e.target.value)} className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-3"><option value="">작품을 선택하세요</option>{murderMysteries.map(work => <option key={work.id} value={work.id}>{work.title} ({work.min_players ?? "?"}~{work.max_players ?? "?"}명)</option>)}</select></label>
+                {form.title && <div className="rounded-xl border border-red-400/20 bg-black/10 px-4 py-3"><p className="text-xs text-zinc-500">자동 생성 제목</p><p className="mt-1 break-words font-bold text-red-200">{form.title}</p></div>}
                 <p className="text-sm text-zinc-400">참가 역할은 생성 후 룰마 이상이 지정할 수 있습니다. 플레이한 작품은 GM 지정 대기로 등록됩니다.</p>
                 <p className="text-xs leading-5 text-zinc-500">같은 작품을 이미 플레이한 멤버는 일반 참가가 제한됩니다. 담당자는 상세 화면에서 재참가를 별도로 허용할 수 있습니다.</p>
               </div>}
 
-              {form.eventKind === "CLOCKTOWER" && <div className="grid gap-4 rounded-2xl border border-violet-400/20 bg-violet-400/[0.04] p-4">
-                <label className="grid gap-2"><span className="text-sm font-semibold text-violet-200">난이도 *</span><select value={form.clocktowerDifficulty} onChange={(event) => selectClocktowerDifficulty(event.target.value as ClocktowerDifficulty)} className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-3"><option value="">난이도를 선택하세요</option>{CLOCKTOWER_DIFFICULTIES.map((difficulty) => <option key={difficulty} value={difficulty}>{difficulty}</option>)}</select></label>
+              {form.eventKind === "CLOCKTOWER" && <div className="grid min-w-0 grid-cols-1 gap-4 rounded-2xl border border-violet-400/20 bg-violet-400/[0.04] p-4">
+                <label className="grid min-w-0 grid-cols-1 gap-2"><span className="text-sm font-semibold text-violet-200">난이도 *</span><select value={form.clocktowerDifficulty} onChange={(event) => selectClocktowerDifficulty(event.target.value as ClocktowerDifficulty)} className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-3"><option value="">난이도를 선택하세요</option>{CLOCKTOWER_DIFFICULTIES.map((difficulty) => <option key={difficulty} value={difficulty}>{difficulty}</option>)}</select></label>
                 {form.title && <div className="rounded-xl border border-violet-400/20 bg-black/10 px-4 py-3"><p className="text-xs text-zinc-500">자동 생성 제목</p><p className="mt-1 font-bold text-violet-200">{form.title}</p></div>}
                 <p className="text-xs leading-5 text-zinc-500">선택한 난이도로 제목이 자동 생성됩니다. 시계탑에 흐른 피 이벤트는 정시에 함께 시작합니다.</p>
               </div>}
