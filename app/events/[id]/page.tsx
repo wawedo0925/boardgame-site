@@ -697,6 +697,10 @@ function EventDetailPage({ eventId }: { eventId: string }) {
                   <div className="mt-6 whitespace-pre-line rounded-2xl border border-violet-400/20 bg-violet-400/[0.04] px-5 py-5 text-sm leading-7 text-zinc-300 sm:text-base sm:leading-8">
                     {event.description?.trim() || CLOCKTOWER_EVENT_DESCRIPTION_PRESET}
                   </div>
+                ) : guideOpen && event.event_kind === "BOARDGAME" && event.title.startsWith("[팟 데이]") ? (
+                  <div className="mt-6 whitespace-pre-line rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] px-5 py-5 text-sm leading-7 text-zinc-300 sm:text-base sm:leading-8">
+                    {event.description}
+                  </div>
                 ) : guideOpen ? (
                   <div className="mt-6 space-y-6 text-sm leading-7 text-zinc-300 sm:text-base sm:leading-8">
                     <ol className="space-y-5">
@@ -779,7 +783,9 @@ function EventDetailPage({ eventId }: { eventId: string }) {
                   </div>
                 ) : (
                   <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4 text-sm leading-6 text-zinc-400">
-                    {event.event_kind === "MURDER_MYSTERY"
+                    {event.event_kind === "BOARDGAME" && event.title.startsWith("[팟 데이]")
+                      ? "🎲 팟 참가자만 입장 · 카카오톡 오픈채팅에서 팟 참여 후 홈페이지 신청 · 일반 멤버가 만든 팟 성사 시 팟 개설자 무료"
+                      : event.event_kind === "MURDER_MYSTERY"
                       ? "🎭 머더미스터리 특성상 늦참 불가 · 5~10분 지각 시 GM·운영진에게 필히 연락해 주세요."
                       : event.event_kind === "CLOCKTOWER"
                         ? "🕰️ 시계탑에 흐른 피 · 늦참 불가 · 초보자는 시작 30분 전까지 와 주세요."
