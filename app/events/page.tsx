@@ -125,7 +125,7 @@ function renderEventTitle(event: Pick<EventRow, "title" | "event_kind">) {
     : event.event_kind === "CLOCKTOWER"
       ? { icon: "🕰️", color: "text-violet-400" }
       : event.event_kind === "BOARDGAME"
-        ? { icon: "🎲", color: "text-amber-400" }
+        ? { icon: "🎲", color: prefix === "[팟 데이]" ? "text-emerald-400" : "text-amber-400" }
         : { icon: "", color: "text-sky-400" };
   return <><span aria-hidden="true" className="mr-2">{presentation.icon}</span><span className={presentation.color}>{prefix}</span>{rest && <span> {rest}</span>}</>;
 }
