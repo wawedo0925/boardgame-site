@@ -75,7 +75,22 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   const [busy, setBusy] = useState(false);
   const repeatLock = useRef(false);
   const groupRefs = useRef(new Map<string, HTMLElement>());
-  const editable = Boolean(canManage && !isClosed);
+  const [arrangementPermission, setArrangementPermission] = useState<string | null>(null);
+  const permissionKey = `${eventId}:${currentUserId ?? "guest"}`;
+  const editable = Boolean((canManage || arrangementPermission === permissionKey) && !isClosed);
+  const playEditable = Boolean(canManage && !isClosed);
+
+  useEffect(() => {
+    let active = true;
+    setArrangementPermission(null);
+    if (currentUserId) {
+      void supabase.rpc("can_arrange_boardgame_groups", { p_event_id: eventId })
+        .then(({ data, error }) => {
+          if (active && !error && data === true) setArrangementPermission(permissionKey);
+        });
+    }
+    return () => { active = false; };
+  }, [currentUserId, eventId, participants, permissionKey, supabase]);
 
   const load = useCallback(async () => {
     const [groups, eventGames] = await Promise.all([getEventGroups(supabase, eventId), getEventGames(supabase, eventId)]);
@@ -150,7 +165,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   }
 
   async function repeatGame(group: GroupDraft, game: EventGame) {
-    if (repeatLock.current || isClosed || !(editable || group.ruleMasterUserId === currentUserId)) return;
+    if (repeatLock.current || isClosed || !(playEditable || group.ruleMasterUserId === currentUserId)) return;
     if (savedGroups[group.id] !== groupSignature(group)) { alert("먼저 조 편성을 확정해 주세요."); return; }
     repeatLock.current = true; setBusy(true);
     try {
@@ -228,7 +243,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   }
 
   async function resetPlayRecords() {
-    if (!editable || !confirm("플레이 기록을 정말 전체 초기화할까요?\n\n입력한 모든 게임, 판, 점수, 이벤트 통계와 해당 판의 평가가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")) return;
+    if (!playEditable || !confirm("플레이 기록을 정말 전체 초기화할까요?\n\n입력한 모든 게임, 판, 점수, 이벤트 통계와 해당 판의 평가가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")) return;
     try {
       setBusy(true);
       await clearEventPlayRecords(supabase, eventId);
@@ -249,7 +264,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
     <div className="mt-5 rounded-xl border border-dashed border-white/10 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold">미배정 {unassigned.length}명</p>{editable && selected.length > 0 && <p className="text-xs font-semibold text-amber-300">{selected.length}명 선택 · 이동할 조를 눌러주세요</p>}</div><div className="mt-2 flex flex-wrap gap-2">{unassigned.map(participant => {const active=selected.includes(participant.user_id);return <button disabled={!editable} key={participant.user_id} title={preferenceLabel(participant)} onClick={() => toggleSelected(participant.user_id)} className={`rounded-xl border px-3 py-2 transition disabled:cursor-default ${active?`${preferenceClass(participant)} outline-2 outline-sky-300`:preferenceClass(participant)}`}><ParticipantName participant={participant}/></button>})}</div></div>
     <div className="mt-5 space-y-5">{drafts.map(group => {
       const groupGames = games.map(game => ({ ...game, rounds: game.rounds.filter(round => round.group_id === group.id) })).filter(game => game.rounds.length);
-      const groupEditable=Boolean(!isClosed&&(editable||group.ruleMasterUserId===currentUserId));
+      const groupEditable=Boolean(!isClosed&&(playEditable||group.ruleMasterUserId===currentUserId));
       return <article key={group.id} ref={node => {if(node)groupRefs.current.set(group.id,node);else groupRefs.current.delete(group.id)}} onClick={() => selected.length && move(selected, group.id)} className={`rounded-2xl border-2 p-4 transition ${selected.length && editable ? "cursor-pointer border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.2)]" : "border-white"}`}>
         <div className="flex flex-wrap items-center gap-2" onClick={event => event.stopPropagation()}>
           <input aria-label="조 이름" disabled={!editable} value={group.name} onChange={event => setDrafts(current => current.map(item => item.id === group.id ? { ...item, name: event.target.value } : item))} className="h-11 min-w-24 flex-1 rounded-xl bg-white/10 px-3 font-bold disabled:opacity-80 sm:max-w-48"/>
@@ -273,7 +288,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
         <GroupRoundHistory games={groupGames} canManage={groupEditable} onChanged={load} onRepeat={game => repeatGame(group, game)} repeatDisabled={busy || savedGroups[group.id] !== groupSignature(group)} collapseKey={`${eventId}:${currentUserId || "guest"}:${group.id}`} /></>}
       </article>;
     })}</div>
-    {editable && <div className="mt-5 grid gap-3 sm:grid-cols-3"><button disabled={busy} onClick={reset} className="h-12 rounded-xl border border-white/15 text-zinc-300 disabled:opacity-50">조 편성 초기화</button><button disabled={busy} onClick={resetPlayRecords} className="h-12 rounded-xl border border-red-400/40 text-red-300 disabled:opacity-50">플레이 기록 전체 초기화</button><button disabled={busy} onClick={save} className="h-12 rounded-xl bg-amber-400 font-bold text-zinc-950 disabled:opacity-50">조 편성 확정</button></div>}
+    {editable && <div className="mt-5 grid gap-3 sm:grid-cols-3"><button disabled={busy} onClick={reset} className="h-12 rounded-xl border border-white/15 text-zinc-300 disabled:opacity-50">조 편성 초기화</button>{playEditable && <button disabled={busy} onClick={resetPlayRecords} className="h-12 rounded-xl border border-red-400/40 text-red-300 disabled:opacity-50">플레이 기록 전체 초기화</button>}<button disabled={busy} onClick={save} className="h-12 rounded-xl bg-amber-400 font-bold text-zinc-950 disabled:opacity-50">조 편성 확정</button></div>}
     {adding && <AddGroupRoundDialog eventId={eventId} groupId={adding.id} userIds={adding.userIds} onClose={() => setAdding(null)} onSaved={load}/>}
     {recommending && <GameAvoidanceDialog group={recommending} participants={participants} onClose={() => setRecommending(null)}/>}
     {memberPickerGroupId && <div className="fixed inset-0 z-[130] flex items-end bg-black/75 sm:items-center sm:justify-center" onClick={() => setMemberPickerGroupId(null)}><section className="flex max-h-[88dvh] w-full flex-col rounded-t-3xl border border-white/10 bg-zinc-950 p-5 sm:max-w-xl sm:rounded-3xl sm:p-6" onClick={event => event.stopPropagation()}><div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-sky-300">MEMBER MOVE</p><h3 className="mt-1 text-xl font-bold">{drafts.find(group=>group.id===memberPickerGroupId)?.name}에 인원 추가</h3><p className="mt-1 text-sm text-zinc-400">여러 명을 선택하면 기존 조에서 이 조로 이동합니다.</p></div><button onClick={() => setMemberPickerGroupId(null)} className="h-11 w-11 shrink-0 rounded-full bg-white/10 text-xl">×</button></div><div className="mt-5 overflow-y-auto pr-1">{[{label:"미배정",ids:unassigned.map(item=>item.user_id)},...drafts.filter(group=>group.id!==memberPickerGroupId).map(group=>({label:group.name,ids:group.userIds}))].map(source=><div key={source.label} className="mb-5"><p className="mb-2 text-sm font-bold text-zinc-300">{source.label} {source.ids.length}명</p>{source.ids.length?<div className="flex flex-wrap gap-2">{source.ids.map(userId=>{const participant=participants.find(item=>item.user_id===userId);const active=pickerSelected.includes(userId);return <button key={userId} title={preferenceLabel(participant)} onClick={()=>setPickerSelected(current=>current.includes(userId)?current.filter(id=>id!==userId):[...current,userId])} className={`rounded-xl border px-3 py-2 transition ${active?`${preferenceClass(participant)} outline-2 outline-sky-300`:preferenceClass(participant)}`}>{participant?<ParticipantName participant={participant}/>:"회원"}</button>})}</div>:<p className="text-sm text-zinc-600">선택할 멤버가 없습니다.</p>}</div>)}<div className="mb-4 border-t border-white/15 pt-4"><p className="font-bold">현재 조원 · 누르면 조에서 제외</p><p className="mt-1 text-xs text-zinc-400">제외한 멤버는 미배정으로 이동합니다. 조 편성 확정을 누르면 저장됩니다. 기존 플레이 기록은 유지됩니다.</p><div className="mt-3 flex flex-wrap gap-2">{drafts.find(group => group.id === memberPickerGroupId)?.userIds.map(userId => { const participant = participants.find(item => item.user_id === userId); return <button key={userId} onClick={() => unassign(userId)} className={`min-h-11 rounded-xl border px-3 py-2 ${preferenceClass(participant)}`} title="눌러서 미배정으로 이동">{participant ? <ParticipantName participant={participant}/> : "회원"}<span className="ml-2 text-red-300" aria-hidden="true">×</span></button>; })}</div></div></div><button disabled={!pickerSelected.length} onClick={applyMemberPicker} className="mt-2 min-h-12 rounded-xl bg-amber-400 font-bold text-zinc-950 disabled:opacity-40">선택한 {pickerSelected.length}명 추가</button></section></div>}
