@@ -139,10 +139,10 @@ export default function EventJoinPaymentDialog({
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-3">
-          <button type="button" onClick={onClose} disabled={busy} className="min-h-12 rounded-xl border border-white/15 font-semibold text-zinc-300 disabled:opacity-50">나중에 하기</button>
-          <button type="button" onClick={() => { if (eventKind === "MURDER_MYSTERY") setStep("murderLate"); else if (eventKind === "CLOCKTOWER") setStep("clocktower"); else chooseTime("NORMAL"); }} disabled={busy} className="min-h-12 rounded-xl border border-amber-400/50 font-black text-amber-300 disabled:opacity-50">입완! 늦참</button>
+          <button type="button" onClick={() => handlePaymentConfirm()} disabled={busy} className="min-h-14 min-w-0 rounded-xl bg-amber-400 px-2 py-3 text-lg font-black leading-6 text-zinc-950 disabled:opacity-50">{busy ? "처리 중..." : <><span className="inline-block whitespace-nowrap">입금 완료!</span>{" "}<span className="inline-block whitespace-nowrap">정참</span></>}</button>
+          <button type="button" onClick={() => { if (eventKind === "MURDER_MYSTERY") setStep("murderLate"); else if (eventKind === "CLOCKTOWER") setStep("clocktower"); else chooseTime("NORMAL"); }} disabled={busy} className="min-h-12 min-w-0 rounded-xl border border-amber-400/50 px-2 py-3 font-black text-amber-300 disabled:opacity-50"><span className="inline-block whitespace-nowrap">입완!</span>{" "}<span className="inline-block whitespace-nowrap">늦게 참여 예정</span></button>
           {eventKind === "BOARDGAME" && <button type="button" onClick={() => void onConfirm({ arrivalAt: null, mode: "NORMAL", partyGm: true })} disabled={busy} className="min-h-14 min-w-0 rounded-xl bg-emerald-400 px-2 py-3 text-lg font-black leading-6 text-zinc-950 disabled:opacity-50">{busy ? "처리 중..." : <><span className="inline-block whitespace-nowrap">팟 GM혜택</span>{" "}<span className="inline-block whitespace-nowrap">정참</span></>}</button>}
-          <button type="button" onClick={() => handlePaymentConfirm()} disabled={busy} className={`${eventKind === "BOARDGAME" ? "" : "col-span-2 "}min-h-14 min-w-0 rounded-xl bg-amber-400 px-2 py-3 text-lg font-black leading-6 text-zinc-950 disabled:opacity-50`}>{busy ? "처리 중..." : "입완! 정참"}</button>
+          <button type="button" onClick={onClose} disabled={busy} className={`${eventKind === "BOARDGAME" ? "" : "col-span-2 "}min-h-12 rounded-xl border border-white/15 font-semibold text-zinc-300 disabled:opacity-50`}>취소 하기</button>
         </div>
       </section>
     </div>
