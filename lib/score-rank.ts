@@ -1,3 +1,4 @@
+import { isSaboteur } from "./saboteur";
 import { deathStationRole } from "./death-station";
 type Input={userId:string;isGm?:boolean;score:number|null;rank:number|null};
 export function scoreRanks<T extends Input>(values:T[]) {
@@ -8,11 +9,11 @@ export function scoreRanks<T extends Input>(values:T[]) {
   return values.map(p=>({...p,score:p.isGm?null:p.score,rank:p.isGm?null:scored?1+players.filter(other=>other.score!>p.score!).length:p.rank}));
 }
 type Saved={score:number|null;rank:number|null;is_gm?:boolean;team_name?:string|null;role_name?:string|null};
-export function scoreRankLabel(player:Saved,peers:Saved[]=[]) {
+export function scoreRankLabel(player:Saved,peers:Saved[]=[], gameName?: string | null) {
   const deathRole = deathStationRole(player.role_name);
   if(!deathRole && (player.team_name||player.role_name))return null;
   const active=peers.filter(p=>!p.is_gm);
   const rank=player.rank??(player.score!==null&&active.length&&active.every(p=>p.score!==null)?1+active.filter(p=>p.score!>player.score!).length:null);
   const tied=rank!==null&&active.filter(p=>(p.rank??(p.score!==null?1+active.filter(other=>other.score!>p.score!).length:null))===rank).length>1;
-  return [deathRole ?? "",player.score===null?'':`${player.score}점`,rank===null?'':`${tied?'공동 ':''}${rank}등`].filter(Boolean).join(' · ')||null;
+  return [deathRole ?? "",player.score===null?'':isSaboteur(gameName)?`금 ${player.score}개`:`${player.score}점`,rank===null?'':`${tied?'공동 ':''}${rank}등`].filter(Boolean).join(' · ')||null;
 }

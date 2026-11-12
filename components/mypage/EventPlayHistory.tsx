@@ -21,7 +21,7 @@ function singleGame(value: SessionRow["games"]) {
 
 function resultLabel(item: PlayItem) {
   if (item.is_gm) return "GM 진행";
-  const teamResult = cooperativeResultLabel(item) ?? teamScoreLabel(item) ?? scoreRankLabel(item);
+  const teamResult = cooperativeResultLabel(item) ?? teamScoreLabel(item) ?? scoreRankLabel(item, [], item.gameName);
   if (teamResult) return teamResult;
   if (item.resultType === "ROLE") {
     if (item.is_winner === null) return "결과 미입력";
