@@ -1,4 +1,5 @@
 "use client";
+import { halfNightPartLabel } from "@/lib/events/half-night";
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -254,6 +255,7 @@ export default function AttendanceManager({
                         {name}
                         {attendanceBirthYear(participant.profile?.birth_year) && <span className="ml-1 text-sm text-zinc-400 sm:text-base">{attendanceBirthYear(participant.profile?.birth_year)}</span>}
                         {nameTags.get(participant.user_id) && <span className="ml-1" role="img" aria-label="이름표 있음" title="이름표 있음">❤️</span>}
+                        {halfNightPartLabel(participant.half_night_part) && <small className="block text-[10px] leading-3 text-indigo-300">{halfNightPartLabel(participant.half_night_part)}</small>}
                         {participant.arrival_at && <small className="block text-[10px] leading-3 text-sky-300">{arrivalTimeLabel(participant.arrival_at)}</small>}
                       </p>
 

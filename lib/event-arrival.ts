@@ -1,5 +1,6 @@
+import type { HalfNightPart } from "@/lib/events/half-night";
 export type ArrivalMode = "NORMAL" | "CLOCKTOWER_EXPERIENCED" | "CLOCKTOWER_NEW";
-export type ArrivalChoice = { arrivalAt: string | null; mode: ArrivalMode; partyGm?: boolean };
+export type ArrivalChoice = { arrivalAt: string | null; mode: ArrivalMode; partyGm?: boolean; halfNightPart?: HalfNightPart };
 export function arrivalLimits(startedAt: string, endedAt: string | null, kind: string, mode: ArrivalMode) {
   const start = new Date(startedAt).getTime();
   const cap = kind === "MURDER_MYSTERY" ? start + 10 * 60000

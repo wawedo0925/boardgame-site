@@ -28,7 +28,10 @@ import { createClient } from "@/lib/supabase/client";
 import { formatEventLocation } from "@/lib/events/location";
 import { CLOCKTOWER_EVENT_DESCRIPTION_PRESET, HOLDEM_EVENT_DESCRIPTION_PRESET } from "@/lib/events/guide";
 
+import { HALF_NIGHT_DESCRIPTION, halfNightPartLabel, type HalfNightPart } from "@/lib/events/half-night";
+
 type EventRow = {
+  is_half_night: boolean;
   id: string;
   title: string;
   short_code: string | null;
@@ -47,6 +50,7 @@ type EventRow = {
 };
 
 type ParticipantRow = {
+  half_night_part: HalfNightPart | null;
   id: string;
   user_id: string;
   joined_at: string;
@@ -186,7 +190,7 @@ function EventDetailPage({ eventId }: { eventId: string }) {
     const { data: participantData, error: participantError } = await supabase
       .from("event_participants")
       .select(
-        "id, user_id, joined_at, attendance_status, attendance_checked_at, participation_role, gm_pending, repeat_override, game_preference, game_preference_updated_at",
+        "id, user_id, half_night_part, joined_at, attendance_status, attendance_checked_at, participation_role, gm_pending, repeat_override, game_preference, game_preference_updated_at",
       )
       .eq("event_id", eventId)
       .order("joined_at", { ascending: true });
@@ -294,7 +298,7 @@ function EventDetailPage({ eventId }: { eventId: string }) {
         supabase
           .from("events")
           .select(
-            "id, title, short_code, started_at, ended_at, location, description, created_by, created_at, event_status, closed_at, max_participants, event_kind, murder_mystery_id, participation_fee",
+            "id, title, is_half_night, short_code, started_at, ended_at, location, description, created_by, created_at, event_status, closed_at, max_participants, event_kind, murder_mystery_id, participation_fee",
           )
           .eq("id", eventId)
           .maybeSingle(),
@@ -413,10 +417,10 @@ function EventDetailPage({ eventId }: { eventId: string }) {
     setIsActionLoading(true);
 
     const { data, error } = await supabase.rpc(
-      choice.partyGm ? "join_event_party_gm" : "join_event_with_arrival",
+      choice.halfNightPart ? "join_half_night_event" : choice.partyGm ? "join_event_party_gm" : "join_event_with_arrival",
       {
         p_event_id: eventId,
-        ...(choice.partyGm ? {} : { p_arrival_at: choice.arrivalAt, p_arrival_mode: choice.mode }),
+        ...(choice.halfNightPart ? { p_part: choice.halfNightPart } : choice.partyGm ? {} : { p_arrival_at: choice.arrivalAt, p_arrival_mode: choice.mode }),
       },
     );
 
@@ -595,7 +599,7 @@ function EventDetailPage({ eventId }: { eventId: string }) {
                             ? "처리 중..."
                             : isAtCapacity
                               ? "대기 신청"
-                              : `이벤트 참가 · ${participationFee === 0 ? "무료" : `${participationFee.toLocaleString("ko-KR")}원`}`}
+                              : event.is_half_night ? "반나잇 참가 · 1부/2부 선택" : `이벤트 참가 · ${participationFee === 0 ? "무료" : `${participationFee.toLocaleString("ko-KR")}원`}`}
                     </button>
                   )}
 
@@ -674,7 +678,7 @@ function EventDetailPage({ eventId }: { eventId: string }) {
                   </div>
                   <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] p-5 sm:col-span-2">
                     <p className="text-xs font-semibold tracking-wider text-zinc-500">참가비</p>
-                    <p className="mt-2 text-xl font-bold text-amber-300">{participationFee === 0 ? "무료" : `${participationFee.toLocaleString("ko-KR")}원`}</p>
+                    <p className="mt-2 text-xl font-bold text-amber-300">{event.is_half_night ? "모두 20,000원 / 한 부 10,000원" : participationFee === 0 ? "무료" : `${participationFee.toLocaleString("ko-KR")}원`}</p>
                     <p className="mt-2 text-xs leading-5 text-zinc-500">모임 시작 24시간 전까지 취소하면 100% 환불됩니다.</p>
                   </div>
                 </div>
@@ -693,7 +697,7 @@ function EventDetailPage({ eventId }: { eventId: string }) {
                   </button>
                 </div>
 
-                {guideOpen && event.event_kind === "HOLDEM" ? <div className="mt-6 whitespace-pre-line rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] px-5 py-5 text-sm leading-7 text-zinc-300 sm:text-base sm:leading-8">{event.description?.trim() || HOLDEM_EVENT_DESCRIPTION_PRESET}</div> : guideOpen && event.event_kind === "CLOCKTOWER" ? (
+                {guideOpen && event.is_half_night ? <div className="mt-6 whitespace-pre-line text-sm leading-8 text-zinc-300">{event.description || HALF_NIGHT_DESCRIPTION}</div> : guideOpen && event.event_kind === "HOLDEM" ? <div className="mt-6 whitespace-pre-line rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] px-5 py-5 text-sm leading-7 text-zinc-300 sm:text-base sm:leading-8">{event.description?.trim() || HOLDEM_EVENT_DESCRIPTION_PRESET}</div> : guideOpen && event.event_kind === "CLOCKTOWER" ? (
                   <div className="mt-6 whitespace-pre-line rounded-2xl border border-violet-400/20 bg-violet-400/[0.04] px-5 py-5 text-sm leading-7 text-zinc-300 sm:text-base sm:leading-8">
                     {event.description?.trim() || CLOCKTOWER_EVENT_DESCRIPTION_PRESET}
                   </div>
@@ -783,7 +787,9 @@ function EventDetailPage({ eventId }: { eventId: string }) {
                   </div>
                 ) : (
                   <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4 text-sm leading-6 text-zinc-400">
-                    {event.event_kind === "BOARDGAME" && event.title.startsWith("[팟 데이]")
+                    {event.is_half_night
+                      ? "🌙 총 6시간 · 1부·2부 모두 20,000원 · 한 부만 10,000원 · 2부는 시작 3시간 후"
+                      : event.event_kind === "BOARDGAME" && event.title.startsWith("[팟 데이]")
                       ? "🎲 팟 참가자만 입장 · 카카오톡 오픈채팅에서 팟 참여 후 홈페이지 신청 · 일반 멤버가 만든 팟 성사 시 팟 개설자 무료"
                       : event.event_kind === "MURDER_MYSTERY"
                       ? "🎭 머더미스터리 특성상 늦참 불가 · 5~10분 지각 시 GM·운영진에게 필히 연락해 주세요."
@@ -964,6 +970,7 @@ function EventDetailPage({ eventId }: { eventId: string }) {
                           >
                             {participantName}
                           </p>
+                          {halfNightPartLabel(participant.half_night_part) && <p className="text-xs text-indigo-300">{halfNightPartLabel(participant.half_night_part)}</p>}
                           {participant.arrival_at && <p className="text-xs text-sky-300">{arrivalTimeLabel(participant.arrival_at)} 도착 예정</p>}
 
                           {participantIsCreator && (
@@ -1046,7 +1053,7 @@ function EventDetailPage({ eventId }: { eventId: string }) {
           )}
 
           {leaveDialogOpen && user && <EventLeaveRefundDialog eventId={eventId} userId={user.id} onClose={() => setLeaveDialogOpen(false)} onLeft={reloadParticipation} />}
-      {joinDialogOpen && <EventJoinPaymentDialog eventTitle={event.title} participationFee={participationFee} eventKind={event.event_kind} startedAt={event.started_at} endedAt={event.ended_at} waitlisted={isAtCapacity} busy={isActionLoading} onClose={() => setJoinDialogOpen(false)} onConfirm={handleJoin} />}
+      {joinDialogOpen && <EventJoinPaymentDialog eventTitle={event.title} isHalfNight={event.is_half_night} participationFee={participationFee} eventKind={event.event_kind} startedAt={event.started_at} endedAt={event.ended_at} waitlisted={isAtCapacity} busy={isActionLoading} onClose={() => setJoinDialogOpen(false)} onConfirm={handleJoin} />}
         </>
       )}
     </main>

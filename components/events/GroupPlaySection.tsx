@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getEventGroups, saveGroups, clearGroups, clearEventPlayRecords } from "@/lib/services/groups";
 import { createRound } from "@/lib/services/rounds";
 import { getEventGames } from "@/lib/services/events";
+import { halfNightPartLabel } from "@/lib/events/half-night";
 import { arrivalTimeLabel } from "@/lib/event-arrival";
 import { withDefaultGroups } from "@/lib/events/default-groups";
 import type { GroupDraft, GroupParticipant } from "@/types/group";
@@ -38,6 +39,8 @@ const participantBirthLabel = (participant?: GroupParticipant) => {
 };
 const ParticipantName = ({ participant }: { participant: GroupParticipant }) => {
   const name = <span className="inline-flex items-start gap-1.5"><span>{participantLabel(participant)}</span>{participantBirthLabel(participant) && <small className="mt-0.5 text-[10px] font-medium leading-none text-white">{participantBirthLabel(participant)}</small>}</span>;
+  const partLabel = halfNightPartLabel(participant.half_night_part);
+  if (partLabel) return <span className="inline-flex flex-col items-center">{name}<small className="mt-1 text-[10px] leading-3 text-indigo-300">{partLabel}</small></span>;
   if (!participant.arrival_at) return name;
   return <span className="relative inline-flex h-6 items-center align-middle">
     <span className="invisible" aria-hidden="true">{name}</span>

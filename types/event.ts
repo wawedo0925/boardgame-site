@@ -1,9 +1,11 @@
+import type { HalfNightPart } from "@/lib/events/half-night";
 
 export type ResultType = "SCORE" | "SIMPLE_SCORE" | "ROLE";
 export type AttendanceStatus = "REGISTERED" | "PRESENT" | "ABSENT";
 export type BoardgamePreference = "PARTY" | "NON_PARTY" | "ANY" | "PREMADE_PARTY";
 
 export type EventParticipant = {
+  half_night_part?: HalfNightPart | null;
   arrival_at?: string | null;
   id: string;
   user_id: string;

@@ -1,5 +1,6 @@
 "use client";
 
+import HalfNightJoinDialog from "./HalfNightJoinDialog";
 import { useState } from "react";
 import { arrivalLimits, seoulDateTime, type ArrivalChoice, type ArrivalMode } from "@/lib/event-arrival";
 
@@ -8,6 +9,7 @@ const ACCOUNT_NUMBER = "94849203451";
 const ACCOUNT_HOLDER = "이우영";
 
 export default function EventJoinPaymentDialog({
+  isHalfNight = false,
   eventTitle,
   participationFee,
   eventKind,
@@ -18,6 +20,7 @@ export default function EventJoinPaymentDialog({
   onClose,
   onConfirm,
 }: {
+  isHalfNight?: boolean;
   eventTitle: string;
   participationFee: number;
   eventKind: "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "HOLDEM" | "GENERAL";
@@ -64,6 +67,8 @@ export default function EventJoinPaymentDialog({
     const bounds = arrivalLimits(startedAt, endedAt, eventKind, nextMode);
     setTime(seoulDateTime(bounds.initial)); setStep("time");
   }
+
+  if (isHalfNight) return <HalfNightJoinDialog title={eventTitle} startedAt={startedAt} busy={busy} waitlisted={waitlisted} onClose={onClose} onSelect={halfNightPart => void onConfirm({ arrivalAt: null, mode: "NORMAL", halfNightPart })} />;
 
   if (!showMurderNotice && step !== "payment") return <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="late-arrival-title">
     <section className="max-h-[94dvh] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-zinc-950 p-6 text-white sm:max-w-lg sm:rounded-3xl">

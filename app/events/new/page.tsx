@@ -15,7 +15,9 @@ import {
   MURDER_MYSTERY_EVENT_DESCRIPTION_PRESET,
 } from "@/lib/events/guide";
 
-type EventKind = "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "HOLDEM" | "GENERAL";
+import { HALF_NIGHT_DESCRIPTION, halfNightTitle } from "@/lib/events/half-night";
+
+type EventKind = "BOARDGAME" | "MURDER_MYSTERY" | "CLOCKTOWER" | "HOLDEM" | "GENERAL" | "HALF_NIGHT";
 type ClocktowerDifficulty = "점철되는 혼란" | "피로 물든 달" | "화단에 꽃피운 이단" | "캐러셀";
 
 const CLOCKTOWER_DIFFICULTIES: ClocktowerDifficulty[] = [
@@ -58,7 +60,7 @@ const initialForm: EventForm = {
 };
 
 function toLocalDateTime(date: string, time: string) {
-  return new Date(`${date}T${time}:00`);
+  return new Date(`${date}T${time}:00+09:00`);
 }
 
 function getMinimumDate() {
@@ -156,24 +158,28 @@ export default function NewEventPage() {
   }
 
   function selectEventKind(eventKind: EventKind) {
+    if (eventKind === "HALF_NIGHT") {
+      setForm(current => ({ ...current, eventKind, title: "[반나잇]", endTime: addHoursToTime(current.startTime, 6), participationFee: "20000", recurrence: "NONE", description: HALF_NIGHT_DESCRIPTION, maxParticipants: "" }));
+      return;
+    }
     setForm((current) => {
       const usesPreset =
         !current.description.trim() ||
         current.description === BOARDGAME_EVENT_DESCRIPTION_PRESET ||
         current.description === MURDER_MYSTERY_EVENT_DESCRIPTION_PRESET ||
         current.description === CLOCKTOWER_EVENT_DESCRIPTION_PRESET ||
-        current.description === HOLDEM_EVENT_DESCRIPTION_PRESET;
+        current.description === HOLDEM_EVENT_DESCRIPTION_PRESET || current.description === HALF_NIGHT_DESCRIPTION;
 
       return {
         ...current,
         eventKind,
-        title: eventKind === "HOLDEM" ? HOLDEM_EVENT_TITLE : eventKind === "MURDER_MYSTERY" || eventKind === "CLOCKTOWER" ? "" : current.title === HOLDEM_EVENT_TITLE ? "" : current.title,
+        title: eventKind === "HOLDEM" ? HOLDEM_EVENT_TITLE : eventKind === "MURDER_MYSTERY" || eventKind === "CLOCKTOWER" ? "" : current.title === HOLDEM_EVENT_TITLE || current.eventKind === "HALF_NIGHT" ? "" : current.title,
         murderMysteryId: eventKind === "MURDER_MYSTERY" ? current.murderMysteryId : "",
         clocktowerDifficulty: eventKind === "CLOCKTOWER" ? current.clocktowerDifficulty : "",
         startTime: eventKind === "HOLDEM" ? "19:20" : current.startTime,
-        endTime: eventKind === "HOLDEM" ? "22:20" : current.endTime,
+        endTime: eventKind === "HOLDEM" ? "22:20" : current.eventKind === "HALF_NIGHT" ? addHoursToTime(current.startTime, 3) : current.endTime,
         location: eventKind === "HOLDEM" ? DEFAULT_EVENT_LOCATION : current.location,
-        participationFee: eventKind === "HOLDEM" ? "10000" : current.eventKind === "HOLDEM" && current.participationFee === "10000" ? "" : current.participationFee,
+        participationFee: current.eventKind === "HALF_NIGHT" ? "" : eventKind === "HOLDEM" ? "10000" : current.eventKind === "HOLDEM" && current.participationFee === "10000" ? "" : current.participationFee,
         maxParticipants:
           eventKind === "HOLDEM" ? "10" : eventKind === "CLOCKTOWER"
             ? "16"
@@ -215,7 +221,7 @@ export default function NewEventPage() {
     setForm((current) => ({
       ...current,
       startTime,
-      endTime: startTime ? addHoursToTime(startTime, 3) : "",
+      endTime: startTime ? addHoursToTime(startTime, current.eventKind === "HALF_NIGHT" ? 6 : 3) : "",
     }));
   }
 
@@ -228,7 +234,7 @@ export default function NewEventPage() {
     }
 
     const selectedMystery = murderMysteries.find((work) => work.id === form.murderMysteryId);
-    const title = form.eventKind === "MURDER_MYSTERY" && selectedMystery
+    const title = form.eventKind === "HALF_NIGHT" ? halfNightTitle(form.date) : form.eventKind === "MURDER_MYSTERY" && selectedMystery
       ? `[머미] ${selectedMystery.title}`
       : form.eventKind === "CLOCKTOWER" && form.clocktowerDifficulty
         ? `[시계탑] ${form.clocktowerDifficulty}`
@@ -343,7 +349,8 @@ export default function NewEventPage() {
         description: description || null,
         created_by: user.id,
         max_participants: maxParticipants,
-        event_kind: form.eventKind,
+        event_kind: form.eventKind === "HALF_NIGHT" ? "BOARDGAME" : form.eventKind,
+        is_half_night: form.eventKind === "HALF_NIGHT",
         murder_mystery_id: form.eventKind === "MURDER_MYSTERY" ? form.murderMysteryId : null,
         participation_fee: participationFee,
       })
@@ -423,6 +430,7 @@ export default function NewEventPage() {
                 <span className="text-sm font-semibold text-zinc-200">이벤트 종류</span>
                 <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
                   <button type="button" onClick={() => selectEventKind("BOARDGAME")} className={`col-span-2 lg:col-span-4 rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "BOARDGAME" ? "border-amber-400 bg-amber-400/10 text-amber-300" : "border-white/10 text-zinc-500"}`}>보드게임</button>
+                  <button type="button" onClick={() => selectEventKind("HALF_NIGHT")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "HALF_NIGHT" ? "border-indigo-400 bg-indigo-400/10 text-indigo-200" : "border-white/10 text-zinc-500"}`}>반나잇</button>
                   <button type="button" onClick={() => selectEventKind("MURDER_MYSTERY")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "MURDER_MYSTERY" ? "border-red-400 bg-red-400/10 text-red-300" : "border-white/10 text-zinc-500"}`}>머더미스터리</button>
                   <button type="button" onClick={() => selectEventKind("HOLDEM")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "HOLDEM" ? "border-emerald-400 bg-emerald-400/10 text-emerald-300" : "border-white/10 text-zinc-500"}`}>홀덤</button>
                   <button type="button" onClick={() => selectEventKind("CLOCKTOWER")} className={`rounded-2xl border px-4 py-4 font-bold ${form.eventKind === "CLOCKTOWER" ? "border-violet-400 bg-violet-400/10 text-violet-300" : "border-white/10 text-zinc-500"}`}>시계탑에 흐른 피</button>
@@ -430,6 +438,7 @@ export default function NewEventPage() {
                 </div>
               </div>
 
+              {form.eventKind === "HALF_NIGHT" && <div className="rounded-2xl border border-indigo-400/30 bg-indigo-400/10 p-5"><p className="font-bold text-indigo-200">{halfNightTitle(form.date)} · Vol.번호 자동 부여</p><p className="mt-2 text-sm leading-7">총 6시간 · 1부 3시간 + 2부 3시간<br/>모두 참여 20,000원 · 한 부만 참여 10,000원<br/>금요일은 불금, 토요일은 불토로 등록되며 Vol.5부터 이어집니다.</p></div>}
               {form.eventKind === "MURDER_MYSTERY" && <div className="grid gap-4 rounded-2xl border border-red-400/20 bg-red-400/[0.04] p-4">
                 <label className="grid gap-2"><span className="text-sm font-semibold text-red-200">진행 작품 *</span><select value={form.murderMysteryId} onChange={e => selectMurderMystery(e.target.value)} className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-3"><option value="">작품을 선택하세요</option>{murderMysteries.map(work => <option key={work.id} value={work.id}>{work.title} ({work.min_players ?? "?"}~{work.max_players ?? "?"}명)</option>)}</select></label>
                 {form.title && <div className="rounded-xl border border-red-400/20 bg-black/10 px-4 py-3"><p className="text-xs text-zinc-500">자동 생성 제목</p><p className="mt-1 font-bold text-red-200">{form.title}</p></div>}
@@ -445,7 +454,7 @@ export default function NewEventPage() {
 
               {form.eventKind === "GENERAL" && <div className="rounded-2xl border border-sky-400/20 bg-sky-400/[0.04] p-4 text-sm leading-6 text-zinc-400"><strong className="text-sky-300">일반 이벤트</strong><br/>페스티벌, 엠티, 번개 모임처럼 게임 진행이 필요 없는 일정입니다. 참가 신청·정원·대기자·출석·공지 기능만 사용합니다.</div>}
               {form.eventKind === "HOLDEM" && <p className="text-sm text-emerald-300">저장하면 제목 끝에 Vol.번호가 자동으로 붙습니다. 홀덤 이벤트는 직접 만들 때만 추가됩니다.</p>}
-              {form.eventKind !== "MURDER_MYSTERY" && form.eventKind !== "CLOCKTOWER" && <label className="grid gap-3">
+              {form.eventKind !== "HALF_NIGHT" && form.eventKind !== "MURDER_MYSTERY" && form.eventKind !== "CLOCKTOWER" && <label className="grid gap-3">
                 <span className="text-sm font-semibold text-zinc-200">
                   이벤트 제목 <span className="text-amber-400">*</span>
                 </span>
@@ -499,6 +508,7 @@ export default function NewEventPage() {
 
                   <input
                     type="time"
+                    disabled={form.eventKind === "HALF_NIGHT"}
                     value={form.endTime}
                     onChange={(event) =>
                       updateForm("endTime", event.target.value)
@@ -545,13 +555,14 @@ export default function NewEventPage() {
                   type="number"
                   min={0}
                   step={1000}
+                  disabled={form.eventKind === "HALF_NIGHT"}
                   value={form.participationFee}
                   onChange={(event) => updateForm("participationFee", event.target.value)}
                   placeholder={["BOARDGAME", "CLOCKTOWER", "HOLDEM"].includes(form.eventKind) ? "기본 10,000원" : form.eventKind === "MURDER_MYSTERY" ? "기본 13,000원" : "기본 무료"}
                   className="rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3.5 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-amber-400/60"
                 />
                 <span className="text-xs leading-5 text-zinc-500">
-                  비워두면 현재 이벤트의 기본 참가비 <strong className="text-zinc-300">{["BOARDGAME", "CLOCKTOWER", "HOLDEM"].includes(form.eventKind) ? "10,000원" : form.eventKind === "MURDER_MYSTERY" ? "13,000원" : "무료"}</strong>가 적용됩니다. 무료 이벤트는 0원을 입력하세요.
+                  {form.eventKind === "HALF_NIGHT" ? "모두 참여 20,000원 / 한 부만 참여 10,000원으로 고정됩니다." : <>비워두면 현재 이벤트의 기본 참가비 <strong className="text-zinc-300">{["BOARDGAME", "CLOCKTOWER", "HOLDEM"].includes(form.eventKind) ? "10,000원" : form.eventKind === "MURDER_MYSTERY" ? "13,000원" : "무료"}</strong>가 적용됩니다. 무료 이벤트는 0원을 입력하세요.</>}
                 </span>
               </label>
 

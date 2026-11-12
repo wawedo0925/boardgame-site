@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_EVENT_LOCATION } from "@/lib/events/location";
 
 type EventRow = {
+  is_half_night: boolean;
   id: string;
   title: string;
   started_at: string;
@@ -54,7 +55,7 @@ export default function EventEditPage() {
     async function load() {
       const [{ data: userData }, { data, error }, { data: role }] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from("events").select("id,title,started_at,ended_at,location,description,created_by,event_kind,participation_fee").eq("id", params.id).maybeSingle(),
+        supabase.from("events").select("id,title,is_half_night,started_at,ended_at,location,description,created_by,event_kind,participation_fee").eq("id", params.id).maybeSingle(),
         supabase.rpc("current_site_role"),
       ]);
       if (!active) return;
@@ -82,7 +83,7 @@ export default function EventEditPage() {
     if (!title.trim()) { setErrorMessage("이벤트 제목을 입력해 주세요."); return; }
     if (!startedAt) { setErrorMessage("시작 날짜와 시간을 입력해 주세요."); return; }
     const start = new Date(startedAt);
-    const end = endedAt ? new Date(endedAt) : null;
+    const end = event?.is_half_night ? new Date(start.getTime() + 6 * 3600000) : endedAt ? new Date(endedAt) : null;
     if (end && end <= start) { setErrorMessage("종료 시간은 시작 시간보다 늦어야 합니다."); return; }
     const fee = Number(participationFee);
     if (!Number.isInteger(fee) || fee < 0) { setErrorMessage("참가비는 0원 이상의 정수로 입력해 주세요."); return; }
@@ -110,12 +111,12 @@ export default function EventEditPage() {
     <section className="mx-auto max-w-4xl px-5 py-10 sm:px-6 sm:py-14">
       {loading ? <div className="h-96 animate-pulse rounded-3xl border border-white/10 bg-white/[0.03]" /> : !event ? <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-8 text-center text-red-300">{errorMessage}</div> :
       <form onSubmit={save} className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 sm:p-8">
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-4"><p className="text-xs text-zinc-500">이벤트 종류</p><p className="mt-1 font-bold">{kindLabel(event.event_kind)}</p><p className="mt-2 text-xs text-zinc-600">이벤트 종류·난이도는 생성 후 변경할 수 없습니다. 머더미스터리 작품은 이벤트 상세의 작품 변경 버튼에서 바꿀 수 있습니다.</p></div>
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4"><p className="text-xs text-zinc-500">이벤트 종류</p><p className="mt-1 font-bold">{event.is_half_night ? "반나잇" : kindLabel(event.event_kind)}</p><p className="mt-2 text-xs text-zinc-600">이벤트 종류·난이도는 생성 후 변경할 수 없습니다. 머더미스터리 작품은 이벤트 상세의 작품 변경 버튼에서 바꿀 수 있습니다.</p></div>
         <div className="mt-6 space-y-6">
-          <label className="grid gap-2"><span className="text-sm font-semibold">이벤트 제목 *</span><input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} className={inputClass} /><span className="text-right text-xs text-zinc-600">{title.length} / 80</span></label>
-          <div className="grid gap-5 sm:grid-cols-2"><label className="grid gap-2"><span className="text-sm font-semibold">시작 날짜·시간 *</span><input type="datetime-local" value={startedAt} onChange={(e) => setStartedAt(e.target.value)} className={inputClass} /></label><label className="grid gap-2"><span className="text-sm font-semibold">종료 날짜·시간</span><input type="datetime-local" value={endedAt} onChange={(e) => setEndedAt(e.target.value)} className={inputClass} /></label></div>
+          <label className="grid gap-2"><span className="text-sm font-semibold">이벤트 제목 *</span><input disabled={event.is_half_night} value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} className={inputClass} /><span className="text-right text-xs text-zinc-600">{title.length} / 80</span></label>
+          <div className="grid gap-5 sm:grid-cols-2"><label className="grid gap-2"><span className="text-sm font-semibold">시작 날짜·시간 *</span><input type="datetime-local" value={startedAt} onChange={(e) => { setStartedAt(e.target.value); if (event.is_half_night && e.target.value) setEndedAt(toLocalInput(new Date(new Date(e.target.value).getTime() + 6 * 3600000).toISOString())); }} className={inputClass} /></label><label className="grid gap-2"><span className="text-sm font-semibold">종료 날짜·시간</span><input type="datetime-local" disabled={event.is_half_night} value={endedAt} onChange={(e) => setEndedAt(e.target.value)} className={inputClass} /></label></div>
           <label className="grid gap-2"><span className="text-sm font-semibold">장소</span><input value={location} maxLength={120} onChange={(e) => setLocation(e.target.value)} placeholder={DEFAULT_EVENT_LOCATION} className={inputClass} /></label>
-          <label className="grid gap-2"><span className="text-sm font-semibold">참가비</span><input type="number" min={0} step={1000} value={participationFee} onChange={(e) => setParticipationFee(e.target.value)} className={inputClass} /><span className="text-xs text-zinc-500">무료 이벤트는 0원을 입력하세요.</span></label>
+          <label className="grid gap-2"><span className="text-sm font-semibold">참가비</span><input type="number" min={0} step={1000} disabled={event.is_half_night} value={participationFee} onChange={(e) => setParticipationFee(e.target.value)} className={inputClass} /><span className="text-xs text-zinc-500">{event.is_half_night ? "모두 참여 20,000원 / 한 부만 참여 10,000원. 종료 시간은 시작 6시간 후로 자동 설정됩니다." : "무료 이벤트는 0원을 입력하세요."}</span></label>
           <label className="grid gap-2"><span className="text-sm font-semibold">상세 설명</span><textarea value={description} maxLength={1000} onChange={(e) => setDescription(e.target.value)} rows={7} className="w-full resize-none rounded-xl border border-white/10 bg-zinc-900 p-4 text-white outline-none focus:border-sky-400/60" /><span className="text-right text-xs text-zinc-600">{description.length} / 1000</span></label>
         </div>
         {errorMessage && <p className="mt-5 rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-sm text-red-300">{errorMessage}</p>}
