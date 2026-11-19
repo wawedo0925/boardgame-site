@@ -2,18 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getEventGroups, saveGroups, clearGroups, clearEventPlayRecords } from "@/lib/services/groups";
+import { getEventGroups, saveGroups, clearGroups, clearEventPlayRecords, removeEmptyGroup } from "@/lib/services/groups";
 import { createRound } from "@/lib/services/rounds";
 import { getEventGames } from "@/lib/services/events";
 import { halfNightPartLabel } from "@/lib/events/half-night";
 import { arrivalTimeLabel } from "@/lib/event-arrival";
-import { withDefaultGroups } from "@/lib/events/default-groups";
 import type { GroupDraft, GroupParticipant } from "@/types/group";
 import type { BoardgamePreference, EventGame } from "@/types/event";
 import AddGroupRoundDialog from "./AddGroupRoundDialog";
 import GroupRoundHistory from "./GroupRoundHistory";
 import GameAvoidanceDialog from "./GameAvoidanceDialog";
-const defaultGroupName = (index: number) => ["우영 조", "아라 조", "병준 조"][index] ?? `${index - 2}조`;
+const defaultGroupName = (index: number) => `${index + 1}조`;
 const groupSignature = (group: GroupDraft) => JSON.stringify([group.name, [...group.userIds].sort(), group.ruleMasterUserId]);
 
 type Props = { eventId: string; participants: GroupParticipant[]; currentUserId?: string | null; canManage?: boolean; isClosed?: boolean };
@@ -98,7 +97,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   const load = useCallback(async () => {
     const [groups, eventGames] = await Promise.all([getEventGroups(supabase, eventId), getEventGames(supabase, eventId)]);
     const storedDrafts = groups.map(group => ({ id: group.id, name: group.name, sessionId: null, ruleMasterUserId: group.rule_master_user_id, userIds: group.members.map(member => member.user_id) }));
-    setDrafts(editable ? withDefaultGroups(storedDrafts, participants, draftId) : storedDrafts);
+    setDrafts(storedDrafts);
     setSavedGroups(Object.fromEntries(groups.map(group => [group.id, groupSignature({id:group.id,name:group.name,sessionId:null,ruleMasterUserId:group.rule_master_user_id,userIds:group.members.map(member=>member.user_id)})])));
     setGames(eventGames);
   }, [editable, eventId, participants, supabase]);
@@ -232,8 +231,20 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
     } finally { setBusy(false); }
   }
 
+  async function removeGroup(group: GroupDraft) {
+    if (!editable || busy) return;
+    if (group.userIds.length) { alert("조원을 먼저 미배정이나 다른 조로 옮기고 조 편성을 확정해 주세요."); return; }
+    setBusy(true);
+    try {
+      if (!group.id.startsWith("draft-")) await removeEmptyGroup(supabase, eventId, group.id);
+      setDrafts(current => current.filter(item => item.id !== group.id));
+      setSavedGroups(current => { const next = {...current}; delete next[group.id]; return next; });
+    } catch (error) { alert(error && typeof error === "object" && "message" in error ? String(error.message) : "조를 삭제하지 못했습니다."); }
+    finally { setBusy(false); }
+  }
+
   async function reset() {
-    if (!editable || !confirm("조 편성을 초기화할까요?\n\n현재 조와 조원 배정이 삭제되고 기본 4개 조로 돌아갑니다. 입력한 게임과 점수 기록은 유지됩니다.")) return;
+    if (!editable || !confirm("조 편성을 초기화할까요?\n\n현재 조와 조원 배정이 초기화됩니다. 필요한 조는 조 추가로 만들 수 있습니다. 입력한 게임과 점수 기록은 유지됩니다.")) return;
     try {
       setBusy(true);
       await clearGroups(supabase, eventId);
@@ -257,6 +268,9 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
     }
   }
 
+  const activeGroupIds = new Set(drafts.map(group => group.id));
+  const previousGames = games.map(game => ({...game, rounds: game.rounds.filter(round => !round.group_id || !activeGroupIds.has(round.group_id))})).filter(game => game.rounds.length);
+
   return <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 text-white sm:p-7">
     <div className="flex flex-wrap justify-between gap-3">
       <div><p className="text-sm text-amber-300">GROUP PLAY</p><h2 className="text-2xl font-bold">조 편성 및 플레이</h2></div>
@@ -277,7 +291,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
         {editable&&<div className="mt-3 flex flex-wrap items-center gap-2" onClick={event => event.stopPropagation()}>
           <button onClick={() => openMemberPicker(group.id)} className="min-h-11 rounded-xl bg-sky-400/15 px-3 text-sm font-bold text-sky-300">인원 추가</button>
           <button disabled={busy} onClick={() => void save()} className="min-h-11 rounded-xl border border-amber-400 px-3 text-sm font-bold text-amber-300 disabled:opacity-50">{busy ? "처리 중…" : "조 편성 확정"}</button>
-          <button onClick={() => setDrafts(current => current.filter(item => item.id !== group.id))} className="min-h-11 px-2 text-sm text-red-300">삭제</button>
+          <button disabled={busy || group.userIds.length > 0} title={group.userIds.length ? "조원을 먼저 옮기고 조 편성을 확정해 주세요." : "빈 조 삭제 · 즉시 저장"} onClick={() => void removeGroup(group)} className="min-h-11 px-2 text-sm text-red-300 disabled:opacity-40">삭제</button>
         </div>}
         <div className="mt-3 flex flex-wrap gap-2">{group.userIds.map(userId => { const participant = participants.find(item => item.user_id === userId); const active=selected.includes(userId); return <button disabled={!editable} key={userId} title={preferenceLabel(participant)} onClick={event => { event.stopPropagation(); toggleSelected(userId); }} className={`rounded-xl border px-3 py-2 transition disabled:cursor-default ${active?`${preferenceClass(participant)} outline-2 outline-sky-300`:preferenceClass(participant)}`}>{participant ? <ParticipantName participant={participant}/> : "회원"}</button>; })}</div>
         {editable&&<label className="mt-3 block text-sm text-zinc-400">조 룰마스터<select value={group.ruleMasterUserId??""} onChange={event=>setDrafts(current=>current.map(item=>item.id===group.id?{...item,ruleMasterUserId:event.target.value||null}:item))} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 text-white"><option value="">룰마스터 미지정</option>{group.userIds.map(userId=>{const participant=participants.find(item=>item.user_id===userId);return <option key={userId} value={userId}>{participant?`${participantLabel(participant)} · ${participantBirthLabel(participant)}`.replace(/ · $/,""):"회원"}</option>})}</select></label>}
@@ -291,6 +305,7 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
         <GroupRoundHistory games={groupGames} canManage={groupEditable} onChanged={load} onRepeat={game => repeatGame(group, game)} repeatDisabled={busy || savedGroups[group.id] !== groupSignature(group)} collapseKey={`${eventId}:${currentUserId || "guest"}:${group.id}`} /></>}
       </article>;
     })}</div>
+    {previousGames.length > 0 && <div className="mt-6 rounded-2xl border border-white/10 p-4"><h3 className="font-bold">이전 조 플레이 기록</h3><p className="mt-1 text-sm text-zinc-400">정리된 조의 게임과 점수 기록입니다.</p><GroupRoundHistory games={previousGames} canManage={playEditable} onChanged={load} collapseKey={`${eventId}:previous-groups`}/></div>}
     {editable && <div className="mt-5 grid gap-3 sm:grid-cols-3"><button disabled={busy} onClick={reset} className="h-12 rounded-xl border border-white/15 text-zinc-300 disabled:opacity-50">조 편성 초기화</button>{playEditable && <button disabled={busy} onClick={resetPlayRecords} className="h-12 rounded-xl border border-red-400/40 text-red-300 disabled:opacity-50">플레이 기록 전체 초기화</button>}<button disabled={busy} onClick={save} className="h-12 rounded-xl bg-amber-400 font-bold text-zinc-950 disabled:opacity-50">조 편성 확정</button></div>}
     {adding && <AddGroupRoundDialog eventId={eventId} groupId={adding.id} userIds={adding.userIds} onClose={() => setAdding(null)} onSaved={load}/>}
     {recommending && <GameAvoidanceDialog group={recommending} participants={participants} onClose={() => setRecommending(null)}/>}
