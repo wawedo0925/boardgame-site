@@ -107,11 +107,21 @@ export function withNightGossip(e:BmrAuto,declarations:{id:string;actor:string;d
 function kill(e:BmrAuto,id:string,cause:string,answers:Record<string,string>,execution=false,pierce=false,demon=false){
  const p=player(e,id);if(!actualAlive(p)||e.winner)return;
  if(!pierce&&protectedFromDeath(e,p,execution)){note(e,`${p.name}: 사망 방지 (${cause})`);return;}
- if(!pierce&&execution&&p.faction==='GOOD'&&e.players.some(x=>x.role==='평화주의자'&&works(e,x))){
+ if(!pierce&&execution&&p.faction==='GOOD'&&e.players.some(x=>x.role==='평화주의자'&&actualAlive(x))){
+  const pacifists=e.players.filter(x=>x.role==='평화주의자'&&actualAlive(x));
+  if(!pacifists.some(x=>works(e,x))){
+   const statuses=bmrProjection(e);
+   const reasons=pacifists.map(x=>{
+    const status=statuses.find(s=>s.user_id===x.id)!.bmr;
+    return `${x.name} · 평화주의자: ${[status.drunk?'취함':null,status.poisoned?'중독':null].filter(Boolean).join(' · ')} 상태`;
+   });
+   choose(answers,{key:`pacifist-impaired:${id}`,title:'평화주의자 · 능력 무효 안내',description:`처형 대상: ${p.name}\n${reasons.join('\n')}\n평화주의자의 능력이 무효이므로 이번 처형 대상을 살릴 수 없습니다. 다른 사망 방지 능력은 별도로 적용됩니다. 이 상태는 참가자에게 알려주지 않습니다.`,options:[{value:'acknowledge',label:'확인 · 처형 판정 계속'}]});
+  }else{
   const save=choose(answers,{key:`pacifist:${id}`,title:`평화주의자 · ${p.name}을 살릴까요?`,description:`처형 대상: ${p.name}
 평화주의자의 능력이 정상적으로 작동하고 있어 구제 여부를 결정할 수 있습니다.
 살리면 생존하고, 구제하지 않으면 다른 사망 방지 능력을 확인한 뒤 처리합니다. 어느 쪽이든 오늘의 처형은 끝납니다.`,options:[{value:'save',label:'살리기'},{value:'die',label:'구제하지 않기'}]});
   if(save==='save'){note(e,`${p.name}: 평화주의자로 생존`);return;}
+  }
  }
  if(!pierce&&p.role==='어릿광대'&&!p.spent&&works(e,p)){p.spent=true;note(e,`${p.name}: 어릿광대 능력 소모·생존`);return;}
  if(!pierce&&p.role==='좀비얼'&&p.life==='ALIVE'&&works(e,p)){

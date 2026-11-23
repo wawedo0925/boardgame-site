@@ -25,7 +25,7 @@ e=fixture();e.phase='DAY';e.night=2;e=advanceBmr(e,{type:'execution',target:'5'}
 let saved=decide(JSON.parse(JSON.stringify(e)),'save');assert.equal(saved.players[5].life,'ALIVE');assert.equal(saved.night,3);assert.equal(saved.phase,'NIGHT');
 let killed=decide(e,'die');assert.equal(killed.players[5].life,'DEAD');assert.equal(killed.night,3);
 assert.throws(()=>decide(e,'forged'),/올바르지/);assert.throws(()=>advanceBmr(e,{type:'tick'}),/먼저/);
-e=fixture();e.phase='DAY';effect(e,'1','3');e=advanceBmr(e,{type:'execution',target:'5'});assert.equal(e.pending,undefined);assert.equal(e.players[5].life,'DEAD');
+e=fixture();e.phase='DAY';effect(e,'1','3');e=advanceBmr(e,{type:'execution',target:'5'});assert.equal(e.pending.decision.key,'pacifist-impaired:5');assert.equal(e.players[5].life,'ALIVE');e=decide(e,'acknowledge');assert.equal(e.pending,undefined);assert.equal(e.players[5].life,'DEAD');
 e=fixture();e.phase='DAY';e=advanceBmr(e,{type:'execution',target:'1'});assert.equal(e.pending,undefined,'evil defendant never Pacifist');
 // Protection ordering and two attacks recompute Tea Lady neighbours.
 e=fixture(['샤발로스','암살자','찻집 여인','교수','어릿광대','객실 청소부','할머니']);e=task(e,'샤발로스');e=answer(e,['2','3']);assert.equal(e.players[2].life,'DEAD');assert.equal(e.players[3].life,'DEAD');
