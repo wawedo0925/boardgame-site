@@ -8,6 +8,7 @@ type Task = { actor:string; role:string; key:string };
 export type Decision = { key:string; title:string; description:string; options:{value:string;label:string}[]; text?:boolean; initial?:string };
 type Operation = { kind:'task'; task:Task; targets:string[]; answer:{character?:string;pass?:boolean}; requestId?:string } | {kind:'execution';target:string|null} | {kind:'tinker';target:string};
 export type BmrAuto = {
+ nightPlayback?:{night:number;status:'running'|'paused'};
  manual?:Record<string,{drunk:boolean;poisoned:boolean;protected:boolean}>;
  reviewEnabled?:boolean;
  initialInformation?:Record<string,string>;
@@ -287,7 +288,11 @@ function validateTargets(e:BmrAuto,w:NonNullable<BmrAuto['waiting']>,targets:str
  const p=player(e,w.task.actor);
  if(targets.some(id=>!e.players.some(x=>x.id===id)||!w.spec.allow_self&&id===p.id))return '선택할 수 없는 참가자입니다.';
  if(o.character&&!BMR_ROLES.some(r=>r.name===answer?.character))return '캐릭터를 선택하세요.';
- if(o.living&&targets.some(id=>!publicAlive(player(e,id)))||o.dead&&targets.some(id=>publicAlive(player(e,id))))return '대상을 다시 선택해 주세요.';
+ const unavailable=targets.filter(id=>o.living&&!publicAlive(player(e,id))||o.dead&&publicAlive(player(e,id)));
+ if(unavailable.length){
+  if(w.task.role==='객실 청소부')return `선택할 수 없는 참가자: ${unavailable.map(id=>player(e,id).name).join(', ')}\n해당 참가자 대신 다른 사람을 골라, 본인을 제외한 생존자 2명을 다시 선택해 주세요.`;
+  return '대상을 다시 선택해 주세요.';
+ }
  if(['악마의 변호사','구마사제'].includes(w.task.role)&&e.previous[p.id]?.night===e.night-1&&e.previous[p.id].targets[0]===targets[0])return '지난 밤과 다른 참가자를 선택해 주세요.';
  return null;
 }

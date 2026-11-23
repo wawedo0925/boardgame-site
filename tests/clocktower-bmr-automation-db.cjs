@@ -3,6 +3,7 @@ const assert=require('node:assert/strict'),fs=require('fs'),ts=require('typescri
 require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2017}}).outputText,f);
 const {createTestDb}=require('./clocktower-bmr-db.cjs');
 const {startBmr,advanceBmr,bmrProjection}=require('../lib/clocktower/bmr-engine.ts');
+const {bmrNightPlayback,setBmrNightPlayback}=require('../lib/clocktower/bmr-night-control.ts');
 (async()=>{
  const db=await createTestDb();await db.exec(fs.readFileSync('supabase/migrations/20260927010000_clocktower_bmr_automation.sql','utf8'));
  const host='10000000-0000-0000-0000-000000000001',eid='20000000-0000-0000-0000-000000000001';
@@ -25,6 +26,8 @@ const {startBmr,advanceBmr,bmrProjection}=require('../lib/clocktower/bmr-engine.
  async function commit(next,input){const p=await packet(next,input);await raw('bmr_auto_commit',p);return p;}
  s=await snap();let e=startBmr(s.members);const initial=await commit(e);await assert.rejects(()=>raw('bmr_auto_commit',initial),/먼저 저장/);
  await login(ids[0]);await assert.rejects(()=>raw('bmr_auto_commit',initial),/이야기꾼/);s=await snap();assert.equal(s.bmr,undefined);assert.equal(s.engine,undefined);await login(host);
+ await commit(setBmrNightPlayback(e,'paused'));s=await snap();assert.equal(bmrNightPlayback(s.bmr.auto,1),'paused');assert.equal(s.requests.length,0);
+ await commit(setBmrNightPlayback(s.bmr.auto,'running'));s=await snap();assert.equal(bmrNightPlayback(s.bmr.auto,1),'running');assert.equal(s.requests.length,0,'start control itself must not deliver a request');
  // Full first night: host decisions, player choices, private results, dawn.
  let steps=0;
  while(steps++<50){s=await snap();e=s.bmr.auto;if(e.finished)break;
@@ -48,6 +51,7 @@ const {startBmr,advanceBmr,bmrProjection}=require('../lib/clocktower/bmr-engine.
  await login(ids[2]);s=await snap();assert.equal(s.bmr,undefined);await login(host);s=await snap();assert.equal(s.bmr.auto.pending.decision.title,e.pending.decision.title,'reconnect retains decision');
  e=advanceBmr(s.bmr.auto,{type:'choice',key:e.pending.decision.key,value:'save'});const p=await commit(e);await assert.rejects(()=>raw('bmr_auto_commit',p),/먼저 저장/);s=await snap();assert.equal(s.room.night,2);assert.equal(s.members.find(m=>m.user_id===ids[2]).alive,true);
  await assert.rejects(()=>action('bmr_member',{user_id:ids[2]}),/자동 진행/);
+ assert.equal(bmrNightPlayback(s.bmr.auto,2),'waiting','next night requires fresh start');
  assert.equal((await db.query("select has_function_privilege('authenticated','public.clocktower_bmr_auto_commit(uuid,jsonb)','execute') allowed")).rows[0].allowed,false);
  console.log('PASS: real PostgreSQL automation migration, full first night, host-only popup, reconnect, stale/duplicate rejection, phase transitions and private masking');await db.close();
 })().catch(e=>{console.error(e.message,e.where||'',e.stack);process.exit(1)});

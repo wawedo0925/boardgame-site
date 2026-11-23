@@ -9,12 +9,14 @@ import ClocktowerReadiness from './ClocktowerReadiness';
 import ClocktowerMemberChoices from './ClocktowerMemberChoices';
 import { nextFlowLabel } from '@/lib/clocktower/flow';
 import ClocktowerBmrReview from './ClocktowerBmrReview';
+import { bmrNightPlayback, setBmrNightPlayback } from '@/lib/clocktower/bmr-night-control';
 type Props={state:LiveState;busy:boolean;error:string;allowPopup:boolean;run:(action:string,data?:Record<string,unknown>)=>Promise<boolean>};
 const button='rounded-xl bg-violet-400 px-4 py-3 font-bold text-zinc-950 disabled:opacity-40';
 const field='w-full rounded-xl border border-white/20 bg-zinc-900 p-3 text-white';
 
 export default function ClocktowerBmrAutomatic({state,busy,error,run,allowPopup}:Props){
  const room=state.room!,engine=state.bmr?.auto;
+ const playback=bmrNightPlayback(engine,room.night);
  const [localError,setLocalError]=useState(''),[paused,setPaused]=useState(false);
  const [hiddenDecision,setHiddenDecision]=useState('');
  const attempted=useRef('');
@@ -31,30 +33,37 @@ export default function ClocktowerBmrAutomatic({state,busy,error,run,allowPopup}
   if(!engine)return;
   try{setLocalError('');const ok=await commit(advanceBmr({...engine,reviewEnabled:true},input),input);if(ok)setPaused(false);}catch(e){setLocalError(e instanceof Error?e.message:'판정을 확인해 주세요.');setPaused(true);}
  }
+ async function controlNight(status:'running'|'paused'){
+  try{
+   setLocalError('');
+   const current=engine??{...startBmr(state.members??[]),reviewEnabled:true,initialInformation:state.bmr?.information?.messages,initialGrandchildren:state.bmr?.information?.grandchildren};
+   if(await commit(setBmrNightPlayback(current,status))){attempted.current='';setPaused(false);}
+  }catch(e){setLocalError(e instanceof Error?e.message:'밤 진행 상태를 확인해 주세요.');setPaused(true);}
+ }
  useEffect(()=>{
-  if(busy||paused||room.phase!=='NIGHT'||engine?.pending||engine?.review||engine?.finished)return;
+  if(busy||paused||room.phase!=='NIGHT'||playback!=='running'||!engine||engine.pending||engine.review||engine.finished)return;
   if(engine?.waiting&&request?.status!=='SUBMITTED')return;
   const key=`${room.id}:${state.bmr_revision}:${request?.id??''}:${request?.status??''}`;
   if(attempted.current===key)return;attempted.current=key;
   const input:BmrInput=request?.status==='SUBMITTED'?{type:'answer',id:request.id,targets:request.targets,answer:request.bmr_answer}:{type:'tick'};
-  void Promise.resolve().then(()=>commit(engine?advanceBmr(withNightGossip({...engine,reviewEnabled:true},state.gossip_declarations??[]),input):{...startBmr(state.members??[]),reviewEnabled:true,initialInformation:state.bmr?.information?.messages,initialGrandchildren:state.bmr?.information?.grandchildren},input)).catch(e=>{setLocalError(e instanceof Error?e.message:'자동 판정 오류');setPaused(true);});
+  void Promise.resolve().then(()=>commit(advanceBmr(withNightGossip({...engine,reviewEnabled:true},state.gossip_declarations??[]),input),input)).catch(e=>{setLocalError(e instanceof Error?e.message:'자동 판정 오류');setPaused(true);});
  // The persisted revision/request status is the idempotency boundary, not callback identity.
  // eslint-disable-next-line react-hooks/exhaustive-deps
- },[busy,paused,room.id,room.phase,state.bmr_revision,request?.id,request?.status]);
+ },[busy,paused,playback,room.id,room.phase,room.night,state.bmr_revision,request?.id,request?.status]);
  const pending=(state.requests??[]).some(q=>q.status==='OPEN'||q.status==='SUBMITTED'||q.status==='RESOLVED'&&!q.acknowledged)||(state.mission_progress??[]).some(m=>m.completed<m.total);
 
  const unread=(state.requests??[]).filter(q=>q.status==='RESOLVED'&&!q.acknowledged);
  const voting=(state.votes??[]).some(v=>['WAITING','RUNNING'].includes(v.status));
  const candidate=bmrExecutionCandidate((state.votes??[]).filter(v=>v.day===room.night));
  return <section className="space-y-4 rounded-3xl border border-violet-300/30 p-5">
-  <div className="flex items-center justify-between gap-3"><h3 className="text-xl font-bold">밤 시트 자동 진행</h3><button className="rounded-xl border border-white/20 px-4 py-3 text-sm" onClick={()=>setPaused(!paused)}>{paused?'자동 진행 재개':'자동 진행 일시정지'}</button></div>
-  <p className="text-sm text-zinc-300">밤을 시작하면 시트 순서로 요청합니다. 제안은 이야기꾼에게만 보이며, 전달을 승인하면 효과를 반영하고 다음 차례로 넘어갑니다. 멤버의 결과는 확인할 때까지 남습니다. 낮으로 넘어가기 전에는 모두 확인해 주세요. 자동 진행 중에는 이야기꾼 화면을 켜 두세요.</p>
+  <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-bold">밤 시트 자동 진행</h3>{room.phase==='NIGHT'&&!engine?.finished&&<button disabled={busy||!!engine?.review} className="rounded-xl border border-white/20 px-4 py-3 text-sm disabled:opacity-40" onClick={()=>void controlNight(playback==='running'?'paused':'running')}>{playback==='waiting'?'밤 능력 진행 시작':playback==='paused'?'밤 능력 진행 재개':'자동 진행 일시정지'}</button>}</div>
+  <p className="text-sm text-zinc-300">매일 밤 이야기꾼이 ‘밤 능력 진행 시작’을 누르면 시트 순서로 요청합니다. 시작 전에는 시간을 자유롭게 조절할 수 있습니다. 전달을 승인하면 효과를 반영하고 다음 차례로 넘어갑니다. 멤버의 결과는 확인할 때까지 남습니다. 자동 진행 중에는 이야기꾼 화면을 켜 두세요.</p>
   {(localError||error)&&<p role="alert" className="text-red-300">{localError||error}</p>}
   {paused&&<button className={button} disabled={busy} onClick={()=>{attempted.current='';setLocalError('');setPaused(false);}}>최신 상태로 다시 진행</button>}
-  {room.phase==='NIGHT'&&<><p>{engine?.finished?'밤 판정 완료':engine?.review?'이야기꾼 결과 검토 중':engine?.pending?'이야기꾼 판정 대기':request?`${state.members?.find(m=>m.user_id===request.user_id)?.name} · 선택 대기`:'다음 차례 준비 중'}</p>
-   <ClocktowerPhaseBar><button className={button} disabled={busy||pending||!engine?.finished||!!engine?.pending||!!engine?.review} onClick={()=>{if(confirm('밤을 마치고 사망·부활을 공개하며 밀담을 시작할까요?'))void dispatch({type:'dawn'});}}>다음 페이즈 · {nextFlowLabel(state)}</button></ClocktowerPhaseBar>
+  {room.phase==='NIGHT'&&<><p>{engine?.finished?'밤 판정 완료':engine?.review?'이야기꾼 결과 검토 중':playback==='waiting'?'밤 능력 시작 대기 · 준비되면 시작 버튼을 눌러 주세요.':playback==='paused'?'밤 능력 일시정지 · 새 요청은 보내지 않습니다. 이미 전달된 요청은 멤버가 응답할 수 있습니다.':engine?.pending?'이야기꾼 판정 대기':request?`${state.members?.find(m=>m.user_id===request.user_id)?.name} · 선택 대기`:'다음 차례 준비 중'}</p>
+   <ClocktowerPhaseBar>{!engine?.finished&&playback!=='running'?<button className={button} disabled={busy||!!engine?.review} onClick={()=>void controlNight('running')}>{playback==='waiting'?'밤 능력 진행 시작':'밤 능력 진행 재개'}</button>:<button className={button} disabled={busy||pending||!engine?.finished||!!engine?.pending||!!engine?.review} onClick={()=>{if(confirm('밤을 마치고 사망·부활을 공개하며 밀담을 시작할까요?'))void dispatch({type:'dawn'});}}>다음 페이즈 · {nextFlowLabel(state)}</button>}</ClocktowerPhaseBar>
    {engine&&<div className="space-y-2 rounded-2xl border border-white/15 p-4"><h4 className="font-bold">{engine.night}번째 밤 진행 현황 · 이야기꾼 전용</h4>{engine.tasks.map((t,i)=><p key={t.key} aria-current={i===engine.cursor&&!engine.finished?'step':undefined} className={i===engine.cursor&&!engine.finished?'rounded-xl border-2 border-violet-300 bg-violet-400/15 p-3 text-sm font-bold':'p-2 text-sm text-zinc-400'}>{t.role} ({engine.players.find(p=>p.id===t.actor)?.name}) · {i<engine.cursor||engine.finished?'처리 완료 또는 조건 없음':i>engine.cursor?'진행 전':engine.review?'이야기꾼 결과 검토 중':engine.pending?'이야기꾼 선택 대기':request?.status==='OPEN'?'멤버 선택 중':'요청 준비 중'}</p>)}</div>}
-   {engine&&!engine.finished&&<button disabled={busy} className="rounded-xl border border-white/20 px-4 py-3 text-sm disabled:opacity-40" onClick={()=>{if(confirm('이 차례를 건너뛸까요? 능력 효과는 적용하지 않습니다.'))void dispatch({type:'skip'});}}>예외 처리 · 이 차례 건너뛰기</button>}
+   {engine&&!engine.finished&&playback!=='waiting'&&<button disabled={busy||!!engine.review} className="rounded-xl border border-white/20 px-4 py-3 text-sm disabled:opacity-40" onClick={()=>{if(confirm('이 차례를 건너뛸까요? 능력 효과는 적용하지 않습니다.'))void dispatch({type:'skip'});}}>예외 처리 · 이 차례 건너뛰기</button>}
    <ClocktowerReadiness state={state} busy={busy}/>
   </>}
   {room.phase==='DAY'&&engine&&<>
