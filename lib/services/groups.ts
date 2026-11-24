@@ -30,3 +30,9 @@ export async function clearEventPlayRecords(supabase:SupabaseClient,eventId:stri
  if(roundIds.length){const players=await supabase.from("event_round_players").delete().in("round_id",roundIds);if(players.error)throw players.error;const roundDelete=await supabase.from("event_game_rounds").delete().in("id",roundIds);if(roundDelete.error)throw roundDelete.error;}
  const sessionDelete=await supabase.from("event_game_sessions").delete().in("id",sessionIds);if(sessionDelete.error)throw sessionDelete.error;
 }
+
+export async function getArchivedGroupNames(supabase:SupabaseClient,eventId:string):Promise<string[]> {
+ const {data,error}=await supabase.from("event_groups").select("name").eq("event_id",eventId).eq("archived",true);
+ if(error)throw error;
+ return (data??[]).map(group=>group.name);
+}

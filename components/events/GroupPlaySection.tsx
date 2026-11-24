@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getEventGroups, saveGroups, clearGroups, clearEventPlayRecords, removeEmptyGroup } from "@/lib/services/groups";
+import { getEventGroups, saveGroups, clearGroups, clearEventPlayRecords, removeEmptyGroup, getArchivedGroupNames } from "@/lib/services/groups";
 import { createRound } from "@/lib/services/rounds";
 import { getEventGames } from "@/lib/services/events";
 import { halfNightPartLabel } from "@/lib/events/half-night";
+import { withDefaultGroups } from "@/lib/events/default-groups";
 import { arrivalTimeLabel } from "@/lib/event-arrival";
 import type { GroupDraft, GroupParticipant } from "@/types/group";
 import type { BoardgamePreference, EventGame } from "@/types/event";
@@ -95,9 +96,9 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
   }, [currentUserId, eventId, participants, permissionKey, supabase]);
 
   const load = useCallback(async () => {
-    const [groups, eventGames] = await Promise.all([getEventGroups(supabase, eventId), getEventGames(supabase, eventId)]);
+    const [groups, eventGames, removedNames] = await Promise.all([getEventGroups(supabase, eventId), getEventGames(supabase, eventId), getArchivedGroupNames(supabase, eventId)]);
     const storedDrafts = groups.map(group => ({ id: group.id, name: group.name, sessionId: null, ruleMasterUserId: group.rule_master_user_id, userIds: group.members.map(member => member.user_id) }));
-    setDrafts(storedDrafts);
+    setDrafts(editable ? withDefaultGroups(storedDrafts, participants, draftId, removedNames) : storedDrafts);
     setSavedGroups(Object.fromEntries(groups.map(group => [group.id, groupSignature({id:group.id,name:group.name,sessionId:null,ruleMasterUserId:group.rule_master_user_id,userIds:group.members.map(member=>member.user_id)})])));
     setGames(eventGames);
   }, [editable, eventId, participants, supabase]);
@@ -237,6 +238,10 @@ export default function GroupPlaySection({ eventId, participants, currentUserId,
     setBusy(true);
     try {
       if (!group.id.startsWith("draft-")) await removeEmptyGroup(supabase, eventId, group.id);
+      else {
+        const { error } = await supabase.from("event_groups").insert({event_id:eventId,name:group.name,position:0,created_by:currentUserId,archived:true});
+        if (error) throw error;
+      }
       setDrafts(current => current.filter(item => item.id !== group.id));
       setSavedGroups(current => { const next = {...current}; delete next[group.id]; return next; });
     } catch (error) { alert(error && typeof error === "object" && "message" in error ? String(error.message) : "조를 삭제하지 못했습니다."); }
