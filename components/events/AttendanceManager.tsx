@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { AttendanceStatus, EventParticipant } from "@/types/event";
 import { arrivalTimeLabel } from "@/lib/event-arrival";
+import { sortAttendanceParticipants } from "@/lib/events/attendance-order";
 
 import { attendanceBirthYear, loadNameTags, NAME_TAG_LOAD_ERROR } from "@/lib/member-name-tags";
 
@@ -49,7 +50,32 @@ export default function AttendanceManager({
   const [allBusy, setAllBusy] = useState(false);
   const [nameTags, setNameTags] = useState<Map<string, boolean>>(new Map());
   const [nameTagError, setNameTagError] = useState("");
+  const [memberRoles, setMemberRoles] = useState<Map<string, string>>(new Map());
+  const [roleError, setRoleError] = useState("");
   const participantIds = JSON.stringify(participants.map(p => p.user_id).sort());
+
+  useEffect(() => {
+    if (!canManage) return;
+    let active = true;
+    async function refreshRoles() {
+      // This existing operator-only RPC provides roles for this event's participants.
+      // No work is selected: only the user ID and site role are requested.
+      const { data, error } = await supabase.rpc("murder_event_work_candidates", {
+        p_event_id: eventId, p_work_id: null,
+      }).select("user_id,site_role");
+      if (!active) return;
+      if (error) { setRoleError("운영진 정렬 정보를 불러오지 못했습니다. 새로고침해 주세요."); return; }
+      const rows = Array.isArray(data) ? data : data ? [data] : [];
+      setMemberRoles(new Map(rows.map((row: { user_id: string; site_role: string }) => [row.user_id, row.site_role])));
+      setRoleError("");
+    }
+    setMemberRoles(new Map());
+    void refreshRoles();
+    window.addEventListener("focus", refreshRoles);
+    return () => { active = false; window.removeEventListener("focus", refreshRoles); };
+  }, [supabase, eventId, participantIds, canManage]);
+
+  const sortedParticipants = useMemo(() => sortAttendanceParticipants(participants, memberRoles), [participants, memberRoles]);
 
   useEffect(() => {
     if (!canManage) return;
@@ -196,6 +222,7 @@ export default function AttendanceManager({
       </div>
 
       {nameTagError && <p role="alert" className="mt-4 text-sm text-amber-300">{nameTagError}</p>}
+      {roleError && <p role="alert" className="mt-4 text-sm text-amber-300">{roleError}</p>}
       <div className="mt-5 grid grid-cols-3 gap-2">
         {OPTIONS.map((status) => (
           <div
@@ -231,7 +258,7 @@ export default function AttendanceManager({
         participants.length > 0 && (
           <div className="mt-5 border-t border-white/10 pt-5">
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              {participants.map((participant) => {
+              {sortedParticipants.map((participant) => {
                 const current =
                   participant.attendance_status ?? "REGISTERED";
 
