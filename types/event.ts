@@ -5,6 +5,7 @@ export type AttendanceStatus = "REGISTERED" | "PRESENT" | "ABSENT";
 export type BoardgamePreference = "PARTY" | "NON_PARTY" | "ANY" | "PREMADE_PARTY";
 
 export type EventParticipant = {
+  is_first_attendance?: boolean;
   half_night_part?: HalfNightPart | null;
   arrival_at?: string | null;
   id: string;

@@ -26,6 +26,7 @@ import BoardgamePreferenceCard from "@/components/events/BoardgamePreferenceCard
 import type { AttendanceStatus, BoardgamePreference } from "@/types/event";
 import { createClient } from "@/lib/supabase/client";
 import { formatEventLocation } from "@/lib/events/location";
+import { loadFirstAttendanceIds } from "@/lib/events/first-attendance";
 import { CLOCKTOWER_EVENT_DESCRIPTION_PRESET, HOLDEM_EVENT_DESCRIPTION_PRESET } from "@/lib/events/guide";
 
 import { HALF_NIGHT_DESCRIPTION, halfNightPartLabel, type HalfNightPart } from "@/lib/events/half-night";
@@ -185,6 +186,23 @@ function EventDetailPage({ eventId }: { eventId: string }) {
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [preferencePromptOpen, setPreferencePromptOpen] = useState(false);
   const [calendarPromptOpen, setCalendarPromptOpen] = useState(false);
+  const [firstAttendance, setFirstAttendance] = useState<{ key: string; ids: Set<string> } | null>(null);
+  const [firstAttendanceError, setFirstAttendanceError] = useState("");
+  const attendanceUserIds = JSON.stringify(participants.map(p => p.user_id).sort());
+  const firstAttendanceKey = `${eventId}:${event?.started_at ?? ""}:${attendanceUserIds}`;
+  useEffect(() => {
+    let active = true;
+    setFirstAttendance(null);
+    setFirstAttendanceError("");
+    if (!user || !event?.started_at) return;
+    void loadFirstAttendanceIds(supabase, JSON.parse(attendanceUserIds), event.started_at)
+      .then(ids => { if (active) setFirstAttendance({ key: firstAttendanceKey, ids }); })
+      .catch(() => { if (active) setFirstAttendanceError("첫 참가 정보를 불러오지 못해 이름을 기본 색으로 표시합니다. 새로고침해 주세요."); });
+    return () => { active = false; };
+  }, [supabase, user?.id, event?.started_at, attendanceUserIds, firstAttendanceKey]);
+  const highlightedParticipants = useMemo(() => participants.map(p => ({ ...p,
+    is_first_attendance: p.attendance_status === "PRESENT" && firstAttendance?.key === firstAttendanceKey && firstAttendance.ids.has(p.user_id),
+  })), [participants, firstAttendance, firstAttendanceKey]);
 
   async function loadParticipants() {
     const { data: participantData, error: participantError } = await supabase
@@ -882,10 +900,11 @@ function EventDetailPage({ eventId }: { eventId: string }) {
 
 
 
+              {firstAttendanceError && (canManageAttendance || event.event_kind === "BOARDGAME") && <p role="alert" className="text-sm text-amber-300">{firstAttendanceError}</p>}
               {canManageAttendance && (
                   <AttendanceManager
                     eventId={eventId}
-                    participants={participants}
+                    participants={highlightedParticipants}
                     canManage
                     isClosed={isLocked}
                     onChanged={loadParticipants}
@@ -905,7 +924,7 @@ function EventDetailPage({ eventId }: { eventId: string }) {
               ) : event.event_kind === "BOARDGAME" ? (
                 <GroupPlaySection
                   eventId={eventId}
-                  participants={participants}
+                  participants={highlightedParticipants}
                   currentUserId={user?.id ?? null}
                   canManage={canManage || siteRole === "RULE_MASTER"}
                   isClosed={isLocked}

@@ -38,7 +38,7 @@ const participantBirthLabel = (participant?: GroupParticipant) => {
   return String(shortYear).padStart(2, "0");
 };
 const ParticipantName = ({ participant }: { participant: GroupParticipant }) => {
-  const name = <span className="inline-flex items-start gap-1.5"><span>{participantLabel(participant)}</span>{participantBirthLabel(participant) && <small className="mt-0.5 text-[10px] font-medium leading-none text-white">{participantBirthLabel(participant)}</small>}</span>;
+  const name = <span className="inline-flex items-start gap-1.5"><span className={participant.is_first_attendance ? "text-sky-400" : undefined} title={participant.is_first_attendance ? "첫 참가일" : undefined}>{participantLabel(participant)}</span>{participantBirthLabel(participant) && <small className="mt-0.5 text-[10px] font-medium leading-none text-white">{participantBirthLabel(participant)}</small>}</span>;
   const partLabel = halfNightPartLabel(participant.half_night_part);
   if (partLabel) return <span className="inline-flex flex-col items-center">{name}<small className="mt-1 text-[10px] leading-3 text-indigo-300">{partLabel}</small></span>;
   if (!participant.arrival_at) return name;

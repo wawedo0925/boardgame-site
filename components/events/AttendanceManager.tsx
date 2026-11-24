@@ -279,7 +279,7 @@ export default function AttendanceManager({
                         className="min-w-0 break-all text-center text-base font-semibold text-zinc-200 sm:text-left sm:text-lg"
                         title={name}
                       >
-                        {name}
+                        <span className={participant.is_first_attendance ? "text-sky-400" : undefined} title={participant.is_first_attendance ? "첫 참가일" : undefined}>{name}</span>
                         {attendanceBirthYear(participant.profile?.birth_year) && <span className="ml-1 text-sm text-zinc-400 sm:text-base">{attendanceBirthYear(participant.profile?.birth_year)}</span>}
                         {nameTags.get(participant.user_id) && <span className="ml-1" role="img" aria-label="이름표 있음" title="이름표 있음">❤️</span>}
                         {halfNightPartLabel(participant.half_night_part) && <small className="block text-[10px] leading-3 text-indigo-300">{halfNightPartLabel(participant.half_night_part)}</small>}
