@@ -5,8 +5,20 @@ import type { SceneStatus,SceneType,StudioProject,StudioScene } from "./types";
 
 const sceneTypes:SceneType[]=["진행자 실사","만화 컷씬","자료 화면"],statuses:SceneStatus[]=["아이디어","대본 완료","촬영 준비","촬영 완료"];
 const time=(v:number)=>`${Math.floor(v/60)}:${String(v%60).padStart(2,"0")}`,newId=()=>crypto.randomUUID();
+const clocktowerIntro = "안녕하세요, 처음 인사드립니다. 보드게임을 사랑하는 이우영입니다.";
+const originalOpening = "저는 마피아 게임을 정말 좋아합니다.";
+
+function addClocktowerIntro(project: StudioProject): StudioProject {
+ const opening = project.scenes[0];
+ if (project.title !== "시계탑에 흐른 피" ||
+     opening?.title !== "일반 마피아로 돌아갈 수 없는 이유" ||
+     !opening.script.startsWith(originalOpening)) return project;
+
+ const script = `${clocktowerIntro} 그중에서도 ${opening.script}`;
+ return {...project, scenes: [{...opening, script}, ...project.scenes.slice(1)]};
+}
 const seedScenes=(projectId:string):StudioScene[]=>[
- ["일반 마피아로 돌아갈 수 없는 이유","진행자 실사",0,20,"저는 마피아 게임을 정말 좋아합니다. 그런데 이제는 일반 마피아 게임으로 돌아갈 수 없는 몸이 돼버렸습니다. 왜냐고요? 전 세계적으로 사랑받는 마피아 계열 게임, ‘시계탑에 흐른 피’를 해버렸거든요.","진행자 정면 촬영, 첫 문장은 얼굴을 크게 보여 주고 핵심 문구를 큰 자막으로 표시",true,"일반 마피아로 돌아갈 수 없는 이유","얼굴 유지 · 첫 5초 큰 자막: 일반 마피아로 돌아갈 수 없는 이유"],
+ ["일반 마피아로 돌아갈 수 없는 이유","진행자 실사",0,20,`${clocktowerIntro} 그중에서도 ${originalOpening} 그런데 이제는 일반 마피아 게임으로 돌아갈 수 없는 몸이 돼버렸습니다. 왜냐고요? 전 세계적으로 사랑받는 마피아 계열 게임, ‘시계탑에 흐른 피’를 해버렸거든요.`,"진행자 정면 촬영, 첫 문장은 얼굴을 크게 보여 주고 핵심 문구를 큰 자막으로 표시",true,"일반 마피아로 돌아갈 수 없는 이유","얼굴 유지 · 첫 5초 큰 자막: 일반 마피아로 돌아갈 수 없는 이유"],
  ["일반 마피아의 아쉬움","진행자 실사",20,52,"일반 마피아 게임에서는 마피아나 경찰, 의사가 아닌 평범한 시민이 걸리면 할 수 있는 일이 상대적으로 적습니다. 특별한 정보나 능력이 없기 때문에 대화만으로 마피아를 찾아야 하죠. 게다가 초반에 죽으면 말도 할 수 없습니다. 남은 시간 동안 다른 사람들이 플레이하는 모습을 지켜봐야 하죠.","일반 시민 역할을 상징하는 인물과 사망 후 관전만 하는 상황을 설명하는 독자적인 일러스트",true,"시민이면 할 일이 없다?","얼굴 중심 · 평범한 시민과 사망 관전 설명에서 그림 삽입"],
  ["시계탑은 모두가 능력자","자료 화면",52,88,"하지만 시계탑에 흐른 피는 다릅니다. 모든 플레이어가 서로 다른 캐릭터를 맡고, 각자 고유한 능력을 가집니다. 누구는 게임이 시작될 때 정보를 얻고, 누구는 매일 밤 능력을 사용하며, 누구는 특정한 상황에서 강력한 효과를 발휘합니다. 즉, 평범한 시민이 없습니다. 내가 얻은 정보와 다른 사람의 말을 비교하면서, 마을 사람들 사이에 숨어 있는 악마를 찾아야 합니다.","서로 다른 능력을 가진 캐릭터를 표현한 독자적 인포그래픽과 공식 게임 구성물 자료 화면",true,"평범한 시민이 없는 마피아 게임","‘다릅니다’까지 얼굴 · 이후 캐릭터와 능력 설명 그림 · 마지막 문장에 얼굴 복귀"],
  ["죽어도 끝나지 않는다","자료 화면",88,120,"그렇다면 시계탑에서도 죽으면 게임이 끝날까요? 아닙니다. 사망하면 대부분 자신의 능력은 사라지지만, 계속 대화하고 추리하며 게임에 참여할 수 있습니다. 그리고 게임이 끝날 때까지 사용할 수 있는 마지막 투표 한 표도 남습니다. 이 한 표가 마지막 순간에 게임의 승패를 바꿀 수도 있습니다.","사망 표시가 놓인 마을 광장 보드와 마지막 투표 토큰 한 개를 강조하는 설명 화면",true,"죽어도 마지막 한 표가 남는다","질문과 ‘아닙니다’는 얼굴 · 사망 표시와 마지막 투표 설명은 그림 · 끝에 얼굴 복귀"],
@@ -17,7 +29,8 @@ const seedScenes=(projectId:string):StudioScene[]=>[
 
 export default function VideoStudio({initialProjects}:{initialProjects:StudioProject[]}){
  const supabase=useMemo(()=>createClient(),[]),initialized=useRef(false);
- const [projects,setProjects]=useState(initialProjects),[activeId,setActiveId]=useState(initialProjects[0]?.id??""),[sceneId,setSceneId]=useState(initialProjects[0]?.scenes[0]?.id??""),[tab,setTab]=useState<"storyboard"|"shorts">("storyboard"),[saving,setSaving]=useState(false),[message,setMessage]=useState(""),[prompter,setPrompter]=useState(false);
+ const [projects,setProjects]=useState(() => initialProjects.map(addClocktowerIntro));
+ const [activeId,setActiveId]=useState(initialProjects[0]?.id??""),[sceneId,setSceneId]=useState(initialProjects[0]?.scenes[0]?.id??""),[tab,setTab]=useState<"storyboard"|"shorts">("storyboard"),[saving,setSaving]=useState(false),[message,setMessage]=useState(""),[prompter,setPrompter]=useState(false);
  const project=projects.find(p=>p.id===activeId)??projects[0],scene=project?.scenes.find(s=>s.id===sceneId)??project?.scenes[0];
  useEffect(()=>{if(initialized.current||initialProjects.length)return;initialized.current=true;void(async()=>{const id=newId(),next:StudioProject={id,title:"시계탑에 흐른 피",style:"일반 마피아 비교형 소개 + 진행자 얼굴 + 설명 일러스트",target_duration:200,thumbnail_url:null,updated_at:new Date().toISOString(),scenes:seedScenes(id)};const {error}=await supabase.from("video_studio_projects").insert({id,title:next.title,style:next.style,target_duration:next.target_duration});if(!error)await supabase.from("video_studio_scenes").insert(next.scenes);if(error)setMessage("예시 프로젝트를 만들지 못했습니다.");else{setProjects([next]);setActiveId(id);setSceneId(next.scenes[0].id)}})()},[initialProjects.length,supabase]);
  useEffect(()=>{const previous=initialProjects.find(project=>project.title==="시계탑에 흐른 피"&&project.scenes.some(scene=>["붉은 달과 시계탑","공식 소개로 시작"].includes(scene.title)));if(!previous)return;const templates=seedScenes(previous.id),scenes=templates.map((template,index)=>previous.scenes[index]?{...template,id:previous.scenes[index].id,project_id:previous.id}:template),removed=previous.scenes.slice(templates.length);queueMicrotask(()=>setProjects(items=>items.map(item=>item.id===previous.id?{...item,style:"일반 마피아 비교형 소개 + 진행자 얼굴 + 설명 일러스트",target_duration:200,scenes}:item)));void supabase.from("video_studio_projects").update({style:"일반 마피아 비교형 소개 + 진행자 얼굴 + 설명 일러스트",target_duration:200}).eq("id",previous.id);void supabase.from("video_studio_scenes").upsert(scenes);if(removed.length)void supabase.from("video_studio_scenes").delete().in("id",removed.map(item=>item.id))},[initialProjects,supabase]);
@@ -58,7 +71,7 @@ function Prompter({project,close}:{project:StudioProject;close:()=>void}){
  if(!scenes.length)return <div className="fixed inset-0 z-[200] bg-black p-8 text-white"><button onClick={close}>← 편집기로</button><p className="mt-8">촬영할 대본이 없습니다.</p></div>;
  return <div className={`fixed inset-0 z-[200] grid bg-black text-white ${focus?"grid-rows-[1fr]":"grid-rows-[56px_1fr_112px] sm:grid-rows-[64px_1fr_104px]"}`}>
   {!focus&&<header className="flex items-center justify-between gap-3 border-b border-zinc-800 px-3 sm:px-5"><button onClick={close} className="shrink-0 text-sm">← 편집기로</button><div className="min-w-0 text-center"><b className="block truncate text-sm sm:text-base">{project.title}</b><span className="text-xs text-zinc-500">{clock(elapsed)} / {clock(project.target_duration)} · 남음 {clock(project.target_duration-elapsed)}</span></div><button onClick={()=>setFocus(true)} className="shrink-0 text-xs text-amber-400">집중 모드</button></header>}
-  <div ref={ref} onClick={toggle} onScroll={e=>updatePosition(e.currentTarget)} style={{fontSize,transform:mirror?"scaleX(-1)":undefined}} className="relative overflow-y-auto scroll-smooth px-[6vw] py-[12vh] text-center font-bold leading-[1.75]">
+  <div ref={ref} onClick={toggle} onScroll={e=>updatePosition(e.currentTarget)} style={{fontSize:`min(${fontSize}px, 12vw)`,wordBreak:"keep-all",overflowWrap:"normal",transform:mirror?"scaleX(-1)":undefined}} className="relative overflow-y-auto scroll-smooth px-[6vw] py-[12vh] text-center font-bold leading-[1.75]">
    <div className="pointer-events-none fixed inset-x-0 z-10 border-t border-amber-400/30" style={{top:`${guide}%`}}/><div className="mx-auto max-w-5xl"><div className="h-[28vh]"/>{scenes.map((scene,sceneIndex)=><section key={scene.id} className="mb-[22vh]"><div className="mb-5 text-[.28em] font-black tracking-[.2em] text-amber-400">SCENE {String(sceneIndex+1).padStart(2,"0")} · {scene.title}</div>{scene.edit_note&&<div className="mb-5 rounded-xl border border-sky-900 bg-sky-950/30 p-3 text-[.24em] font-medium text-sky-300">촬영 지시 · {scene.edit_note}</div>}<p>{sentences.filter(item=>item.scene.id===scene.id).map(item=>{const i=sentences.indexOf(item),isActive=i===active;return <span key={`${scene.id}-${item.sentenceIndex}`} ref={node=>{sentenceRefs.current[i]=node}} className={`mx-1 inline rounded-lg px-1 transition-all ${isActive?"bg-amber-300 text-black opacity-100":"text-white opacity-35"} ${ng.has(i)?"ring-2 ring-red-500":""}`}>{item.text}</span>})}</p></section>)}<div className="h-[60vh]"/></div>
    {countdown>0&&<div className="fixed inset-0 z-30 flex items-center justify-center bg-black/80 text-[30vw] font-black text-amber-400">{countdown}</div>}{focus&&<button onClick={e=>{e.stopPropagation();setFocus(false)}} className="fixed right-3 top-3 z-20 rounded-full bg-zinc-900/90 px-4 py-2 text-xs">집중 종료</button>}
   </div>
